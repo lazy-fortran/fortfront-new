@@ -5,6 +5,8 @@ module fortfront_frontend
 
     character(len=*), parameter, public :: frontend_accepted = 'accepted'
     character(len=*), parameter, public :: frontend_rejected = 'rejected'
+    character(len=*), parameter, public :: severity_note = 'note'
+    character(len=*), parameter, public :: severity_warning = 'warning'
     character(len=*), parameter, public :: severity_error = 'error'
     character(len=*), parameter, public :: root_kind_source = 'source'
     character(len=*), parameter, public :: root_kind_program = 'program'
@@ -54,7 +56,8 @@ module fortfront_frontend
         type(diagnostic_t), allocatable :: diagnostics(:)
     end type frontend_result_t
 
-    public :: frontend_parse, frontend_read
+    public :: frontend_parse, frontend_read, frontend_result_to_sx, &
+        frontend_validate
 
 contains
 
@@ -112,6 +115,124 @@ contains
         result%diagnostics(1)%message = diagnostic_message
         result%diagnostics(1)%span = span
     end subroutine frontend_parse
+
+    subroutine frontend_result_to_sx(result, output, ok, message)
+        type(frontend_result_t), intent(in) :: result
+        character(len=*), intent(out) :: output
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        character(len=32) :: count_text
+        character(len=256) :: canonical
+
+        output = ''
+        ok = frontend_validate(result, message)
+        if (.not. ok) return
+
+        write (count_text, '(i0)') result%diagnostic_count
+        canonical = '(frontend-result (status '//trim(result%status)//') '// &
+            '(root-kind '//trim(result%root_kind)//') (diagnostic-count '// &
+            trim(count_text)//'))'
+        if (len_trim(canonical) > len(output)) then
+            ok = .false.
+            message = 'sx-output-too-short'
+            return
+        end if
+        output(:len_trim(canonical)) = canonical(:len_trim(canonical))
+        message = ''
+    end subroutine frontend_result_to_sx
+
+    logical function frontend_validate(result, message)
+        type(frontend_result_t), intent(in) :: result
+        character(len=*), intent(out) :: message
+
+        integer(int64) :: actual_diagnostic_count
+        integer :: index
+
+        message = ''
+        if (.not. valid_status(result%status)) then
+            message = 'invalid-result-status'
+            frontend_validate = .false.
+            return
+        end if
+        if (.not. valid_root_kind(result%root_kind)) then
+            message = 'invalid-result-root-kind'
+            frontend_validate = .false.
+            return
+        end if
+        if (result%diagnostic_count < 0_int64) then
+            message = 'negative-diagnostic-count'
+            frontend_validate = .false.
+            return
+        end if
+
+        if (allocated(result%diagnostics)) then
+            actual_diagnostic_count = int(size(result%diagnostics), int64)
+        else
+            actual_diagnostic_count = 0_int64
+        end if
+        if (actual_diagnostic_count /= result%diagnostic_count) then
+            message = 'diagnostic-count-mismatch'
+            frontend_validate = .false.
+            return
+        end if
+
+        select case (trim(result%status))
+        case (frontend_accepted)
+            if (trim(result%root_kind) == root_kind_none .or. &
+                result%diagnostic_count /= 0_int64) then
+                message = 'invalid-accepted-result'
+                frontend_validate = .false.
+                return
+            end if
+        case (frontend_rejected)
+            if (trim(result%root_kind) /= root_kind_none .or. &
+                result%diagnostic_count == 0_int64) then
+                message = 'invalid-rejected-result'
+                frontend_validate = .false.
+                return
+            end if
+        end select
+
+        if (allocated(result%diagnostics)) then
+            do index = 1, size(result%diagnostics)
+                if (.not. valid_status(result%diagnostics(index)%status)) then
+                    message = 'invalid-diagnostic-status'
+                    frontend_validate = .false.
+                    return
+                end if
+                if (.not. valid_severity(result%diagnostics(index)%severity)) then
+                    message = 'invalid-diagnostic-severity'
+                    frontend_validate = .false.
+                    return
+                end if
+            end do
+        end if
+        frontend_validate = .true.
+    end function frontend_validate
+
+    logical function valid_status(status)
+        character(len=*), intent(in) :: status
+
+        valid_status = trim(status) == frontend_accepted .or. &
+            trim(status) == frontend_rejected
+    end function valid_status
+
+    logical function valid_root_kind(root_kind)
+        character(len=*), intent(in) :: root_kind
+
+        valid_root_kind = trim(root_kind) == root_kind_source .or. &
+            trim(root_kind) == root_kind_program .or. &
+            trim(root_kind) == root_kind_none
+    end function valid_root_kind
+
+    logical function valid_severity(severity)
+        character(len=*), intent(in) :: severity
+
+        valid_severity = trim(severity) == severity_note .or. &
+            trim(severity) == severity_warning .or. &
+            trim(severity) == severity_error
+    end function valid_severity
 
     logical function validate_syntax_item(syntax_item, message)
         type(standardir_syntax_item_t), intent(in) :: syntax_item

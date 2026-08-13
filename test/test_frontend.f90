@@ -2,11 +2,15 @@ program test_frontend
     use, intrinsic :: iso_fortran_env, only: int64
     use fortfront_frontend, only: frontend_accepted, frontend_parse, &
         frontend_read, frontend_rejected, root_kind_none, root_kind_program, &
-        severity_error, frontend_result_t, standardir_syntax_item_t
+        severity_error, frontend_result_t, standardir_syntax_item_t, &
+        frontend_result_to_sx, frontend_validate
     implicit none
 
     type(frontend_result_t) :: result
     type(standardir_syntax_item_t) :: syntax_item
+    character(len=256) :: sx
+    character(len=128) :: message
+    logical :: ok
 
     call set_program_witness(syntax_item)
     call frontend_parse('unit.f90', 'program unit'//new_line('a')//'end', &
@@ -19,6 +23,16 @@ program test_frontend
         'program name was not parsed')
     call assert_equal_integer(result%diagnostic_count, 0_int64, &
         'accepted source produced a diagnostic')
+    call frontend_result_to_sx(result, sx, ok, message)
+    call assert_true(ok, 'accepted result failed SX validation')
+    call assert_equal(trim(sx), &
+        '(frontend-result (status accepted) (root-kind program) '// &
+        '(diagnostic-count 0))', 'accepted SX oracle changed')
+    result%root_kind = root_kind_none
+    call assert_invalid_result(result, 'invalid-accepted-result')
+    call set_program_witness(syntax_item)
+    call frontend_parse('unit.f90', 'program unit'//new_line('a')//'end', &
+        'hash-positive', syntax_item, result)
     call assert_equal(result%root%span%file, 'unit.f90', &
         'root file was not retained')
     call assert_equal(result%root%span%source_hash, 'hash-positive', &
@@ -50,6 +64,11 @@ program test_frontend
         'diagnostic file was not retained')
     call assert_equal(result%diagnostics(1)%span%source_hash, 'hash-negative', &
         'diagnostic source hash was not retained')
+    call frontend_result_to_sx(result, sx, ok, message)
+    call assert_true(ok, 'rejected result failed SX validation')
+    call assert_equal(trim(sx), &
+        '(frontend-result (status rejected) (root-kind none) '// &
+        '(diagnostic-count 1))', 'rejected SX oracle changed')
 
     syntax_item%lhs = 'module'
     call frontend_parse('module.f90', 'module unit'//new_line('a')//'end', &
@@ -79,6 +98,21 @@ program test_frontend
         'malformed program was accepted')
     call assert_equal(result%diagnostics(1)%message, 'invalid-program', &
         'malformed program diagnostic changed')
+
+    result%status = 'unknown'
+    call assert_invalid_result(result, 'invalid-result-status')
+    result%status = frontend_rejected
+    result%root_kind = root_kind_program
+    call assert_invalid_result(result, 'invalid-rejected-result')
+    result%root_kind = root_kind_none
+    result%diagnostic_count = 0_int64
+    call assert_invalid_result(result, 'diagnostic-count-mismatch')
+    result%diagnostic_count = 1_int64
+    result%diagnostics(1)%status = 'unknown'
+    call assert_invalid_result(result, 'invalid-diagnostic-status')
+    result%diagnostics(1)%status = frontend_rejected
+    result%diagnostics(1)%severity = 'fatal'
+    call assert_invalid_result(result, 'invalid-diagnostic-severity')
 
     write (*, '(a)') 'frontend behavioral checks: ok'
 
@@ -110,5 +144,28 @@ contains
 
         if (actual /= expected) error stop message
     end subroutine assert_equal_integer
+
+    subroutine assert_true(value, message)
+        logical, intent(in) :: value
+        character(len=*), intent(in) :: message
+
+        if (.not. value) error stop message
+    end subroutine assert_true
+
+    subroutine assert_invalid_result(value, expected_message)
+        type(frontend_result_t), intent(in) :: value
+        character(len=*), intent(in) :: expected_message
+
+        character(len=256) :: serialized
+        character(len=128) :: validation_message
+        logical :: valid
+
+        valid = frontend_validate(value, validation_message)
+        call assert_true(.not. valid, 'invalid result was accepted')
+        call assert_equal(validation_message, expected_message, &
+            'invalid result reported the wrong failure')
+        call frontend_result_to_sx(value, serialized, valid, validation_message)
+        call assert_true(.not. valid, 'invalid result was serialized')
+    end subroutine assert_invalid_result
 
 end program test_frontend
