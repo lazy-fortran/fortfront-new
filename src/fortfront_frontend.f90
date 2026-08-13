@@ -12,6 +12,7 @@ module fortfront_frontend
     character(len=*), parameter, public :: root_kind_program = 'program'
     character(len=*), parameter, public :: root_kind_none = 'none'
     character(len=*), parameter, public :: declaration_kind_program = 'program'
+    integer, parameter, public :: program_unit_declaration_capacity = 16
 
     type, public :: source_span_t
         character(len=256) :: file = ''
@@ -68,6 +69,12 @@ module fortfront_frontend
         type(source_span_t) :: span
     end type program_declaration_t
 
+    type, public :: program_unit_t
+        type(program_root_t) :: root
+        integer(int64) :: declaration_count = 0_int64
+        type(program_declaration_t) :: declarations(program_unit_declaration_capacity)
+    end type program_unit_t
+
     type, public :: frontend_result_t
         character(len=8) :: status = frontend_rejected
         character(len=32) :: root_kind = root_kind_none
@@ -82,7 +89,8 @@ module fortfront_frontend
         frontend_validate_semantic_item, program_root_to_sx, &
         program_root_from_sx, program_root_validate, &
         program_declaration_to_sx, program_declaration_from_sx, &
-        program_declaration_validate
+        program_declaration_validate, program_unit_to_sx, &
+        program_unit_from_sx, program_unit_validate
 
 contains
 
@@ -362,6 +370,190 @@ contains
         end if
         program_declaration_validate = .true.
     end function program_declaration_validate
+
+    subroutine program_unit_to_sx(unit, output, ok, message)
+        type(program_unit_t), intent(in) :: unit
+        character(len=*), intent(out) :: output
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        character(len=16384) :: canonical
+        character(len=2048) :: child_sx
+        character(len=32) :: count_text
+        integer :: index
+
+        output = ''
+        ok = program_unit_validate(unit, message)
+        if (.not. ok) return
+
+        call program_root_to_sx(unit%root, child_sx, ok, message)
+        if (.not. ok) return
+        write (count_text, '(i0)') unit%declaration_count
+        canonical = '(program-unit (root '//trim(child_sx)//') '// &
+            '(declaration-count '//trim(count_text)//') (declarations'
+        do index = 1, unit%declaration_count
+            call program_declaration_to_sx(unit%declarations(index), child_sx, &
+                ok, message)
+            if (.not. ok) return
+            canonical = trim(canonical)//' '//trim(child_sx)
+        end do
+        canonical = trim(canonical)//'))'
+        if (len_trim(canonical) > len(output)) then
+            ok = .false.
+            message = 'sx-output-too-short'
+            return
+        end if
+        output(:len_trim(canonical)) = canonical(:len_trim(canonical))
+        message = ''
+    end subroutine program_unit_to_sx
+
+    subroutine program_unit_from_sx(input, unit, ok, message)
+        character(len=*), intent(in) :: input
+        type(program_unit_t), intent(out) :: unit
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        character(len=2048) :: expression, root_expression
+        integer(int64) :: parsed_count
+        integer :: index, position, root_position
+
+        unit = program_unit_t()
+        parsed_count = 0_int64
+        position = 1
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_text(input, position, '(program-unit')) then
+            ok = .false.
+            message = 'malformed-program-unit'
+            return
+        end if
+        if (.not. consume_sx_expression(input, position, expression)) then
+            ok = .false.
+            message = 'malformed-program-unit-root'
+            return
+        end if
+        root_position = 1
+        if (.not. consume_sx_text(expression, root_position, '(root')) then
+            ok = .false.
+            message = 'malformed-program-unit-root'
+            return
+        end if
+        if (.not. consume_sx_expression(expression, root_position, &
+            root_expression)) then
+            ok = .false.
+            message = 'malformed-program-unit-root'
+            return
+        end if
+        if (.not. consume_sx_character(expression, root_position, ')')) then
+            ok = .false.
+            message = 'malformed-program-unit-root'
+            return
+        end if
+        call skip_sx_spaces(expression, root_position)
+        if (root_position <= len(expression)) then
+            ok = .false.
+            message = 'malformed-program-unit-root'
+            return
+        end if
+        call program_root_from_sx(trim(root_expression), unit%root, ok, message)
+        if (.not. ok) return
+        if (.not. consume_sx_integer_field(input, position, &
+            'declaration-count', parsed_count, message)) then
+            if (trim(message) == 'negative-diagnostic-count') then
+                message = 'negative-program-unit-declaration-count'
+            else if (trim(message) == 'diagnostic-count-too-large') then
+                message = 'program-unit-declaration-count-too-large'
+            end if
+            ok = .false.
+            return
+        end if
+        if (parsed_count > int(huge(0), int64)) then
+            ok = .false.
+            message = 'program-unit-declaration-count-too-large'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_text(input, position, '(declarations')) then
+            ok = .false.
+            message = 'malformed-program-unit-declarations'
+            return
+        end if
+        index = 0
+        do
+            call skip_sx_spaces(input, position)
+            if (position > len(input)) then
+                ok = .false.
+                message = 'malformed-program-unit-declarations'
+                return
+            end if
+            if (input(position:position) == ')') then
+                position = position + 1
+                exit
+            end if
+            index = index + 1
+            if (index > program_unit_declaration_capacity) then
+                ok = .false.
+                message = 'program-unit-declaration-capacity-exceeded'
+                return
+            end if
+            if (.not. consume_sx_expression(input, position, expression)) then
+                ok = .false.
+                message = 'malformed-program-unit-declaration'
+                return
+            end if
+            call program_declaration_from_sx(trim(expression), &
+                unit%declarations(index), ok, message)
+            if (.not. ok) return
+        end do
+        if (.not. consume_sx_character(input, position, ')')) then
+            ok = .false.
+            message = 'malformed-program-unit'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (position <= len(input)) then
+            ok = .false.
+            message = 'malformed-program-unit'
+            return
+        end if
+        if (parsed_count /= int(index, int64)) then
+            ok = .false.
+            message = 'program-unit-declaration-count-mismatch'
+            return
+        end if
+        unit%declaration_count = index
+        ok = program_unit_validate(unit, message)
+    end subroutine program_unit_from_sx
+
+    logical function program_unit_validate(unit, message)
+        type(program_unit_t), intent(in) :: unit
+        character(len=*), intent(out) :: message
+
+        integer :: index
+
+        message = ''
+        if (.not. program_root_validate(unit%root, message)) then
+            program_unit_validate = .false.
+            return
+        end if
+        if (unit%declaration_count < 0) then
+            message = 'negative-program-unit-declaration-count'
+            program_unit_validate = .false.
+            return
+        end if
+        if (unit%declaration_count > program_unit_declaration_capacity) then
+            message = 'program-unit-declaration-capacity-exceeded'
+            program_unit_validate = .false.
+            return
+        end if
+        do index = 1, unit%declaration_count
+            if (.not. program_declaration_validate(unit%declarations(index), &
+                message)) then
+                program_unit_validate = .false.
+                return
+            end if
+        end do
+        program_unit_validate = .true.
+    end function program_unit_validate
 
     subroutine program_root_to_sx(root, output, ok, message)
         type(program_root_t), intent(in) :: root
@@ -807,6 +999,46 @@ contains
         position = position + 1
         consume_sx_integer_field = .true.
     end function consume_sx_integer_field
+
+    logical function consume_sx_expression(input, position, expression)
+        character(len=*), intent(in) :: input
+        integer, intent(inout) :: position
+        character(len=*), intent(out) :: expression
+
+        integer :: depth, start
+
+        expression = ''
+        call skip_sx_spaces(input, position)
+        if (position > len(input)) then
+            consume_sx_expression = .false.
+            return
+        end if
+        if (input(position:position) /= '(') then
+            consume_sx_expression = .false.
+            return
+        end if
+        start = position
+        depth = 0
+        do while (position <= len(input))
+            if (input(position:position) == '(') then
+                depth = depth + 1
+            else if (input(position:position) == ')') then
+                depth = depth - 1
+                if (depth == 0) then
+                    position = position + 1
+                    if (position - start > len(expression)) then
+                        consume_sx_expression = .false.
+                        return
+                    end if
+                    expression(:position - start) = input(start:position - 1)
+                    consume_sx_expression = .true.
+                    return
+                end if
+            end if
+            position = position + 1
+        end do
+        consume_sx_expression = .false.
+    end function consume_sx_expression
 
     logical function parse_sx_integer(token, value, message)
         character(len=*), intent(in) :: token

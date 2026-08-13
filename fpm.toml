@@ -22,3 +22,8 @@ main = "test_frontend.f90"
 name = "test_program_declaration"
 source-dir = "test"
 main = "test_program_declaration.f90"
+
+[[test]]
+name = "test_program_unit"
+source-dir = "test"
+main = "test_program_unit.f90"
