@@ -17,3 +17,8 @@ source-dir = "src"
 name = "test_frontend"
 source-dir = "test"
 main = "test_frontend.f90"
+
+[[test]]
+name = "test_program_declaration"
+source-dir = "test"
+main = "test_program_declaration.f90"

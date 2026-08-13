@@ -11,6 +11,7 @@ module fortfront_frontend
     character(len=*), parameter, public :: root_kind_source = 'source'
     character(len=*), parameter, public :: root_kind_program = 'program'
     character(len=*), parameter, public :: root_kind_none = 'none'
+    character(len=*), parameter, public :: declaration_kind_program = 'program'
 
     type, public :: source_span_t
         character(len=256) :: file = ''
@@ -61,6 +62,12 @@ module fortfront_frontend
         type(source_span_t) :: span
     end type program_root_t
 
+    type, public :: program_declaration_t
+        character(len=32) :: declaration_kind = ''
+        character(len=128) :: name = ''
+        type(source_span_t) :: span
+    end type program_declaration_t
+
     type, public :: frontend_result_t
         character(len=8) :: status = frontend_rejected
         character(len=32) :: root_kind = root_kind_none
@@ -73,7 +80,9 @@ module fortfront_frontend
         frontend_result_to_sx, frontend_validate, &
         frontend_result_to_program_root, frontend_result_to_program_root_sx, &
         frontend_validate_semantic_item, program_root_to_sx, &
-        program_root_from_sx, program_root_validate
+        program_root_from_sx, program_root_validate, &
+        program_declaration_to_sx, program_declaration_from_sx, &
+        program_declaration_validate
 
 contains
 
@@ -171,6 +180,188 @@ contains
         if (.not. ok) return
         call program_root_to_sx(root, output, ok, message)
     end subroutine frontend_result_to_program_root_sx
+
+    subroutine program_declaration_to_sx(declaration, output, ok, message)
+        type(program_declaration_t), intent(in) :: declaration
+        character(len=*), intent(out) :: output
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        character(len=1024) :: canonical
+        character(len=32) :: start_byte, end_byte
+
+        output = ''
+        ok = program_declaration_validate(declaration, message)
+        if (.not. ok) return
+
+        write (start_byte, '(i0)') declaration%span%start_byte
+        write (end_byte, '(i0)') declaration%span%end_byte
+        canonical = '(program-declaration (declaration-kind '// &
+            trim(declaration%declaration_kind)//') (name '//trim(declaration%name)//') '// &
+            '(span (file '//trim(declaration%span%file)//') (start-byte '// &
+            trim(start_byte)//') (end-byte '//trim(end_byte)//') '// &
+            '(source-hash '//trim(declaration%span%source_hash)//')))'
+        if (len_trim(canonical) > len(output)) then
+            ok = .false.
+            message = 'sx-output-too-short'
+            return
+        end if
+        output(:len_trim(canonical)) = canonical(:len_trim(canonical))
+        message = ''
+    end subroutine program_declaration_to_sx
+
+    subroutine program_declaration_from_sx(input, declaration, ok, message)
+        character(len=*), intent(in) :: input
+        type(program_declaration_t), intent(out) :: declaration
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        character(len=32) :: declaration_kind
+        character(len=128) :: name, file, source_hash
+        integer(int64) :: start_byte, end_byte
+        integer :: position
+
+        declaration = program_declaration_t()
+        declaration_kind = ''
+        name = ''
+        file = ''
+        source_hash = ''
+        start_byte = 0_int64
+        end_byte = 0_int64
+        position = 1
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_text(input, position, '(program-declaration')) then
+            ok = .false.
+            message = 'malformed-program-declaration'
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'declaration-kind', &
+            declaration_kind)) then
+            ok = .false.
+            message = 'malformed-program-declaration-kind'
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'name', name)) then
+            ok = .false.
+            message = 'malformed-program-declaration-name'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_character(input, position, '(')) then
+            ok = .false.
+            message = 'malformed-program-declaration-span'
+            return
+        end if
+        if (.not. consume_sx_text(input, position, 'span')) then
+            ok = .false.
+            message = 'malformed-program-declaration-span'
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'file', file)) then
+            ok = .false.
+            message = 'malformed-program-declaration-file'
+            return
+        end if
+        if (.not. consume_sx_integer_field(input, position, 'start-byte', &
+            start_byte, message)) then
+            ok = .false.
+            return
+        end if
+        if (.not. consume_sx_integer_field(input, position, 'end-byte', &
+            end_byte, message)) then
+            ok = .false.
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'source-hash', source_hash)) then
+            ok = .false.
+            message = 'malformed-program-declaration-source-hash'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_character(input, position, ')')) then
+            ok = .false.
+            message = 'malformed-program-declaration-span'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_character(input, position, ')')) then
+            ok = .false.
+            message = 'malformed-program-declaration'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (position <= len(input)) then
+            ok = .false.
+            message = 'malformed-program-declaration'
+            return
+        end if
+
+        declaration%declaration_kind = declaration_kind
+        declaration%name = name
+        declaration%span%file = file
+        declaration%span%start_byte = start_byte
+        declaration%span%end_byte = end_byte
+        declaration%span%source_hash = source_hash
+        ok = program_declaration_validate(declaration, message)
+    end subroutine program_declaration_from_sx
+
+    logical function program_declaration_validate(declaration, message)
+        type(program_declaration_t), intent(in) :: declaration
+        character(len=*), intent(out) :: message
+
+        message = ''
+        if (len_trim(declaration%declaration_kind) == 0) then
+            message = 'missing-program-declaration-kind'
+            program_declaration_validate = .false.
+            return
+        end if
+        if (trim(declaration%declaration_kind) /= declaration_kind_program) then
+            message = 'invalid-program-declaration-kind'
+            program_declaration_validate = .false.
+            return
+        end if
+        if (len_trim(declaration%name) == 0) then
+            message = 'missing-program-declaration-name'
+            program_declaration_validate = .false.
+            return
+        end if
+        if (.not. valid_sx_atom(declaration%name)) then
+            message = 'invalid-program-declaration-name'
+            program_declaration_validate = .false.
+            return
+        end if
+        if (len_trim(declaration%span%file) == 0) then
+            message = 'missing-program-declaration-file'
+            program_declaration_validate = .false.
+            return
+        end if
+        if (.not. valid_sx_atom(declaration%span%file)) then
+            message = 'invalid-program-declaration-file'
+            program_declaration_validate = .false.
+            return
+        end if
+        if (declaration%span%start_byte < 0_int64) then
+            message = 'negative-program-declaration-start-byte'
+            program_declaration_validate = .false.
+            return
+        end if
+        if (declaration%span%end_byte < declaration%span%start_byte) then
+            message = 'invalid-program-declaration-span'
+            program_declaration_validate = .false.
+            return
+        end if
+        if (len_trim(declaration%span%source_hash) == 0) then
+            message = 'missing-program-declaration-source-hash'
+            program_declaration_validate = .false.
+            return
+        end if
+        if (.not. valid_sx_atom(declaration%span%source_hash)) then
+            message = 'invalid-program-declaration-source-hash'
+            program_declaration_validate = .false.
+            return
+        end if
+        program_declaration_validate = .true.
+    end function program_declaration_validate
 
     subroutine program_root_to_sx(root, output, ok, message)
         type(program_root_t), intent(in) :: root
