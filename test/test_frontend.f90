@@ -1,7 +1,7 @@
 program test_frontend
     use, intrinsic :: iso_fortran_env, only: int64
     use fortfront_frontend, only: frontend_accepted, frontend_read, &
-        frontend_rejected, root_kind_none, root_kind_source, &
+        frontend_rejected, root_kind_none, root_kind_program, &
         severity_error, frontend_result_t
     implicit none
 
@@ -11,8 +11,10 @@ program test_frontend
         'hash-positive', result)
     call assert_equal(result%status, frontend_accepted, &
         'non-empty source was rejected')
-    call assert_equal(result%root_kind, root_kind_source, &
-        'accepted root kind was not source')
+    call assert_equal(result%root_kind, root_kind_program, &
+        'accepted root kind was not program')
+    call assert_equal(result%root%name, 'unit', &
+        'program name was not parsed')
     call assert_equal_integer(result%diagnostic_count, 0_int64, &
         'accepted source produced a diagnostic')
     call assert_equal(result%root%span%file, 'unit.f90', &
@@ -39,6 +41,22 @@ program test_frontend
         'diagnostic file was not retained')
     call assert_equal(result%diagnostics(1)%span%source_hash, 'hash-negative', &
         'diagnostic source hash was not retained')
+
+    call frontend_read('module.f90', 'module unit'//new_line('a')//'end', &
+        'hash-unsupported', result)
+    call assert_equal(result%status, frontend_rejected, &
+        'unsupported syntax was accepted')
+    call assert_equal(result%diagnostics(1)%message, 'unsupported-syntax', &
+        'unsupported syntax diagnostic changed')
+    call assert_equal(result%diagnostics(1)%span%file, 'module.f90', &
+        'unsupported syntax span lost its file')
+
+    call frontend_read('broken.f90', 'program'//new_line('a')//'end', &
+        'hash-invalid', result)
+    call assert_equal(result%status, frontend_rejected, &
+        'malformed program was accepted')
+    call assert_equal(result%diagnostics(1)%message, 'invalid-program', &
+        'malformed program diagnostic changed')
 
     write (*, '(a)') 'frontend behavioral checks: ok'
 
