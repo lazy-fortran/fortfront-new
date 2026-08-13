@@ -56,8 +56,8 @@ module fortfront_frontend
         type(diagnostic_t), allocatable :: diagnostics(:)
     end type frontend_result_t
 
-    public :: frontend_parse, frontend_read, frontend_result_to_sx, &
-        frontend_validate
+    public :: frontend_parse, frontend_read, frontend_result_from_sx, &
+        frontend_result_to_sx, frontend_validate
 
 contains
 
@@ -142,6 +142,42 @@ contains
         message = ''
     end subroutine frontend_result_to_sx
 
+    subroutine frontend_result_from_sx(input, result, ok, message)
+        character(len=*), intent(in) :: input
+        type(frontend_result_t), intent(out) :: result
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        character(len=32) :: parsed_root_kind
+        character(len=8) :: parsed_status
+        integer(int64) :: parsed_diagnostic_count
+        integer :: diagnostic_count
+
+        result = frontend_result_t()
+        ok = parse_frontend_result_sx(input, parsed_status, parsed_root_kind, &
+            parsed_diagnostic_count, message)
+        if (.not. ok) return
+
+        result%status = parsed_status
+        result%root_kind = parsed_root_kind
+        result%diagnostic_count = parsed_diagnostic_count
+        if (parsed_diagnostic_count > 0_int64) then
+            if (parsed_diagnostic_count > int(huge(0), int64)) then
+                ok = .false.
+                message = 'diagnostic-count-too-large'
+                return
+            end if
+            diagnostic_count = int(parsed_diagnostic_count)
+            allocate (result%diagnostics(diagnostic_count))
+            result%diagnostics%status = frontend_rejected
+            result%diagnostics%severity = severity_error
+        end if
+
+        ok = frontend_validate(result, message)
+        if (.not. ok) return
+        message = ''
+    end subroutine frontend_result_from_sx
+
     logical function frontend_validate(result, message)
         type(frontend_result_t), intent(in) :: result
         character(len=*), intent(out) :: message
@@ -210,6 +246,207 @@ contains
         end if
         frontend_validate = .true.
     end function frontend_validate
+
+    logical function parse_frontend_result_sx(input, status, root_kind, &
+            diagnostic_count, message)
+        character(len=*), intent(in) :: input
+        character(len=*), intent(out) :: status, root_kind
+        integer(int64), intent(out) :: diagnostic_count
+        character(len=*), intent(out) :: message
+
+        integer :: position
+
+        status = ''
+        root_kind = ''
+        diagnostic_count = 0_int64
+        position = 1
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_text(input, position, '(frontend-result')) then
+            message = 'malformed-sx-record'
+            parse_frontend_result_sx = .false.
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'status', status)) then
+            message = 'malformed-sx-status'
+            parse_frontend_result_sx = .false.
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'root-kind', root_kind)) then
+            message = 'malformed-sx-root-kind'
+            parse_frontend_result_sx = .false.
+            return
+        end if
+        if (.not. consume_sx_integer_field(input, position, 'diagnostic-count', &
+            diagnostic_count, message)) then
+            parse_frontend_result_sx = .false.
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (position > len(input)) then
+            message = 'malformed-sx-record'
+            parse_frontend_result_sx = .false.
+            return
+        end if
+        if (input(position:position) /= ')') then
+            message = 'malformed-sx-record'
+            parse_frontend_result_sx = .false.
+            return
+        end if
+        position = position + 1
+        call skip_sx_spaces(input, position)
+        if (position <= len(input)) then
+            message = 'malformed-sx-record'
+            parse_frontend_result_sx = .false.
+            return
+        end if
+        parse_frontend_result_sx = .true.
+    end function parse_frontend_result_sx
+
+    logical function consume_sx_field(input, position, field_name, value)
+        character(len=*), intent(in) :: input, field_name
+        integer, intent(inout) :: position
+        character(len=*), intent(out) :: value
+
+        character(len=128) :: token
+
+        consume_sx_field = .false.
+        value = ''
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_character(input, position, '(')) return
+        if (.not. consume_sx_token(input, position, token)) return
+        if (trim(token) /= field_name) return
+        if (.not. consume_sx_token(input, position, value)) return
+        call skip_sx_spaces(input, position)
+        if (position > len(input)) return
+        if (input(position:position) /= ')') return
+        position = position + 1
+        consume_sx_field = .true.
+    end function consume_sx_field
+
+    logical function consume_sx_integer_field(input, position, field_name, value, &
+            message)
+        character(len=*), intent(in) :: input, field_name
+        integer, intent(inout) :: position
+        integer(int64), intent(out) :: value
+        character(len=*), intent(out) :: message
+
+        character(len=128) :: token
+
+        value = 0_int64
+        message = 'malformed-sx-count'
+        consume_sx_integer_field = .false.
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_character(input, position, '(')) return
+        if (.not. consume_sx_token(input, position, token)) return
+        if (trim(token) /= field_name) return
+        if (.not. consume_sx_token(input, position, token)) return
+        if (.not. parse_sx_integer(token, value, message)) return
+        call skip_sx_spaces(input, position)
+        if (position > len(input)) return
+        if (input(position:position) /= ')') return
+        position = position + 1
+        consume_sx_integer_field = .true.
+    end function consume_sx_integer_field
+
+    logical function parse_sx_integer(token, value, message)
+        character(len=*), intent(in) :: token
+        integer(int64), intent(out) :: value
+        character(len=*), intent(out) :: message
+
+        integer :: index, first_digit
+        integer(int64) :: digit, maximum
+
+        value = 0_int64
+        message = 'malformed-sx-count'
+        if (len_trim(token) == 0) then
+            parse_sx_integer = .false.
+            return
+        end if
+        first_digit = 1
+        if (token(1:1) == '-') then
+            message = 'negative-diagnostic-count'
+            parse_sx_integer = .false.
+            return
+        end if
+        maximum = huge(value)
+        do index = first_digit, len_trim(token)
+            if (token(index:index) < '0' .or. token(index:index) > '9') then
+                parse_sx_integer = .false.
+                return
+            end if
+            digit = int(iachar(token(index:index)) - iachar('0'), int64)
+            if (value > (maximum - digit) / 10_int64) then
+                message = 'diagnostic-count-too-large'
+                parse_sx_integer = .false.
+                return
+            end if
+            value = value * 10_int64 + digit
+        end do
+        parse_sx_integer = .true.
+    end function parse_sx_integer
+
+    logical function consume_sx_character(input, position, expected)
+        character(len=*), intent(in) :: input
+        integer, intent(inout) :: position
+        character, intent(in) :: expected
+
+        consume_sx_character = .false.
+        if (position > len(input)) return
+        if (input(position:position) /= expected) return
+        position = position + 1
+        consume_sx_character = .true.
+    end function consume_sx_character
+
+    logical function consume_sx_text(input, position, expected)
+        character(len=*), intent(in) :: input, expected
+        integer, intent(inout) :: position
+
+        integer :: last_position
+
+        consume_sx_text = .false.
+        last_position = position + len(expected) - 1
+        if (last_position > len(input)) return
+        if (input(position:last_position) /= expected) return
+        position = last_position + 1
+        consume_sx_text = .true.
+    end function consume_sx_text
+
+    logical function consume_sx_token(input, position, token)
+        character(len=*), intent(in) :: input
+        integer, intent(inout) :: position
+        character(len=*), intent(out) :: token
+
+        integer :: start
+
+        token = ''
+        call skip_sx_spaces(input, position)
+        if (position > len(input)) then
+            consume_sx_token = .false.
+            return
+        end if
+        start = position
+        do while (position <= len(input))
+            if (input(position:position) == ' ' .or. input(position:position) == ')' &
+                .or. input(position:position) == '(') exit
+            position = position + 1
+        end do
+        if (position == start .or. position - start > len(token)) then
+            consume_sx_token = .false.
+            return
+        end if
+        token(:position - start) = input(start:position - 1)
+        consume_sx_token = .true.
+    end function consume_sx_token
+
+    subroutine skip_sx_spaces(input, position)
+        character(len=*), intent(in) :: input
+        integer, intent(inout) :: position
+
+        do while (position <= len(input))
+            if (input(position:position) /= ' ') return
+            position = position + 1
+        end do
+    end subroutine skip_sx_spaces
 
     logical function valid_status(status)
         character(len=*), intent(in) :: status

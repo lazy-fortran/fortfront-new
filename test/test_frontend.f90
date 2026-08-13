@@ -1,7 +1,8 @@
 program test_frontend
     use, intrinsic :: iso_fortran_env, only: int64
     use fortfront_frontend, only: frontend_accepted, frontend_parse, &
-        frontend_read, frontend_rejected, root_kind_none, root_kind_program, &
+        frontend_read, frontend_rejected, frontend_result_from_sx, &
+        root_kind_none, root_kind_program, &
         severity_error, frontend_result_t, standardir_syntax_item_t, &
         frontend_result_to_sx, frontend_validate
     implicit none
@@ -28,6 +29,7 @@ program test_frontend
     call assert_equal(trim(sx), &
         '(frontend-result (status accepted) (root-kind program) '// &
         '(diagnostic-count 0))', 'accepted SX oracle changed')
+    call assert_sx_round_trip(sx, 'accepted SX did not round-trip')
     result%root_kind = root_kind_none
     call assert_invalid_result(result, 'invalid-accepted-result')
     call set_program_witness(syntax_item)
@@ -69,6 +71,24 @@ program test_frontend
     call assert_equal(trim(sx), &
         '(frontend-result (status rejected) (root-kind none) '// &
         '(diagnostic-count 1))', 'rejected SX oracle changed')
+    call assert_sx_round_trip(sx, 'rejected SX did not round-trip')
+
+    call assert_invalid_sx('(frontend-result (status unknown) '// &
+        '(root-kind none) (diagnostic-count 1))', 'invalid-result-status')
+    call assert_invalid_sx('(frontend-result (status accepted) '// &
+        '(root-kind program) (diagnostic-count 1))', 'invalid-accepted-result')
+    call assert_invalid_sx('(frontend-result (status rejected) '// &
+        '(root-kind none) (diagnostic-count 0))', 'invalid-rejected-result')
+    call assert_invalid_sx('(frontend-result (status accepted) '// &
+        '(root-kind unknown) (diagnostic-count 0))', 'invalid-result-root-kind')
+    call assert_invalid_sx('(frontend-result (status rejected) '// &
+        '(root-kind none) (diagnostic-count -1))', &
+        'negative-diagnostic-count')
+    call assert_invalid_sx('(frontend-result (status accepted) '// &
+        '(root-kind program) (diagnostic-count 0)', 'malformed-sx-record')
+    call assert_invalid_sx('(frontend-result (status accepted) '// &
+        '(root-kind program) (diagnostic-count 0) (extra x)))', &
+        'malformed-sx-record')
 
     syntax_item%lhs = 'module'
     call frontend_parse('module.f90', 'module unit'//new_line('a')//'end', &
@@ -167,5 +187,35 @@ contains
         call frontend_result_to_sx(value, serialized, valid, validation_message)
         call assert_true(.not. valid, 'invalid result was serialized')
     end subroutine assert_invalid_result
+
+    subroutine assert_sx_round_trip(serialized, failure_message)
+        character(len=*), intent(in) :: serialized, failure_message
+
+        character(len=256) :: reread, message
+        type(frontend_result_t) :: parsed
+        logical :: ok
+
+        call frontend_result_from_sx(serialized, parsed, ok, message)
+        call assert_true(ok, failure_message)
+        call frontend_result_to_sx(parsed, reread, ok, message)
+        call assert_true(ok, failure_message)
+        call assert_equal(trim(reread), trim(serialized), failure_message)
+    end subroutine assert_sx_round_trip
+
+    subroutine assert_invalid_sx(serialized, expected_message)
+        character(len=*), intent(in) :: serialized, expected_message
+
+        character(len=128) :: message
+        character(len=256) :: reread
+        type(frontend_result_t) :: parsed
+        logical :: ok
+
+        call frontend_result_from_sx(serialized, parsed, ok, message)
+        call assert_true(.not. ok, 'malformed SX was accepted')
+        call assert_equal(message, expected_message, &
+            'malformed SX reported the wrong failure')
+        call frontend_result_to_sx(parsed, reread, ok, message)
+        call assert_true(.not. ok, 'invalid SX produced a valid result')
+    end subroutine assert_invalid_sx
 
 end program test_frontend
