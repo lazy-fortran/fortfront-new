@@ -32,3 +32,8 @@ main = "test_program_unit.f90"
 name = "test_diagnostic"
 source-dir = "test"
 main = "test_diagnostic.f90"
+
+[[test]]
+name = "test_standardir_syntax_item"
+source-dir = "test"
+main = "test_standardir_syntax_item.f90"

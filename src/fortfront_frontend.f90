@@ -88,6 +88,8 @@ module fortfront_frontend
     public :: frontend_parse, frontend_read, frontend_result_from_sx, &
         frontend_result_to_sx, frontend_validate, &
         frontend_result_to_program_root, frontend_result_to_program_root_sx, &
+        standardir_syntax_item_to_sx, standardir_syntax_item_from_sx, &
+        standardir_syntax_item_validate, &
         frontend_validate_semantic_item, program_root_to_sx, &
         frontend_validate_semantic_table, &
         diagnostic_to_sx, diagnostic_from_sx, diagnostic_validate, &
@@ -153,6 +155,286 @@ contains
         result%diagnostics(1)%message = diagnostic_message
         result%diagnostics(1)%span = span
     end subroutine frontend_parse
+
+    subroutine standardir_syntax_item_to_sx(item, output, ok, message)
+        type(standardir_syntax_item_t), intent(in) :: item
+        character(len=*), intent(out) :: output
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        character(len=2048) :: canonical
+        character(len=32) :: page
+
+        output = ''
+        ok = standardir_syntax_item_validate(item, message)
+        if (.not. ok) return
+
+        write (page, '(i0)') item%source%page
+        canonical = '(syntax-item (id '//trim(item%id)//') (lhs '// &
+            trim(item%lhs)//') (source (source-ref (document '// &
+            trim(item%source%document)//') (clause '// &
+            trim(item%source%clause)//') (rule '//trim(item%source%rule)//') '// &
+            '(page '//trim(page)//') (source-hash '// &
+            trim(item%source%source_hash)//'))) (origin '// &
+            trim(item%origin)//') (resolution '//trim(item%resolution)//'))'
+        if (len_trim(canonical) > len(output)) then
+            ok = .false.
+            message = 'sx-output-too-short'
+            return
+        end if
+        output(:len_trim(canonical)) = canonical(:len_trim(canonical))
+        message = ''
+    end subroutine standardir_syntax_item_to_sx
+
+    subroutine standardir_syntax_item_from_sx(input, item, ok, message, &
+            expected_source_hash)
+        character(len=*), intent(in) :: input
+        type(standardir_syntax_item_t), intent(out) :: item
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+        character(len=*), intent(in), optional :: expected_source_hash
+
+        character(len=64) :: id, lhs
+        character(len=32) :: origin, resolution
+        character(len=2048) :: source_expression
+        integer :: position
+
+        item = standardir_syntax_item_t()
+        id = ''
+        lhs = ''
+        origin = ''
+        resolution = ''
+        source_expression = ''
+        position = 1
+
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_text(input, position, '(syntax-item')) then
+            ok = .false.
+            message = 'malformed-syntax-item'
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'id', id)) then
+            ok = .false.
+            message = 'malformed-syntax-item-id'
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'lhs', lhs)) then
+            ok = .false.
+            message = 'malformed-syntax-item-lhs'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_character(input, position, '(')) then
+            ok = .false.
+            message = 'malformed-syntax-item-source'
+            return
+        end if
+        if (.not. consume_sx_text(input, position, 'source')) then
+            ok = .false.
+            message = 'malformed-syntax-item-source'
+            return
+        end if
+        if (.not. consume_sx_expression(input, position, source_expression)) then
+            ok = .false.
+            message = 'malformed-syntax-item-source'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_character(input, position, ')')) then
+            ok = .false.
+            message = 'malformed-syntax-item-source'
+            return
+        end if
+        call parse_standardir_source_ref_sx(trim(source_expression), item%source, &
+            ok, message)
+        if (.not. ok) return
+        if (.not. consume_sx_field(input, position, 'origin', origin)) then
+            ok = .false.
+            message = 'malformed-syntax-item-origin'
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'resolution', resolution)) then
+            ok = .false.
+            message = 'malformed-syntax-item-resolution'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_character(input, position, ')')) then
+            ok = .false.
+            message = 'malformed-syntax-item'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (position <= len(input)) then
+            ok = .false.
+            message = 'malformed-syntax-item'
+            return
+        end if
+
+        item%id = id
+        item%lhs = lhs
+        item%origin = origin
+        item%resolution = resolution
+        if (present(expected_source_hash)) then
+            ok = standardir_syntax_item_validate(item, message, expected_source_hash)
+        else
+            ok = standardir_syntax_item_validate(item, message)
+        end if
+    end subroutine standardir_syntax_item_from_sx
+
+    logical function standardir_syntax_item_validate(item, message, &
+            expected_source_hash)
+        type(standardir_syntax_item_t), intent(in) :: item
+        character(len=*), intent(out) :: message
+        character(len=*), intent(in), optional :: expected_source_hash
+
+        message = ''
+        if (len_trim(item%id) == 0) then
+            message = 'missing-syntax-item-id'
+            standardir_syntax_item_validate = .false.
+            return
+        end if
+        if (.not. valid_sx_atom(item%id)) then
+            message = 'invalid-syntax-item-id'
+            standardir_syntax_item_validate = .false.
+            return
+        end if
+        if (len_trim(item%lhs) == 0) then
+            message = 'missing-syntax-item-lhs'
+            standardir_syntax_item_validate = .false.
+            return
+        end if
+        if (.not. valid_sx_atom(item%lhs)) then
+            message = 'invalid-syntax-item-lhs'
+            standardir_syntax_item_validate = .false.
+            return
+        end if
+        if (.not. valid_origin(item%origin)) then
+            message = 'invalid-syntax-item-origin'
+            standardir_syntax_item_validate = .false.
+            return
+        end if
+        if (.not. valid_resolution(item%resolution)) then
+            message = 'invalid-syntax-item-resolution'
+            standardir_syntax_item_validate = .false.
+            return
+        end if
+        if (len_trim(item%source%document) == 0 .or. &
+            len_trim(item%source%clause) == 0 .or. &
+            len_trim(item%source%rule) == 0 .or. &
+            item%source%page <= 0_int64 .or. &
+            len_trim(item%source%source_hash) == 0) then
+            message = 'invalid-syntax-item-provenance'
+            standardir_syntax_item_validate = .false.
+            return
+        end if
+        if (.not. valid_sx_atom(item%source%document) .or. &
+            .not. valid_sx_atom(item%source%clause) .or. &
+            .not. valid_sx_atom(item%source%rule) .or. &
+            .not. valid_sx_atom(item%source%source_hash)) then
+            message = 'invalid-syntax-item-provenance'
+            standardir_syntax_item_validate = .false.
+            return
+        end if
+        if (present(expected_source_hash)) then
+            if (len_trim(expected_source_hash) == 0) then
+                message = 'missing-expected-source-hash'
+                standardir_syntax_item_validate = .false.
+                return
+            end if
+            if (trim(item%source%source_hash) /= trim(expected_source_hash)) then
+                message = 'syntax-item-source-hash-mismatch'
+                standardir_syntax_item_validate = .false.
+                return
+            end if
+        end if
+        standardir_syntax_item_validate = .true.
+    end function standardir_syntax_item_validate
+
+    subroutine parse_standardir_source_ref_sx(input, source, ok, message)
+        character(len=*), intent(in) :: input
+        type(standardir_source_ref_t), intent(out) :: source
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        character(len=128) :: document, source_hash
+        character(len=64) :: clause, rule
+        integer(int64) :: page
+        integer :: position
+
+        source = standardir_source_ref_t()
+        document = ''
+        clause = ''
+        rule = ''
+        source_hash = ''
+        page = 0_int64
+        position = 1
+
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_text(input, position, '(source-ref')) then
+            ok = .false.
+            message = 'malformed-syntax-item-source'
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'document', document)) then
+            ok = .false.
+            message = 'malformed-syntax-item-document'
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'clause', clause)) then
+            ok = .false.
+            message = 'malformed-syntax-item-clause'
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'rule', rule)) then
+            ok = .false.
+            message = 'malformed-syntax-item-rule'
+            return
+        end if
+        if (.not. consume_sx_integer_field(input, position, 'page', page, message)) then
+            call map_syntax_item_integer_failure(message)
+            ok = .false.
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'source-hash', source_hash)) then
+            ok = .false.
+            message = 'malformed-syntax-item-source-hash'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_character(input, position, ')')) then
+            ok = .false.
+            message = 'malformed-syntax-item-source'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (position <= len(input)) then
+            ok = .false.
+            message = 'malformed-syntax-item-source'
+            return
+        end if
+
+        source%document = document
+        source%clause = clause
+        source%rule = rule
+        source%page = page
+        source%source_hash = source_hash
+        ok = .true.
+        message = ''
+    end subroutine parse_standardir_source_ref_sx
+
+    subroutine map_syntax_item_integer_failure(message)
+        character(len=*), intent(inout) :: message
+
+        select case (trim(message))
+        case ('negative-diagnostic-count')
+            message = 'negative-syntax-item-page'
+        case ('diagnostic-count-too-large')
+            message = 'syntax-item-page-too-large'
+        case default
+            message = 'malformed-syntax-item-page'
+        end select
+    end subroutine map_syntax_item_integer_failure
 
     subroutine frontend_result_to_program_root(result, root, ok, message)
         type(frontend_result_t), intent(in) :: result
@@ -1539,6 +1821,17 @@ contains
             valid_origin = .false.
         end select
     end function valid_origin
+
+    logical function valid_resolution(resolution)
+        character(len=*), intent(in) :: resolution
+
+        select case (lowercase(trim(resolution)))
+        case ('resolved', 'unresolved', 'disputed')
+            valid_resolution = .true.
+        case default
+            valid_resolution = .false.
+        end select
+    end function valid_resolution
 
     logical function parse_program_witness(source, program_name, message)
         character(len=*), intent(in) :: source
