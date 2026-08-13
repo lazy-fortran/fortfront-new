@@ -35,6 +35,14 @@ module fortfront_frontend
         type(standardir_source_ref_t) :: source
     end type standardir_syntax_item_t
 
+    type, public :: standardir_semantic_item_t
+        character(len=64) :: id = ''
+        character(len=64) :: subject = ''
+        character(len=32) :: origin = ''
+        character(len=32) :: resolution = ''
+        type(standardir_source_ref_t) :: source
+    end type standardir_semantic_item_t
+
     type, public :: diagnostic_t
         character(len=8) :: status = frontend_rejected
         character(len=8) :: severity = severity_error
@@ -48,6 +56,11 @@ module fortfront_frontend
         type(source_span_t) :: span
     end type frontend_root_t
 
+    type, public :: program_root_t
+        character(len=128) :: name = ''
+        type(source_span_t) :: span
+    end type program_root_t
+
     type, public :: frontend_result_t
         character(len=8) :: status = frontend_rejected
         character(len=32) :: root_kind = root_kind_none
@@ -57,7 +70,8 @@ module fortfront_frontend
     end type frontend_result_t
 
     public :: frontend_parse, frontend_read, frontend_result_from_sx, &
-        frontend_result_to_sx, frontend_validate
+        frontend_result_to_sx, frontend_validate, &
+        frontend_result_to_program_root, frontend_validate_semantic_item
 
 contains
 
@@ -115,6 +129,69 @@ contains
         result%diagnostics(1)%message = diagnostic_message
         result%diagnostics(1)%span = span
     end subroutine frontend_parse
+
+    subroutine frontend_result_to_program_root(result, root, ok, message)
+        type(frontend_result_t), intent(in) :: result
+        type(program_root_t), intent(out) :: root
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        root = program_root_t()
+        ok = frontend_validate(result, message)
+        if (.not. ok) return
+        if (trim(result%status) /= frontend_accepted) then
+            message = 'rejected-frontend-result'
+            ok = .false.
+            return
+        end if
+        if (trim(result%root_kind) /= root_kind_program .or. &
+            trim(result%root%kind) /= root_kind_program) then
+            message = 'non-program-root'
+            ok = .false.
+            return
+        end if
+
+        root%name = result%root%name
+        root%span = result%root%span
+        message = ''
+    end subroutine frontend_result_to_program_root
+
+    logical function frontend_validate_semantic_item(item, message)
+        type(standardir_semantic_item_t), intent(in) :: item
+        character(len=*), intent(out) :: message
+
+        message = ''
+        if (len_trim(item%id) == 0) then
+            message = 'missing-semantic-id'
+            frontend_validate_semantic_item = .false.
+            return
+        end if
+        if (len_trim(item%subject) == 0) then
+            message = 'missing-semantic-subject'
+            frontend_validate_semantic_item = .false.
+            return
+        end if
+        if (.not. valid_origin(item%origin)) then
+            message = 'invalid-semantic-origin'
+            frontend_validate_semantic_item = .false.
+            return
+        end if
+        if (lowercase(trim(item%resolution)) /= 'resolved') then
+            message = 'unresolved-semantic'
+            frontend_validate_semantic_item = .false.
+            return
+        end if
+        if (len_trim(item%source%document) == 0 .or. &
+            len_trim(item%source%clause) == 0 .or. &
+            len_trim(item%source%rule) == 0 .or. &
+            item%source%page <= 0_int64 .or. &
+            len_trim(item%source%source_hash) == 0) then
+            message = 'invalid-semantic-provenance'
+            frontend_validate_semantic_item = .false.
+            return
+        end if
+        frontend_validate_semantic_item = .true.
+    end function frontend_validate_semantic_item
 
     subroutine frontend_result_to_sx(result, output, ok, message)
         type(frontend_result_t), intent(in) :: result

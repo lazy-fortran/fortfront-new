@@ -2,13 +2,17 @@ program test_frontend
     use, intrinsic :: iso_fortran_env, only: int64
     use fortfront_frontend, only: frontend_accepted, frontend_parse, &
         frontend_read, frontend_rejected, frontend_result_from_sx, &
-        root_kind_none, root_kind_program, &
+        root_kind_none, root_kind_program, root_kind_source, &
         severity_error, frontend_result_t, standardir_syntax_item_t, &
-        frontend_result_to_sx, frontend_validate
+        frontend_result_to_sx, frontend_validate, program_root_t, &
+        frontend_result_to_program_root, standardir_semantic_item_t, &
+        frontend_validate_semantic_item
     implicit none
 
     type(frontend_result_t) :: result
+    type(program_root_t) :: program_root
     type(standardir_syntax_item_t) :: syntax_item
+    type(standardir_semantic_item_t) :: semantic_item
     character(len=256) :: sx
     character(len=128) :: message
     logical :: ok
@@ -43,6 +47,50 @@ program test_frontend
         'root start byte was not zero')
     call assert_equal_integer(result%root%span%end_byte, 16_int64, &
         'root end byte was not source length')
+    call frontend_result_to_program_root(result, program_root, ok, message)
+    call assert_true(ok, 'accepted program was not converted to typed root')
+    call assert_equal(program_root%name, 'unit', &
+        'typed program root lost the program name')
+    call assert_equal(program_root%span%file, 'unit.f90', &
+        'typed program root lost the source file')
+    call assert_equal(program_root%span%source_hash, 'hash-positive', &
+        'typed program root lost the source hash')
+
+    call assert_semantic_witness(semantic_item)
+    call assert_true(frontend_validate_semantic_item(semantic_item, message), &
+        'valid semantic witness was rejected')
+    semantic_item%id = ''
+    call assert_invalid_semantic(semantic_item, 'missing-semantic-id')
+    call assert_semantic_witness(semantic_item)
+    semantic_item%subject = ''
+    call assert_invalid_semantic(semantic_item, 'missing-semantic-subject')
+    call assert_semantic_witness(semantic_item)
+    semantic_item%source%page = 0_int64
+    call assert_invalid_semantic(semantic_item, 'invalid-semantic-provenance')
+    call assert_semantic_witness(semantic_item)
+    semantic_item%origin = 'unknown'
+    call assert_invalid_semantic(semantic_item, 'invalid-semantic-origin')
+    call assert_semantic_witness(semantic_item)
+    semantic_item%resolution = 'unresolved'
+    call assert_invalid_semantic(semantic_item, 'unresolved-semantic')
+    call assert_semantic_witness(semantic_item)
+    semantic_item%resolution = 'disputed'
+    call assert_invalid_semantic(semantic_item, 'unresolved-semantic')
+
+    call frontend_read('rejected.f90', '', 'hash-rejected', result)
+    call frontend_result_to_program_root(result, program_root, ok, message)
+    call assert_true(.not. ok, 'rejected frontend result became a typed root')
+    call assert_equal(message, 'rejected-frontend-result', &
+        'rejected frontend result reported the wrong conversion failure')
+
+    result = frontend_result_t()
+    result%status = frontend_accepted
+    result%root_kind = root_kind_source
+    result%root%kind = root_kind_source
+    call frontend_result_to_program_root(result, program_root, ok, message)
+    call assert_true(.not. ok, 'non-program frontend root became a typed root')
+    call assert_equal(message, 'non-program-root', &
+        'non-program frontend root reported the wrong conversion failure')
 
     call frontend_read('without-witness.f90', &
         'program unit'//new_line('a')//'end', 'hash-no-witness', result)
@@ -152,6 +200,20 @@ contains
         syntax_item%source%source_hash = 'fixture'
     end subroutine set_program_witness
 
+    subroutine assert_semantic_witness(item)
+        type(standardir_semantic_item_t), intent(out) :: item
+
+        item%id = 'C001'
+        item%subject = 'entity'
+        item%origin = 'search'
+        item%resolution = 'resolved'
+        item%source%document = 'J3-24-007'
+        item%source%clause = '8'
+        item%source%rule = 'C001'
+        item%source%page = 50_int64
+        item%source%source_hash = 'fixture'
+    end subroutine assert_semantic_witness
+
     subroutine assert_equal(actual, expected, message)
         character(len=*), intent(in) :: actual, expected, message
 
@@ -217,5 +279,18 @@ contains
         call frontend_result_to_sx(parsed, reread, ok, message)
         call assert_true(.not. ok, 'invalid SX produced a valid result')
     end subroutine assert_invalid_sx
+
+    subroutine assert_invalid_semantic(item, expected_message)
+        type(standardir_semantic_item_t), intent(in) :: item
+        character(len=*), intent(in) :: expected_message
+
+        character(len=128) :: validation_message
+        logical :: valid
+
+        valid = frontend_validate_semantic_item(item, validation_message)
+        call assert_true(.not. valid, 'invalid semantic witness was accepted')
+        call assert_equal(validation_message, expected_message, &
+            'invalid semantic witness reported the wrong failure')
+    end subroutine assert_invalid_semantic
 
 end program test_frontend
