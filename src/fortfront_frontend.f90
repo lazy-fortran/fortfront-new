@@ -13,6 +13,7 @@ module fortfront_frontend
     character(len=*), parameter, public :: root_kind_none = 'none'
     character(len=*), parameter, public :: declaration_kind_program = 'program'
     integer, parameter, public :: program_unit_declaration_capacity = 16
+    integer, parameter, public :: semantic_item_table_capacity = 16
 
     type, public :: source_span_t
         character(len=256) :: file = ''
@@ -87,6 +88,7 @@ module fortfront_frontend
         frontend_result_to_sx, frontend_validate, &
         frontend_result_to_program_root, frontend_result_to_program_root_sx, &
         frontend_validate_semantic_item, program_root_to_sx, &
+        frontend_validate_semantic_table, &
         program_root_from_sx, program_root_validate, &
         program_declaration_to_sx, program_declaration_from_sx, &
         program_declaration_validate, program_unit_to_sx, &
@@ -767,6 +769,41 @@ contains
         end if
         frontend_validate_semantic_item = .true.
     end function frontend_validate_semantic_item
+
+    logical function frontend_validate_semantic_table(items, count, message)
+        type(standardir_semantic_item_t), intent(in) :: items(:)
+        integer(int64), intent(in) :: count
+        character(len=*), intent(out) :: message
+
+        integer(int64) :: index
+        character(len=128) :: item_message
+
+        message = ''
+        if (count < 0_int64) then
+            message = 'negative-semantic-item-count'
+            frontend_validate_semantic_table = .false.
+            return
+        end if
+        if (count > int(semantic_item_table_capacity, int64)) then
+            message = 'semantic-item-table-capacity-exceeded'
+            frontend_validate_semantic_table = .false.
+            return
+        end if
+        if (count > int(size(items), int64)) then
+            message = 'semantic-item-count-exceeds-array'
+            frontend_validate_semantic_table = .false.
+            return
+        end if
+
+        do index = 1_int64, count
+            if (.not. frontend_validate_semantic_item(items(index), item_message)) then
+                message = item_message
+                frontend_validate_semantic_table = .false.
+                return
+            end if
+        end do
+        frontend_validate_semantic_table = .true.
+    end function frontend_validate_semantic_table
 
     subroutine frontend_result_to_sx(result, output, ok, message)
         type(frontend_result_t), intent(in) :: result

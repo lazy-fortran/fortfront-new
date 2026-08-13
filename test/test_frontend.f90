@@ -7,13 +7,15 @@ program test_frontend
         frontend_result_to_sx, frontend_validate, program_root_t, &
         frontend_result_to_program_root, standardir_semantic_item_t, &
         frontend_validate_semantic_item, frontend_result_to_program_root_sx, &
-        program_root_from_sx, program_root_to_sx, program_root_validate
+        program_root_from_sx, program_root_to_sx, program_root_validate, &
+        frontend_validate_semantic_table, semantic_item_table_capacity
     implicit none
 
     type(frontend_result_t) :: result
     type(program_root_t) :: program_root
     type(standardir_syntax_item_t) :: syntax_item
     type(standardir_semantic_item_t) :: semantic_item
+    type(standardir_semantic_item_t) :: semantic_items(semantic_item_table_capacity)
     character(len=256) :: sx
     character(len=128) :: message
     logical :: ok
@@ -78,6 +80,27 @@ program test_frontend
     call assert_semantic_witness(semantic_item)
     semantic_item%resolution = 'disputed'
     call assert_invalid_semantic(semantic_item, 'unresolved-semantic')
+
+    call assert_true(frontend_validate_semantic_table(semantic_items, 0_int64, message), &
+        'empty semantic table was rejected')
+    call assert_semantic_witness(semantic_items(1))
+    call assert_true(frontend_validate_semantic_table(semantic_items, 1_int64, message), &
+        'resolved semantic table was rejected')
+    semantic_items(1)%resolution = 'unresolved'
+    call assert_invalid_semantic_table(semantic_items, 1_int64, 'unresolved-semantic')
+    semantic_items(1)%resolution = 'disputed'
+    call assert_invalid_semantic_table(semantic_items, 1_int64, 'unresolved-semantic')
+    call assert_semantic_witness(semantic_items(1))
+    semantic_items(1)%source%page = 0_int64
+    call assert_invalid_semantic_table(semantic_items, 1_int64, &
+        'invalid-semantic-provenance')
+    call assert_invalid_semantic_table(semantic_items, -1_int64, &
+        'negative-semantic-item-count')
+    call assert_invalid_semantic_table(semantic_items, &
+        int(semantic_item_table_capacity, int64) + 1_int64, &
+        'semantic-item-table-capacity-exceeded')
+    call assert_invalid_semantic_table(semantic_items(1:1), 2_int64, &
+        'semantic-item-count-exceeds-array')
 
     call frontend_read('rejected.f90', '', 'hash-rejected', result)
     call frontend_result_to_program_root(result, program_root, ok, message)
@@ -367,5 +390,19 @@ contains
         call assert_equal(validation_message, expected_message, &
             'invalid semantic witness reported the wrong failure')
     end subroutine assert_invalid_semantic
+
+    subroutine assert_invalid_semantic_table(items, count, expected_message)
+        type(standardir_semantic_item_t), intent(in) :: items(:)
+        integer(int64), intent(in) :: count
+        character(len=*), intent(in) :: expected_message
+
+        character(len=128) :: validation_message
+        logical :: valid
+
+        valid = frontend_validate_semantic_table(items, count, validation_message)
+        call assert_true(.not. valid, 'invalid semantic table was accepted')
+        call assert_equal(validation_message, expected_message, &
+            'invalid semantic table reported the wrong failure')
+    end subroutine assert_invalid_semantic_table
 
 end program test_frontend
