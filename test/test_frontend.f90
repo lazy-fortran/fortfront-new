@@ -1,14 +1,16 @@
 program test_frontend
     use, intrinsic :: iso_fortran_env, only: int64
-    use fortfront_frontend, only: frontend_accepted, frontend_read, &
-        frontend_rejected, root_kind_none, root_kind_program, &
-        severity_error, frontend_result_t
+    use fortfront_frontend, only: frontend_accepted, frontend_parse, &
+        frontend_read, frontend_rejected, root_kind_none, root_kind_program, &
+        severity_error, frontend_result_t, standardir_syntax_item_t
     implicit none
 
     type(frontend_result_t) :: result
+    type(standardir_syntax_item_t) :: syntax_item
 
-    call frontend_read('unit.f90', 'program unit'//new_line('a')//'end', &
-        'hash-positive', result)
+    call set_program_witness(syntax_item)
+    call frontend_parse('unit.f90', 'program unit'//new_line('a')//'end', &
+        'hash-positive', syntax_item, result)
     call assert_equal(result%status, frontend_accepted, &
         'non-empty source was rejected')
     call assert_equal(result%root_kind, root_kind_program, &
@@ -26,6 +28,13 @@ program test_frontend
     call assert_equal_integer(result%root%span%end_byte, 16_int64, &
         'root end byte was not source length')
 
+    call frontend_read('without-witness.f90', &
+        'program unit'//new_line('a')//'end', 'hash-no-witness', result)
+    call assert_equal(result%status, frontend_rejected, &
+        'compatibility wrapper accepted source without a witness')
+    call assert_equal(result%diagnostics(1)%message, 'missing-syntax-witness', &
+        'missing witness diagnostic changed')
+
     call frontend_read('empty.f90', '', 'hash-negative', result)
     call assert_equal(result%status, frontend_rejected, &
         'empty source was accepted')
@@ -42,17 +51,30 @@ program test_frontend
     call assert_equal(result%diagnostics(1)%span%source_hash, 'hash-negative', &
         'diagnostic source hash was not retained')
 
-    call frontend_read('module.f90', 'module unit'//new_line('a')//'end', &
-        'hash-unsupported', result)
+    syntax_item%lhs = 'module'
+    call frontend_parse('module.f90', 'module unit'//new_line('a')//'end', &
+        'hash-unsupported', syntax_item, result)
     call assert_equal(result%status, frontend_rejected, &
         'unsupported syntax was accepted')
-    call assert_equal(result%diagnostics(1)%message, 'unsupported-syntax', &
+    call assert_equal(result%diagnostics(1)%message, 'unsupported-syntax-item', &
         'unsupported syntax diagnostic changed')
     call assert_equal(result%diagnostics(1)%span%file, 'module.f90', &
         'unsupported syntax span lost its file')
 
-    call frontend_read('broken.f90', 'program'//new_line('a')//'end', &
-        'hash-invalid', result)
+    call set_program_witness(syntax_item)
+    syntax_item%resolution = 'unresolved'
+    call frontend_parse('unresolved.f90', 'program unit'//new_line('a')//'end', &
+        'hash-unresolved', syntax_item, result)
+    call assert_equal(result%status, frontend_rejected, &
+        'unresolved syntax was accepted')
+    call assert_equal(result%diagnostics(1)%message, 'unresolved-syntax', &
+        'unresolved syntax diagnostic changed')
+    call assert_equal(result%diagnostics(1)%span%source_hash, 'hash-unresolved', &
+        'unresolved syntax span lost its hash')
+
+    call set_program_witness(syntax_item)
+    call frontend_parse('broken.f90', 'program'//new_line('a')//'end', &
+        'hash-invalid', syntax_item, result)
     call assert_equal(result%status, frontend_rejected, &
         'malformed program was accepted')
     call assert_equal(result%diagnostics(1)%message, 'invalid-program', &
@@ -61,6 +83,20 @@ program test_frontend
     write (*, '(a)') 'frontend behavioral checks: ok'
 
 contains
+
+    subroutine set_program_witness(syntax_item)
+        type(standardir_syntax_item_t), intent(out) :: syntax_item
+
+        syntax_item%id = 'R501'
+        syntax_item%lhs = 'program'
+        syntax_item%origin = 'mechanical'
+        syntax_item%resolution = 'resolved'
+        syntax_item%source%document = 'J3-24-007'
+        syntax_item%source%clause = '1'
+        syntax_item%source%rule = 'R501'
+        syntax_item%source%page = 45_int64
+        syntax_item%source%source_hash = 'fixture'
+    end subroutine set_program_witness
 
     subroutine assert_equal(actual, expected, message)
         character(len=*), intent(in) :: actual, expected, message

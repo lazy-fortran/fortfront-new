@@ -17,6 +17,22 @@ module fortfront_frontend
         character(len=128) :: source_hash = ''
     end type source_span_t
 
+    type, public :: standardir_source_ref_t
+        character(len=128) :: document = ''
+        character(len=64) :: clause = ''
+        character(len=64) :: rule = ''
+        integer(int64) :: page = 0_int64
+        character(len=128) :: source_hash = ''
+    end type standardir_source_ref_t
+
+    type, public :: standardir_syntax_item_t
+        character(len=64) :: id = ''
+        character(len=64) :: lhs = ''
+        character(len=32) :: origin = ''
+        character(len=32) :: resolution = ''
+        type(standardir_source_ref_t) :: source
+    end type standardir_syntax_item_t
+
     type, public :: diagnostic_t
         character(len=8) :: status = frontend_rejected
         character(len=8) :: severity = severity_error
@@ -38,7 +54,7 @@ module fortfront_frontend
         type(diagnostic_t), allocatable :: diagnostics(:)
     end type frontend_result_t
 
-    public :: frontend_read
+    public :: frontend_parse, frontend_read
 
 contains
 
@@ -46,6 +62,18 @@ contains
         character(len=*), intent(in) :: file_name
         character(len=*), intent(in) :: source
         character(len=*), intent(in) :: source_hash
+        type(frontend_result_t), intent(out) :: result
+
+        type(standardir_syntax_item_t) :: missing_witness
+
+        call frontend_parse(file_name, source, source_hash, missing_witness, result)
+    end subroutine frontend_read
+
+    subroutine frontend_parse(file_name, source, source_hash, syntax_item, result)
+        character(len=*), intent(in) :: file_name
+        character(len=*), intent(in) :: source
+        character(len=*), intent(in) :: source_hash
+        type(standardir_syntax_item_t), intent(in) :: syntax_item
         type(frontend_result_t), intent(out) :: result
 
         type(source_span_t) :: span
@@ -60,15 +88,17 @@ contains
 
         if (len(source) == 0) then
             diagnostic_message = 'empty-source'
-        else if (.not. standardir_program_witness_is_resolved()) then
-            diagnostic_message = 'unresolved-syntax'
-        else if (parse_program_witness(source, program_name, diagnostic_message)) then
-            result%status = frontend_accepted
-            result%root_kind = root_kind_program
-            result%root%kind = root_kind_program
-            result%root%name = program_name
-            result%diagnostic_count = 0_int64
-            return
+        else
+            if (validate_syntax_item(syntax_item, diagnostic_message)) then
+                if (parse_program_witness(source, program_name, diagnostic_message)) then
+                    result%status = frontend_accepted
+                    result%root_kind = root_kind_program
+                    result%root%kind = root_kind_program
+                    result%root%name = program_name
+                    result%diagnostic_count = 0_int64
+                    return
+                end if
+            end if
         end if
 
         result%status = frontend_rejected
@@ -81,25 +111,57 @@ contains
         result%diagnostics(1)%severity = severity_error
         result%diagnostics(1)%message = diagnostic_message
         result%diagnostics(1)%span = span
-    end subroutine frontend_read
+    end subroutine frontend_parse
 
-    logical function standardir_program_witness_is_resolved()
-        character(len=*), parameter :: witness_id = 'R501'
-        character(len=*), parameter :: witness_lhs = 'program'
-        character(len=*), parameter :: witness_origin = 'mechanical'
-        character(len=*), parameter :: witness_resolution = 'resolved'
-        character(len=*), parameter :: witness_document = 'J3-24-007'
-        character(len=*), parameter :: witness_clause = '1'
-        character(len=*), parameter :: witness_rule = 'R501'
-        integer, parameter :: witness_page = 45
-        character(len=*), parameter :: witness_source_hash = 'fixture'
+    logical function validate_syntax_item(syntax_item, message)
+        type(standardir_syntax_item_t), intent(in) :: syntax_item
+        character(len=*), intent(out) :: message
 
-        standardir_program_witness_is_resolved = witness_id == 'R501' .and. &
-            witness_lhs == 'program' .and. witness_origin == 'mechanical' .and. &
-            witness_resolution == 'resolved' .and. witness_document == 'J3-24-007' &
-            .and. witness_clause == '1' .and. witness_rule == 'R501' .and. &
-            witness_page == 45 .and. witness_source_hash == 'fixture'
-    end function standardir_program_witness_is_resolved
+        message = ''
+        if (len_trim(syntax_item%id) == 0) then
+            message = 'missing-syntax-witness'
+            validate_syntax_item = .false.
+            return
+        end if
+        if (trim(syntax_item%id) /= 'R501' .or. &
+            lowercase(trim(syntax_item%lhs)) /= 'program') then
+            message = 'unsupported-syntax-item'
+            validate_syntax_item = .false.
+            return
+        end if
+        if (lowercase(trim(syntax_item%resolution)) /= 'resolved') then
+            message = 'unresolved-syntax'
+            validate_syntax_item = .false.
+            return
+        end if
+        if (.not. valid_origin(syntax_item%origin)) then
+            message = 'invalid-syntax-origin'
+            validate_syntax_item = .false.
+            return
+        end if
+        if (len_trim(syntax_item%source%document) == 0 .or. &
+            len_trim(syntax_item%source%clause) == 0 .or. &
+            len_trim(syntax_item%source%rule) == 0 .or. &
+            syntax_item%source%page <= 0_int64 .or. &
+            len_trim(syntax_item%source%source_hash) == 0) then
+            message = 'invalid-syntax-provenance'
+            validate_syntax_item = .false.
+            return
+        end if
+        validate_syntax_item = .true.
+    end function validate_syntax_item
+
+    logical function valid_origin(origin)
+        character(len=*), intent(in) :: origin
+
+        select case (lowercase(trim(origin)))
+        case ('mechanical', 'search', 'smt', 'llm', 'llm-repair', 'human', &
+                'imported', 'differential')
+            valid_origin = .true.
+        case default
+            valid_origin = .false.
+        end select
+    end function valid_origin
 
     logical function parse_program_witness(source, program_name, message)
         character(len=*), intent(in) :: source
