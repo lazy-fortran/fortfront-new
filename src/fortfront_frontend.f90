@@ -391,7 +391,7 @@ contains
         write (count_text, '(i0)') unit%declaration_count
         canonical = '(program-unit (root '//trim(child_sx)//') '// &
             '(declaration-count '//trim(count_text)//') (declarations'
-        do index = 1, unit%declaration_count
+        do index = 1, int(unit%declaration_count)
             call program_declaration_to_sx(unit%declarations(index), child_sx, &
                 ok, message)
             if (.not. ok) return
@@ -545,7 +545,7 @@ contains
             program_unit_validate = .false.
             return
         end if
-        do index = 1, unit%declaration_count
+        do index = 1, int(unit%declaration_count)
             if (.not. program_declaration_validate(unit%declarations(index), &
                 message)) then
                 program_unit_validate = .false.
