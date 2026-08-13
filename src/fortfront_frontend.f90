@@ -14,6 +14,7 @@ module fortfront_frontend
     character(len=*), parameter, public :: declaration_kind_program = 'program'
     integer, parameter, public :: program_unit_declaration_capacity = 16
     integer, parameter, public :: semantic_item_table_capacity = 16
+    integer, parameter, public :: diagnostic_table_capacity = 16
 
     type, public :: source_span_t
         character(len=256) :: file = ''
@@ -89,6 +90,8 @@ module fortfront_frontend
         frontend_result_to_program_root, frontend_result_to_program_root_sx, &
         frontend_validate_semantic_item, program_root_to_sx, &
         frontend_validate_semantic_table, &
+        diagnostic_to_sx, diagnostic_from_sx, diagnostic_validate, &
+        frontend_validate_diagnostic_table, &
         program_root_from_sx, program_root_validate, &
         program_declaration_to_sx, program_declaration_from_sx, &
         program_declaration_validate, program_unit_to_sx, &
@@ -372,6 +375,293 @@ contains
         end if
         program_declaration_validate = .true.
     end function program_declaration_validate
+
+    subroutine diagnostic_to_sx(diagnostic, output, ok, message)
+        type(diagnostic_t), intent(in) :: diagnostic
+        character(len=*), intent(out) :: output
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        character(len=2048) :: canonical
+        character(len=32) :: start_byte, end_byte
+
+        output = ''
+        ok = diagnostic_validate(diagnostic, message)
+        if (.not. ok) return
+
+        write (start_byte, '(i0)') diagnostic%span%start_byte
+        write (end_byte, '(i0)') diagnostic%span%end_byte
+        canonical = '(diagnostic (status '//trim(diagnostic%status)//') '// &
+            '(severity '//trim(diagnostic%severity)//') (message '// &
+            trim(diagnostic%message)//') (span (file '// &
+            trim(diagnostic%span%file)//') (start-byte '//trim(start_byte)//') '// &
+            '(end-byte '//trim(end_byte)//') (source-hash '// &
+            trim(diagnostic%span%source_hash)// &
+            ')))'
+        if (len_trim(canonical) > len(output)) then
+            ok = .false.
+            message = 'sx-output-too-short'
+            return
+        end if
+        output(:len_trim(canonical)) = canonical(:len_trim(canonical))
+        message = ''
+    end subroutine diagnostic_to_sx
+
+    subroutine diagnostic_from_sx(input, diagnostic, ok, message, &
+            expected_source_hash)
+        character(len=*), intent(in) :: input
+        type(diagnostic_t), intent(out) :: diagnostic
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+        character(len=*), intent(in), optional :: expected_source_hash
+
+        character(len=8) :: status, severity
+        character(len=128) :: diagnostic_message, source_hash
+        character(len=256) :: file
+        integer(int64) :: start_byte, end_byte
+        integer :: position
+
+        diagnostic = diagnostic_t()
+        status = ''
+        severity = ''
+        diagnostic_message = ''
+        file = ''
+        source_hash = ''
+        start_byte = 0_int64
+        end_byte = 0_int64
+        position = 1
+
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_text(input, position, '(diagnostic')) then
+            ok = .false.
+            message = 'malformed-diagnostic'
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'status', status)) then
+            ok = .false.
+            message = 'malformed-diagnostic-status'
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'severity', severity)) then
+            ok = .false.
+            message = 'malformed-diagnostic-severity'
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'message', diagnostic_message)) then
+            ok = .false.
+            message = 'malformed-diagnostic-message'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_character(input, position, '(')) then
+            ok = .false.
+            message = 'malformed-diagnostic-span'
+            return
+        end if
+        if (.not. consume_sx_text(input, position, 'span')) then
+            ok = .false.
+            message = 'malformed-diagnostic-span'
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'file', file)) then
+            ok = .false.
+            message = 'malformed-diagnostic-file'
+            return
+        end if
+        if (.not. consume_sx_integer_field(input, position, 'start-byte', &
+            start_byte, message)) then
+            call map_diagnostic_integer_failure('start-byte', message)
+            ok = .false.
+            return
+        end if
+        if (.not. consume_sx_integer_field(input, position, 'end-byte', &
+            end_byte, message)) then
+            call map_diagnostic_integer_failure('end-byte', message)
+            ok = .false.
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'source-hash', source_hash)) then
+            ok = .false.
+            message = 'malformed-diagnostic-source-hash'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_character(input, position, ')')) then
+            ok = .false.
+            message = 'malformed-diagnostic-span'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_character(input, position, ')')) then
+            ok = .false.
+            message = 'malformed-diagnostic'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (position <= len(input)) then
+            ok = .false.
+            message = 'malformed-diagnostic'
+            return
+        end if
+
+        diagnostic%status = status
+        diagnostic%severity = severity
+        diagnostic%message = diagnostic_message
+        diagnostic%span%file = file
+        diagnostic%span%start_byte = start_byte
+        diagnostic%span%end_byte = end_byte
+        diagnostic%span%source_hash = source_hash
+        if (present(expected_source_hash)) then
+            ok = diagnostic_validate(diagnostic, message, expected_source_hash)
+        else
+            ok = diagnostic_validate(diagnostic, message)
+        end if
+    end subroutine diagnostic_from_sx
+
+    logical function diagnostic_validate(diagnostic, message, expected_source_hash)
+        type(diagnostic_t), intent(in) :: diagnostic
+        character(len=*), intent(out) :: message
+        character(len=*), intent(in), optional :: expected_source_hash
+
+        message = ''
+        if (.not. valid_status(diagnostic%status)) then
+            message = 'invalid-diagnostic-status'
+            diagnostic_validate = .false.
+            return
+        end if
+        if (.not. valid_severity(diagnostic%severity)) then
+            message = 'invalid-diagnostic-severity'
+            diagnostic_validate = .false.
+            return
+        end if
+        if (len_trim(diagnostic%message) == 0) then
+            message = 'missing-diagnostic-message'
+            diagnostic_validate = .false.
+            return
+        end if
+        if (.not. valid_sx_atom(diagnostic%message)) then
+            message = 'invalid-diagnostic-message'
+            diagnostic_validate = .false.
+            return
+        end if
+        if (len_trim(diagnostic%span%file) == 0) then
+            message = 'missing-diagnostic-file'
+            diagnostic_validate = .false.
+            return
+        end if
+        if (.not. valid_sx_atom(diagnostic%span%file)) then
+            message = 'invalid-diagnostic-file'
+            diagnostic_validate = .false.
+            return
+        end if
+        if (diagnostic%span%start_byte < 0_int64) then
+            message = 'negative-diagnostic-start-byte'
+            diagnostic_validate = .false.
+            return
+        end if
+        if (diagnostic%span%end_byte < diagnostic%span%start_byte) then
+            message = 'invalid-diagnostic-span'
+            diagnostic_validate = .false.
+            return
+        end if
+        if (len_trim(diagnostic%span%source_hash) == 0) then
+            message = 'missing-diagnostic-source-hash'
+            diagnostic_validate = .false.
+            return
+        end if
+        if (.not. valid_sx_atom(diagnostic%span%source_hash)) then
+            message = 'invalid-diagnostic-source-hash'
+            diagnostic_validate = .false.
+            return
+        end if
+        if (present(expected_source_hash)) then
+            if (len_trim(expected_source_hash) == 0) then
+                message = 'missing-expected-source-hash'
+                diagnostic_validate = .false.
+                return
+            end if
+            if (trim(diagnostic%span%source_hash) /= trim(expected_source_hash)) then
+                message = 'diagnostic-source-hash-mismatch'
+                diagnostic_validate = .false.
+                return
+            end if
+        end if
+        diagnostic_validate = .true.
+    end function diagnostic_validate
+
+    logical function frontend_validate_diagnostic_table(items, count, message, &
+            expected_source_hash)
+        type(diagnostic_t), intent(in) :: items(:)
+        integer(int64), intent(in) :: count
+        character(len=*), intent(out) :: message
+        character(len=*), intent(in), optional :: expected_source_hash
+
+        integer(int64) :: index
+        character(len=128) :: item_message
+
+        message = ''
+        if (count < 0_int64) then
+            message = 'negative-diagnostic-count'
+            frontend_validate_diagnostic_table = .false.
+            return
+        end if
+        if (count > int(diagnostic_table_capacity, int64)) then
+            message = 'diagnostic-table-capacity-exceeded'
+            frontend_validate_diagnostic_table = .false.
+            return
+        end if
+        if (count > int(size(items), int64)) then
+            message = 'diagnostic-count-exceeds-array'
+            frontend_validate_diagnostic_table = .false.
+            return
+        end if
+
+        do index = 1_int64, count
+            if (present(expected_source_hash)) then
+                if (.not. diagnostic_validate(items(index), item_message, &
+                    expected_source_hash)) then
+                    message = item_message
+                    frontend_validate_diagnostic_table = .false.
+                    return
+                end if
+            else
+                if (.not. diagnostic_validate(items(index), item_message)) then
+                    message = item_message
+                    frontend_validate_diagnostic_table = .false.
+                    return
+                end if
+            end if
+        end do
+        frontend_validate_diagnostic_table = .true.
+    end function frontend_validate_diagnostic_table
+
+    subroutine map_diagnostic_integer_failure(field_name, message)
+        character(len=*), intent(in) :: field_name
+        character(len=*), intent(inout) :: message
+
+        select case (trim(field_name))
+        case ('start-byte')
+            select case (trim(message))
+            case ('negative-diagnostic-count')
+                message = 'negative-diagnostic-start-byte'
+            case ('diagnostic-count-too-large')
+                message = 'diagnostic-start-byte-too-large'
+            case default
+                message = 'malformed-diagnostic-start-byte'
+            end select
+        case ('end-byte')
+            select case (trim(message))
+            case ('negative-diagnostic-count')
+                message = 'negative-diagnostic-end-byte'
+            case ('diagnostic-count-too-large')
+                message = 'diagnostic-end-byte-too-large'
+            case default
+                message = 'malformed-diagnostic-end-byte'
+            end select
+        case default
+            message = 'malformed-diagnostic-byte'
+        end select
+    end subroutine map_diagnostic_integer_failure
 
     subroutine program_unit_to_sx(unit, output, ok, message)
         type(program_unit_t), intent(in) :: unit

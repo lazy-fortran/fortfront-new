@@ -27,3 +27,8 @@ main = "test_program_declaration.f90"
 name = "test_program_unit"
 source-dir = "test"
 main = "test_program_unit.f90"
+
+[[test]]
+name = "test_diagnostic"
+source-dir = "test"
+main = "test_diagnostic.f90"
