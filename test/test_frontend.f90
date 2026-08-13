@@ -6,7 +6,8 @@ program test_frontend
         severity_error, frontend_result_t, standardir_syntax_item_t, &
         frontend_result_to_sx, frontend_validate, program_root_t, &
         frontend_result_to_program_root, standardir_semantic_item_t, &
-        frontend_validate_semantic_item
+        frontend_validate_semantic_item, frontend_result_to_program_root_sx, &
+        program_root_from_sx, program_root_to_sx, program_root_validate
     implicit none
 
     type(frontend_result_t) :: result
@@ -55,6 +56,7 @@ program test_frontend
         'typed program root lost the source file')
     call assert_equal(program_root%span%source_hash, 'hash-positive', &
         'typed program root lost the source hash')
+    call assert_program_root_sx(result, program_root)
 
     call assert_semantic_witness(semantic_item)
     call assert_true(frontend_validate_semantic_item(semantic_item, message), &
@@ -263,6 +265,79 @@ contains
         call assert_true(ok, failure_message)
         call assert_equal(trim(reread), trim(serialized), failure_message)
     end subroutine assert_sx_round_trip
+
+    subroutine assert_program_root_sx(result, expected_root)
+        type(frontend_result_t), intent(in) :: result
+        type(program_root_t), intent(in) :: expected_root
+
+        character(len=512) :: serialized, reread
+        character(len=128) :: message
+        type(program_root_t) :: parsed, mutated
+        logical :: ok
+
+        call frontend_result_to_program_root_sx(result, serialized, ok, message)
+        call assert_true(ok, 'frontend result failed typed-root SX writing')
+        call assert_equal(trim(serialized), &
+            '(program-root (name unit) (span (file unit.f90) '// &
+            '(start-byte 0) (end-byte 16) (source-hash hash-positive)))', &
+            'typed-root SX oracle changed')
+        call program_root_from_sx(serialized, parsed, ok, message)
+        call assert_true(ok, 'typed-root SX reader rejected canonical form')
+        call assert_equal(parsed%name, expected_root%name, &
+            'typed-root SX reader lost the name')
+        call assert_equal(parsed%span%file, expected_root%span%file, &
+            'typed-root SX reader lost the source file')
+        call assert_equal(parsed%span%source_hash, expected_root%span%source_hash, &
+            'typed-root SX reader lost the source hash')
+        call assert_equal_integer(parsed%span%start_byte, &
+            expected_root%span%start_byte, 'typed-root SX reader lost start byte')
+        call assert_equal_integer(parsed%span%end_byte, expected_root%span%end_byte, &
+            'typed-root SX reader lost end byte')
+        call program_root_to_sx(parsed, reread, ok, message)
+        call assert_true(ok, 'typed-root SX writer rejected reread root')
+        call assert_equal(trim(reread), trim(serialized), &
+            'typed-root SX did not round-trip')
+
+        mutated = parsed
+        mutated%name = 'changed'
+        call program_root_to_sx(mutated, reread, ok, message)
+        call assert_true(ok, 'name mutation could not be written')
+        call assert_true(trim(reread) /= trim(serialized), &
+            'name mutation did not change SX')
+        mutated = parsed
+        mutated%span%end_byte = mutated%span%end_byte + 1_int64
+        call program_root_to_sx(mutated, reread, ok, message)
+        call assert_true(ok, 'span mutation could not be written')
+        call assert_true(trim(reread) /= trim(serialized), &
+            'span mutation did not change SX')
+        mutated%span%start_byte = -1_int64
+        ok = program_root_validate(mutated, message)
+        call assert_true(.not. ok, 'negative span mutation was accepted')
+        call assert_equal(message, 'negative-program-root-start-byte', &
+            'negative span mutation reported the wrong failure')
+
+        call assert_invalid_program_root_sx(&
+            '(program-root (name unit) (span (file unit.f90) '// &
+            '(start-byte 0) (end-byte 16) (source-hash hash-positive)) '// &
+            '(extra x)))', 'malformed-program-root')
+        call assert_invalid_program_root_sx(&
+            '(program-root (name unit) (span (file unit.f90) '// &
+            '(start-byte 17) (end-byte 16) (source-hash hash-positive)))', &
+            'invalid-program-root-span')
+    end subroutine assert_program_root_sx
+
+    subroutine assert_invalid_program_root_sx(serialized, expected_message)
+        character(len=*), intent(in) :: serialized, expected_message
+
+        character(len=128) :: message
+        type(program_root_t) :: parsed
+        logical :: ok
+
+        call program_root_from_sx(serialized, parsed, ok, message)
+        call assert_true(.not. ok, 'invalid typed-root SX was accepted')
+        call assert_equal(message, expected_message, &
+            'invalid typed-root SX reported the wrong failure')
+    end subroutine assert_invalid_program_root_sx
 
     subroutine assert_invalid_sx(serialized, expected_message)
         character(len=*), intent(in) :: serialized, expected_message

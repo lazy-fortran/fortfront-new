@@ -71,7 +71,9 @@ module fortfront_frontend
 
     public :: frontend_parse, frontend_read, frontend_result_from_sx, &
         frontend_result_to_sx, frontend_validate, &
-        frontend_result_to_program_root, frontend_validate_semantic_item
+        frontend_result_to_program_root, frontend_result_to_program_root_sx, &
+        frontend_validate_semantic_item, program_root_to_sx, &
+        program_root_from_sx, program_root_validate
 
 contains
 
@@ -155,6 +157,196 @@ contains
         root%span = result%root%span
         message = ''
     end subroutine frontend_result_to_program_root
+
+    subroutine frontend_result_to_program_root_sx(result, output, ok, message)
+        type(frontend_result_t), intent(in) :: result
+        character(len=*), intent(out) :: output
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        type(program_root_t) :: root
+
+        output = ''
+        call frontend_result_to_program_root(result, root, ok, message)
+        if (.not. ok) return
+        call program_root_to_sx(root, output, ok, message)
+    end subroutine frontend_result_to_program_root_sx
+
+    subroutine program_root_to_sx(root, output, ok, message)
+        type(program_root_t), intent(in) :: root
+        character(len=*), intent(out) :: output
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        character(len=1024) :: canonical
+        character(len=32) :: start_byte, end_byte
+
+        output = ''
+        ok = program_root_validate(root, message)
+        if (.not. ok) return
+
+        write (start_byte, '(i0)') root%span%start_byte
+        write (end_byte, '(i0)') root%span%end_byte
+        canonical = '(program-root (name '//trim(root%name)//') '// &
+            '(span (file '//trim(root%span%file)//') (start-byte '// &
+            trim(start_byte)//') (end-byte '//trim(end_byte)//') '// &
+            '(source-hash '//trim(root%span%source_hash)//')))'
+        if (len_trim(canonical) > len(output)) then
+            ok = .false.
+            message = 'sx-output-too-short'
+            return
+        end if
+        output(:len_trim(canonical)) = canonical(:len_trim(canonical))
+        message = ''
+    end subroutine program_root_to_sx
+
+    subroutine program_root_from_sx(input, root, ok, message)
+        character(len=*), intent(in) :: input
+        type(program_root_t), intent(out) :: root
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        character(len=128) :: name, file, source_hash
+        integer(int64) :: start_byte, end_byte
+        integer :: position
+
+        root = program_root_t()
+        name = ''
+        file = ''
+        source_hash = ''
+        start_byte = 0_int64
+        end_byte = 0_int64
+        position = 1
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_text(input, position, '(program-root')) then
+            ok = .false.
+            message = 'malformed-program-root'
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'name', name)) then
+            ok = .false.
+            message = 'malformed-program-root-name'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_character(input, position, '(')) then
+            ok = .false.
+            message = 'malformed-program-root-span'
+            return
+        end if
+        if (.not. consume_sx_text(input, position, 'span')) then
+            ok = .false.
+            message = 'malformed-program-root-span'
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'file', file)) then
+            ok = .false.
+            message = 'malformed-program-root-file'
+            return
+        end if
+        if (.not. consume_sx_integer_field(input, position, 'start-byte', &
+            start_byte, message)) then
+            ok = .false.
+            return
+        end if
+        if (.not. consume_sx_integer_field(input, position, 'end-byte', &
+            end_byte, message)) then
+            ok = .false.
+            return
+        end if
+        if (.not. consume_sx_field(input, position, 'source-hash', source_hash)) then
+            ok = .false.
+            message = 'malformed-program-root-source-hash'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_character(input, position, ')')) then
+            ok = .false.
+            message = 'malformed-program-root-span'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (.not. consume_sx_character(input, position, ')')) then
+            ok = .false.
+            message = 'malformed-program-root'
+            return
+        end if
+        call skip_sx_spaces(input, position)
+        if (position <= len(input)) then
+            ok = .false.
+            message = 'malformed-program-root'
+            return
+        end if
+
+        root%name = name
+        root%span%file = file
+        root%span%start_byte = start_byte
+        root%span%end_byte = end_byte
+        root%span%source_hash = source_hash
+        ok = program_root_validate(root, message)
+    end subroutine program_root_from_sx
+
+    logical function program_root_validate(root, message)
+        type(program_root_t), intent(in) :: root
+        character(len=*), intent(out) :: message
+
+        message = ''
+        if (len_trim(root%name) == 0) then
+            message = 'missing-program-root-name'
+            program_root_validate = .false.
+            return
+        end if
+        if (.not. valid_sx_atom(root%name)) then
+            message = 'invalid-program-root-name'
+            program_root_validate = .false.
+            return
+        end if
+        if (len_trim(root%span%file) == 0) then
+            message = 'missing-program-root-file'
+            program_root_validate = .false.
+            return
+        end if
+        if (.not. valid_sx_atom(root%span%file)) then
+            message = 'invalid-program-root-file'
+            program_root_validate = .false.
+            return
+        end if
+        if (root%span%start_byte < 0_int64) then
+            message = 'negative-program-root-start-byte'
+            program_root_validate = .false.
+            return
+        end if
+        if (root%span%end_byte < root%span%start_byte) then
+            message = 'invalid-program-root-span'
+            program_root_validate = .false.
+            return
+        end if
+        if (len_trim(root%span%source_hash) == 0) then
+            message = 'missing-program-root-source-hash'
+            program_root_validate = .false.
+            return
+        end if
+        if (.not. valid_sx_atom(root%span%source_hash)) then
+            message = 'invalid-program-root-source-hash'
+            program_root_validate = .false.
+            return
+        end if
+        program_root_validate = .true.
+    end function program_root_validate
+
+    logical function valid_sx_atom(value)
+        character(len=*), intent(in) :: value
+
+        integer :: index
+
+        valid_sx_atom = .false.
+        if (len_trim(value) == 0) return
+        do index = 1, len_trim(value)
+            if (value(index:index) == ' ' .or. value(index:index) == '(' .or. &
+                value(index:index) == ')') return
+        end do
+        valid_sx_atom = .true.
+    end function valid_sx_atom
 
     logical function frontend_validate_semantic_item(item, message)
         type(standardir_semantic_item_t), intent(in) :: item
