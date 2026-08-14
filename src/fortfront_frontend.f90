@@ -89,6 +89,7 @@ module fortfront_frontend
         frontend_result_to_sx, frontend_validate, &
         frontend_result_to_program_root, frontend_result_to_program_root_sx, &
         frontend_result_to_program_unit, &
+        frontend_result_to_program_unit_sx, &
         frontend_validate_program_unit_handoff, &
         standardir_syntax_item_to_sx, standardir_syntax_item_from_sx, &
         standardir_syntax_item_validate, &
@@ -477,6 +478,24 @@ contains
         unit%declaration_count = 0_int64
         ok = program_unit_validate(unit, message)
     end subroutine frontend_result_to_program_unit
+
+    subroutine frontend_result_to_program_unit_sx(result, output, ok, message)
+        type(frontend_result_t), intent(in) :: result
+        character(len=*), intent(out) :: output
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        type(program_unit_t) :: unit
+
+        output = ''
+        call frontend_result_to_program_unit(result, unit, ok, message)
+        if (.not. ok) return
+        if (.not. frontend_validate_program_unit_handoff(result, unit, message)) then
+            ok = .false.
+            return
+        end if
+        call program_unit_to_sx(unit, output, ok, message)
+    end subroutine frontend_result_to_program_unit_sx
 
     logical function frontend_validate_program_unit_handoff(result, unit, message)
         type(frontend_result_t), intent(in) :: result

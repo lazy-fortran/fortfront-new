@@ -2,6 +2,7 @@ program test_frontend_result_program_unit
     use, intrinsic :: iso_fortran_env, only: int64
     use fortfront_frontend, only: frontend_accepted, frontend_parse, &
         frontend_read, frontend_rejected, frontend_result_to_program_unit, &
+        frontend_result_to_program_unit_sx, &
         frontend_result_t, frontend_validate_program_unit_handoff, &
         program_unit_t, program_unit_to_sx, program_unit_validate, root_kind_none, &
         root_kind_source, &
@@ -45,6 +46,15 @@ program test_frontend_result_program_unit
         '(start-byte 0) (end-byte 16) (source-hash hash-positive)))) '// &
         '(declaration-count 0) (declarations))', &
         'converted program unit SX changed')
+    call frontend_result_to_program_unit_sx(result, serialized, ok, message)
+    call assert_true(ok, 'frontend result failed program-unit SX handoff')
+    call assert_equal(trim(serialized), &
+        '(program-unit (root (program-root (name unit) (span (file unit.f90) '// &
+        '(start-byte 0) (end-byte 16) (source-hash hash-positive)))) '// &
+        '(declaration-count 0) (declarations))', &
+        'frontend result program-unit SX handoff changed')
+
+    call assert_short_program_unit_sx(result)
 
     unit%root%name = 'other'
     call assert_invalid_handoff(result, unit, 'program-unit-root-name-mismatch')
@@ -67,6 +77,10 @@ program test_frontend_result_program_unit
     call assert_true(.not. ok, 'rejected result became a program unit')
     call assert_equal(message, 'rejected-frontend-result', &
         'rejected result reported the wrong conversion failure')
+    call frontend_result_to_program_unit_sx(result, serialized, ok, message)
+    call assert_true(.not. ok, 'rejected result produced program-unit SX')
+    call assert_equal(message, 'rejected-frontend-result', &
+        'rejected result reported the wrong SX handoff failure')
 
     result = frontend_result_t()
     result%status = frontend_accepted
@@ -137,5 +151,17 @@ contains
         call assert_equal(message, expected_message, &
             'invalid program-unit handoff reported the wrong failure')
     end subroutine assert_invalid_handoff
+
+    subroutine assert_short_program_unit_sx(result)
+        type(frontend_result_t), intent(in) :: result
+
+        character(len=16) :: short_serialized
+        logical :: valid
+
+        call frontend_result_to_program_unit_sx(result, short_serialized, valid, message)
+        call assert_true(.not. valid, 'short program-unit SX output was accepted')
+        call assert_equal(message, 'sx-output-too-short', &
+            'short program-unit SX output reported the wrong failure')
+    end subroutine assert_short_program_unit_sx
 
 end program test_frontend_result_program_unit
