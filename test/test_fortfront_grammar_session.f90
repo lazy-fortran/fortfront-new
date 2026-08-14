@@ -116,13 +116,27 @@ contains
             message)
         call require(status == fortfront_grammar_session_malformed .and. output_count == 0 .and. &
             trim(output(1)%identity) == '', 'malformed token did not clear output')
+
+        call reset_table(table)
+        call add_token_rule(table, 'TRANSACTIONAL', 'S', 'good')
+        call analyze(table, facts, fact_count)
+        call fortfront_grammar_session_initialize(session, table, facts, fact_count, 'S', &
+            init_status, message)
+        call fortfront_grammar_session_push(session, 'bad token', output, output_count, status, &
+            message)
+        call require(status == fortfront_grammar_session_malformed .and. output_count == 0, &
+            'malformed token changed the transactional input')
+        call fortfront_grammar_session_push(session, 'good', output, output_count, status, message)
+        call require(status == fortfront_grammar_session_accepted .and. output_count == 1 .and. &
+            trim(output(1)%identity) == 'TRANSACTIONAL', &
+            'malformed token was committed before valid retry')
     end subroutine test_unresolved_and_malformed
 
     subroutine test_capacity_and_output_clearing()
         type(fortfront_grammar_table_t) :: table
         type(fortfront_grammar_analysis_result_t) :: facts(8)
         type(fortfront_grammar_session_t) :: session
-        type(fortfront_grammar_frontier_result_t) :: output(1)
+        type(fortfront_grammar_frontier_result_t) :: output(8)
         integer :: fact_count, status, output_count, init_status, i
         character(len=256) :: message
 
@@ -138,6 +152,22 @@ contains
         call fortfront_grammar_session_push(session, 'x', output, output_count, status, message)
         call require(status == fortfront_grammar_session_capacity .and. output_count == 0 .and. &
             trim(output(1)%identity) == '', 'token capacity or output clearing failed')
+
+        call reset_table(table)
+        call add_token_rule(table, 'OUTPUT-A', 'S', 'a')
+        call add_token_rule(table, 'OUTPUT-B', 'S', 'a')
+        call analyze(table, facts, fact_count)
+        call fortfront_grammar_session_initialize(session, table, facts, fact_count, 'S', &
+            init_status, message)
+        call fortfront_grammar_session_push(session, 'a', output(1:1), output_count, status, &
+            message)
+        call require(status == fortfront_grammar_session_capacity .and. output_count == 0, &
+            'small output capacity was not reported')
+        call fortfront_grammar_session_push(session, 'a', output, output_count, status, message)
+        call require(status == fortfront_grammar_session_ambiguous .and. output_count == 2 .and. &
+            trim(output(1)%identity) == 'OUTPUT-A' .and. &
+            trim(output(2)%identity) == 'OUTPUT-B', &
+            'capacity failure committed the candidate token')
     end subroutine test_capacity_and_output_clearing
 
     subroutine make_sequence(table)

@@ -125,11 +125,11 @@ contains
             message = 'grammar-session-token-is-malformed: '//trim(frontier_message)
             return
         end if
-        session%input = candidate
-        session%input_count = session%input_count + 1
         call copy_results(candidate_output, candidate_count, frontier_status, output, output_count, &
             status, message)
         if (status == fortfront_grammar_session_capacity) return
+        session%input = candidate
+        session%input_count = session%input_count + 1
         if (len_trim(message) == 0) message = frontier_message
     end subroutine fortfront_grammar_session_push
 
