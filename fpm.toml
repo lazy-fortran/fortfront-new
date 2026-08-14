@@ -29,6 +29,11 @@ source-dir = "test"
 main = "test_frontend_result_program_unit.f90"
 
 [[test]]
+name = "test_frontend_program_unit_query"
+source-dir = "test"
+main = "test_frontend_program_unit_query.f90"
+
+[[test]]
 name = "test_program_declaration"
 source-dir = "test"
 main = "test_program_declaration.f90"

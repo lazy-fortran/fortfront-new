@@ -90,6 +90,7 @@ module fortfront_frontend
         frontend_result_to_program_root, frontend_result_to_program_root_sx, &
         frontend_result_to_program_unit, &
         frontend_result_to_program_unit_sx, &
+        frontend_query_program_unit, &
         frontend_validate_program_unit_handoff, &
         standardir_syntax_item_to_sx, standardir_syntax_item_from_sx, &
         standardir_syntax_item_validate, &
@@ -496,6 +497,41 @@ contains
         end if
         call program_unit_to_sx(unit, output, ok, message)
     end subroutine frontend_result_to_program_unit_sx
+
+    logical function frontend_query_program_unit(result, expected_file, &
+            expected_source_hash, unit, message)
+        type(frontend_result_t), intent(in) :: result
+        character(len=*), intent(in) :: expected_file
+        character(len=*), intent(in) :: expected_source_hash
+        type(program_unit_t), intent(out) :: unit
+        character(len=*), intent(out) :: message
+
+        logical :: ok
+
+        unit = program_unit_t()
+        frontend_query_program_unit = .false.
+        if (.not. frontend_validate(result, message)) return
+        call frontend_result_to_program_unit(result, unit, ok, message)
+        if (.not. ok) return
+        if (len_trim(expected_file) == 0) then
+            message = 'missing-expected-source-file'
+            return
+        end if
+        if (len_trim(expected_source_hash) == 0) then
+            message = 'missing-expected-source-hash'
+            return
+        end if
+        if (trim(unit%root%span%file) /= trim(expected_file)) then
+            message = 'program-unit-source-file-mismatch'
+            return
+        end if
+        if (trim(unit%root%span%source_hash) /= trim(expected_source_hash)) then
+            message = 'program-unit-source-hash-mismatch'
+            return
+        end if
+        message = ''
+        frontend_query_program_unit = .true.
+    end function frontend_query_program_unit
 
     logical function frontend_validate_program_unit_handoff(result, unit, message)
         type(frontend_result_t), intent(in) :: result
