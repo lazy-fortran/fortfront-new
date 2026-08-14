@@ -99,6 +99,7 @@ module fortfront_frontend
         frontend_result_to_program_unit, &
         frontend_result_to_program_unit_sx, &
         frontend_query_program_unit, &
+        frontend_query_program_declaration_at, &
         frontend_query_diagnostic, &
         frontend_query_diagnostic_at, &
         frontend_query_diagnostic_count, &
@@ -545,6 +546,64 @@ contains
         message = ''
         frontend_query_program_unit = .true.
     end function frontend_query_program_unit
+
+    logical function frontend_query_program_declaration_at(result, &
+            declaration_index, expected_file, expected_source_hash, &
+            declaration, message)
+        type(frontend_result_t), intent(in) :: result
+        integer(int64), intent(in) :: declaration_index
+        character(len=*), intent(in) :: expected_file
+        character(len=*), intent(in) :: expected_source_hash
+        type(program_declaration_t), intent(out) :: declaration
+        character(len=*), intent(out) :: message
+
+        type(program_unit_t) :: unit
+        logical :: ok
+
+        declaration = program_declaration_t()
+        frontend_query_program_declaration_at = .false.
+        if (.not. frontend_validate(result, message)) return
+        call frontend_result_to_program_unit(result, unit, ok, message)
+        if (.not. ok) return
+        if (declaration_index < 0_int64) then
+            message = 'negative-program-declaration-index'
+            return
+        end if
+
+        unit%declaration_count = 1_int64
+        unit%declarations(1)%declaration_kind = declaration_kind_program
+        unit%declarations(1)%name = unit%root%name
+        unit%declarations(1)%span = unit%root%span
+        if (.not. frontend_validate_program_unit_handoff(result, unit, message)) then
+            return
+        end if
+        if (declaration_index == 0_int64 .or. &
+            declaration_index > unit%declaration_count) then
+            message = 'program-declaration-index-out-of-range'
+            return
+        end if
+        if (len_trim(expected_file) == 0) then
+            message = 'missing-expected-source-file'
+            return
+        end if
+        if (len_trim(expected_source_hash) == 0) then
+            message = 'missing-expected-source-hash'
+            return
+        end if
+
+        declaration = unit%declarations(declaration_index)
+        if (.not. program_declaration_validate(declaration, message)) return
+        if (trim(declaration%span%file) /= trim(expected_file)) then
+            message = 'program-declaration-source-file-mismatch'
+            return
+        end if
+        if (trim(declaration%span%source_hash) /= trim(expected_source_hash)) then
+            message = 'program-declaration-source-hash-mismatch'
+            return
+        end if
+        message = ''
+        frontend_query_program_declaration_at = .true.
+    end function frontend_query_program_declaration_at
 
     logical function frontend_query_diagnostic(result, expected_file, &
             expected_source_hash, diagnostic, message)
