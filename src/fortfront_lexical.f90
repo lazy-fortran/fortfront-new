@@ -26,6 +26,10 @@ module fortfront_lexical
     integer, parameter, public :: fortfront_lexical_span_unsupported = 6
     integer, parameter, public :: fortfront_lexical_span_ambiguous = 7
     integer, parameter, public :: fortfront_lexical_span_invalid_facts = 8
+    integer, parameter, public :: fortfront_lexical_scan_complete = 0
+    integer, parameter, public :: fortfront_lexical_scan_empty = 1
+    integer, parameter, public :: fortfront_lexical_scan_invalid_facts = 2
+    integer, parameter, public :: fortfront_lexical_scan_capacity = 3
 
     type, public :: fortfront_lexical_fact_t
         character(len=256) :: source_term = ''
@@ -54,11 +58,18 @@ module fortfront_lexical
         type(fortfront_lexical_fact_t) :: fact
     end type fortfront_lexical_span_result_t
 
+    type, public :: fortfront_lexical_scanned_span_t
+        type(fortfront_lexical_span_result_t) :: span
+        integer :: status = fortfront_lexical_span_invalid_bounds
+        character(len=256) :: message = ''
+    end type fortfront_lexical_scanned_span_t
+
     public :: fortfront_lexical_lookup
     public :: fortfront_lexical_reset
     public :: fortfront_lexical_validate
     public :: fortfront_lexical_next_scalar
     public :: fortfront_lexical_classify_span
+    public :: fortfront_lexical_scan
 
 contains
 
@@ -245,6 +256,140 @@ contains
         end do
         status = fortfront_lexical_span_match
     end subroutine fortfront_lexical_classify_span
+
+    subroutine fortfront_lexical_scan(source, facts, output, output_count, status, &
+            message)
+        character(len=*), intent(in) :: source
+        type(fortfront_lexical_facts_t), intent(in) :: facts
+        type(fortfront_lexical_scanned_span_t), intent(out) :: output(:)
+        integer, intent(out) :: output_count
+        integer, intent(out) :: status
+        character(len=*), intent(out) :: message
+
+        integer(int64) :: offset, next_offset, scalar
+        integer :: scalar_status, span_status
+        type(fortfront_lexical_span_result_t) :: classified
+        type(fortfront_lexical_scanned_span_t) :: segment
+        logical :: active, facts_ok, same_segment
+        character(len=256) :: local_message
+
+        output = fortfront_lexical_scanned_span_t()
+        output_count = 0
+        status = fortfront_lexical_scan_complete
+        message = ''
+        active = .false.
+
+        call fortfront_lexical_validate(facts, facts_ok, message)
+        if (.not. facts_ok) then
+            status = fortfront_lexical_scan_invalid_facts
+            return
+        end if
+        if (len(source) == 0) then
+            status = fortfront_lexical_scan_empty
+            message = 'source is empty'
+            return
+        end if
+
+        offset = 0_int64
+        do while (offset < int(len(source), int64))
+            call fortfront_lexical_next_scalar(source, offset, scalar, next_offset, &
+                scalar_status, local_message)
+            if (scalar_status == fortfront_lexical_scalar_ok) then
+                call fortfront_lexical_classify_span(source, offset, next_offset, facts, &
+                    classified, span_status, local_message)
+            else
+                classified = fortfront_lexical_span_result_t()
+                classified%start_byte = offset
+                classified%end_byte = offset + 1_int64
+                span_status = fortfront_lexical_span_invalid_utf8
+                next_offset = offset + 1_int64
+            end if
+            if (span_status /= fortfront_lexical_span_invalid_utf8) then
+                classified%scalar_count = 1
+            end if
+
+            if (active) then
+                same_segment = span_status == segment%status
+                if (span_status == fortfront_lexical_span_match) then
+                    same_segment = same_segment .and. lexical_facts_equal( &
+                        classified%fact, segment%span%fact)
+                end if
+            else
+                same_segment = .false.
+            end if
+            if (same_segment) then
+                segment%span%end_byte = classified%end_byte
+                segment%span%scalar_count = segment%span%scalar_count + &
+                    classified%scalar_count
+            else
+                if (active) then
+                    if (.not. emit_scanned_span(segment, output, output_count, &
+                        message)) then
+                        status = fortfront_lexical_scan_capacity
+                        return
+                    end if
+                end if
+                segment = fortfront_lexical_scanned_span_t()
+                segment%span = classified
+                segment%status = span_status
+                segment%message = local_message
+                active = .true.
+            end if
+            offset = next_offset
+        end do
+
+        if (active) then
+            if (.not. emit_scanned_span(segment, output, output_count, message)) then
+                status = fortfront_lexical_scan_capacity
+                return
+            end if
+        end if
+    contains
+        logical function emit_scanned_span(value, destination, count, diagnostic)
+            type(fortfront_lexical_scanned_span_t), intent(in) :: value
+            type(fortfront_lexical_scanned_span_t), intent(inout) :: destination(:)
+            integer, intent(inout) :: count
+            character(len=*), intent(out) :: diagnostic
+
+            diagnostic = ''
+            if (count >= size(destination)) then
+                diagnostic = 'lexical scan output capacity was exhausted'
+                emit_scanned_span = .false.
+                return
+            end if
+            count = count + 1
+            destination(count) = value
+            emit_scanned_span = .true.
+        end function emit_scanned_span
+
+        logical function lexical_facts_equal(left, right)
+            type(fortfront_lexical_fact_t), intent(in) :: left, right
+
+            lexical_facts_equal = trim(left%source_term) == trim(right%source_term)
+            lexical_facts_equal = lexical_facts_equal .and. &
+                trim(left%class_name) == trim(right%class_name)
+            lexical_facts_equal = lexical_facts_equal .and. &
+                trim(left%target_name) == trim(right%target_name)
+            lexical_facts_equal = lexical_facts_equal .and. &
+                trim(left%source_rule) == trim(right%source_rule)
+            lexical_facts_equal = lexical_facts_equal .and. &
+                trim(left%source_page) == trim(right%source_page)
+            lexical_facts_equal = lexical_facts_equal .and. &
+                trim(left%document) == trim(right%document)
+            lexical_facts_equal = lexical_facts_equal .and. &
+                trim(left%clause) == trim(right%clause)
+            lexical_facts_equal = lexical_facts_equal .and. &
+                trim(left%source_hash) == trim(right%source_hash)
+            lexical_facts_equal = lexical_facts_equal .and. &
+                trim(left%codepoint) == trim(right%codepoint)
+            lexical_facts_equal = lexical_facts_equal .and. &
+                left%range_count == right%range_count
+            lexical_facts_equal = lexical_facts_equal .and. &
+                all(left%range_first == right%range_first)
+            lexical_facts_equal = lexical_facts_equal .and. &
+                all(left%range_last == right%range_last)
+        end function lexical_facts_equal
+    end subroutine fortfront_lexical_scan
 
     subroutine fortfront_lexical_reset(facts)
         type(fortfront_lexical_facts_t), intent(out) :: facts
