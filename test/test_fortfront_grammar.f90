@@ -1,0 +1,158 @@
+program test_fortfront_grammar
+    use, intrinsic :: iso_fortran_env, only: int64
+    use fortfront_grammar, only: fortfront_grammar_add, fortfront_grammar_capacity, &
+        fortfront_grammar_duplicate_identity, fortfront_grammar_invalid_provenance, &
+        fortfront_grammar_malformed, fortfront_grammar_query_lhs, &
+        fortfront_grammar_query_missing, fortfront_grammar_query_table_empty, &
+        fortfront_grammar_rule_capacity, fortfront_grammar_rule_t, &
+        fortfront_grammar_rhs_capacity, fortfront_grammar_symbol_reference, &
+        fortfront_grammar_symbol_token, fortfront_grammar_table_t, &
+        fortfront_grammar_valid, fortfront_grammar_validate_rule, &
+        fortfront_grammar_reset
+    implicit none
+
+    type(fortfront_grammar_table_t) :: table, empty_table
+    type(fortfront_grammar_rule_t) :: rule, duplicate, output(3)
+    integer :: count, status
+    character(len=256) :: message
+
+    call fortfront_grammar_reset(table)
+    call fortfront_grammar_reset(empty_table)
+    call make_rule(rule, 'R2', 'root', 'child', fortfront_grammar_symbol_reference)
+    call require_add(table, rule)
+    call make_rule(rule, 'R1', 'root', 'literal', fortfront_grammar_symbol_token)
+    call require_add(table, rule)
+    call make_rule(rule, 'R3', 'other', 'leaf', fortfront_grammar_symbol_reference)
+    call require_add(table, rule)
+
+    output = fortfront_grammar_rule_t()
+    call fortfront_grammar_query_lhs(table, 'root', output, count, status, message)
+    call require(status == fortfront_grammar_valid, 'lhs query failed')
+    call require(count == 2, 'lhs query returned the wrong count')
+    call require(trim(output(1)%identity) == 'R2' .and. trim(output(2)%identity) == 'R1', &
+        'lhs query did not preserve insertion order')
+    call require(trim(output(1)%rhs(1)%name) == 'child' .and. &
+        output(2)%rhs(1)%kind == fortfront_grammar_symbol_token, &
+        'lhs query changed RHS symbols')
+
+    call fortfront_grammar_query_lhs(table, 'missing', output, count, status, message)
+    call require(status == fortfront_grammar_query_missing .and. count == 0, &
+        'missing lhs status differs')
+    call require(len_trim(output(1)%identity) == 0, 'missing query retained stale output')
+
+    call fortfront_grammar_query_lhs(empty_table, 'root', output, count, status, message)
+    call require(status == fortfront_grammar_query_table_empty .and. count == 0, &
+        'empty table status differs')
+    call require(len_trim(output(1)%identity) == 0, 'empty query retained stale output')
+
+    call make_rule(rule, 'bad-symbol', 'root', ' ', fortfront_grammar_symbol_reference)
+    call fortfront_grammar_validate_rule(rule, status, message)
+    call require(status == fortfront_grammar_malformed, 'malformed symbol was accepted')
+    call fortfront_grammar_add(table, rule, status, message)
+    call require(status == fortfront_grammar_malformed, 'malformed rule was added')
+
+    call make_rule(rule, 'bad-provenance', 'root', 'child', fortfront_grammar_symbol_reference)
+    rule%provenance%source_hash = ''
+    call fortfront_grammar_validate_rule(rule, status, message)
+    call require(status == fortfront_grammar_invalid_provenance, &
+        'invalid provenance was accepted')
+    call fortfront_grammar_add(table, rule, status, message)
+    call require(status == fortfront_grammar_invalid_provenance, &
+        'invalid provenance rule was added')
+
+    call make_rule(duplicate, 'R2', 'different', 'leaf', fortfront_grammar_symbol_token)
+    call fortfront_grammar_add(table, duplicate, status, message)
+    call require(status == fortfront_grammar_duplicate_identity, &
+        'duplicate identity was accepted')
+
+    call make_rule(rule, 'too-many', 'root', 'child', fortfront_grammar_symbol_reference)
+    rule%rhs_count = fortfront_grammar_rhs_capacity + 1
+    call fortfront_grammar_add(table, rule, status, message)
+    call require(status == fortfront_grammar_malformed, 'oversized RHS was accepted')
+
+    call test_query_capacity(table)
+    call test_table_capacity()
+    print '(a)', 'fortfront grammar boundary behavioral checks: ok'
+
+contains
+
+    subroutine make_rule(value, identity, lhs, symbol_name, symbol_kind)
+        type(fortfront_grammar_rule_t), intent(out) :: value
+        character(len=*), intent(in) :: identity, lhs, symbol_name
+        integer, intent(in) :: symbol_kind
+
+        value = fortfront_grammar_rule_t()
+        value%identity = identity
+        value%lhs = lhs
+        value%rhs_count = 1
+        value%rhs(1)%name = symbol_name
+        value%rhs(1)%kind = symbol_kind
+        value%provenance%document = 'constructed-standard'
+        value%provenance%clause = 'constructed-clause'
+        value%provenance%rule = identity
+        value%provenance%page = 1_int64
+        value%provenance%source_hash = 'constructed-hash'
+        value%provenance%start_byte = 4_int64
+        value%provenance%end_byte = 12_int64
+    end subroutine make_rule
+
+    subroutine require_add(value, item)
+        type(fortfront_grammar_table_t), intent(inout) :: value
+        type(fortfront_grammar_rule_t), intent(in) :: item
+
+        call fortfront_grammar_add(value, item, status, message)
+        call require(status == fortfront_grammar_valid, &
+            'valid constructed rule was rejected: '//trim(message))
+    end subroutine require_add
+
+    subroutine test_query_capacity(value)
+        type(fortfront_grammar_table_t), intent(in) :: value
+
+        type(fortfront_grammar_rule_t) :: small_output(1)
+        integer :: local_count, local_status
+        character(len=256) :: local_message
+
+        small_output(1)%identity = 'stale'
+        call fortfront_grammar_query_lhs(value, 'root', small_output, local_count, &
+            local_status, local_message)
+        call require(local_status == fortfront_grammar_capacity .and. local_count == 1, &
+            'query output capacity was not reported')
+        call require(trim(small_output(1)%identity) == 'R2', &
+            'query capacity changed the valid prefix')
+    end subroutine test_query_capacity
+
+    subroutine test_table_capacity()
+        type(fortfront_grammar_table_t) :: full_table
+        type(fortfront_grammar_rule_t) :: item
+        integer :: i, local_status
+        character(len=256) :: local_message
+
+        call fortfront_grammar_reset(full_table)
+        do i = 1, fortfront_grammar_rule_capacity
+            call make_rule(item, 'ID-'//integer_text(i), 'lhs', 'symbol', &
+                fortfront_grammar_symbol_reference)
+            call fortfront_grammar_add(full_table, item, local_status, local_message)
+            call require(local_status == fortfront_grammar_valid, &
+                'table capacity fixture could not be filled')
+        end do
+        call make_rule(item, 'overflow', 'lhs', 'symbol', fortfront_grammar_symbol_reference)
+        call fortfront_grammar_add(full_table, item, local_status, local_message)
+        call require(local_status == fortfront_grammar_capacity, &
+            'table capacity was not reported')
+    end subroutine test_table_capacity
+
+    function integer_text(value) result(text)
+        integer, intent(in) :: value
+        character(len=8) :: text
+
+        write (text, '(i0)') value
+    end function integer_text
+
+    subroutine require(condition, failure)
+        logical, intent(in) :: condition
+        character(len=*), intent(in) :: failure
+
+        if (.not. condition) error stop failure
+    end subroutine require
+
+end program test_fortfront_grammar

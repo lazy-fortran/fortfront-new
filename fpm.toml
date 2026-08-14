@@ -102,3 +102,8 @@ main = "test_fortfront_lexical.f90"
 name = "test_fortfront_lexical_scan"
 source-dir = "test"
 main = "test_fortfront_lexical_scan.f90"
+
+[[test]]
+name = "test_fortfront_grammar"
+source-dir = "test"
+main = "test_fortfront_grammar.f90"
