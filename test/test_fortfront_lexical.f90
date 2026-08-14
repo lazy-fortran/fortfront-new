@@ -12,7 +12,8 @@ program test_fortfront_lexical
         fortfront_lexical_classify_span, fortfront_lexical_span_result_t, &
         fortfront_lexical_scalar_ok, fortfront_lexical_scalar_end, &
         fortfront_lexical_scalar_invalid_utf8, fortfront_lexical_span_match, &
-        fortfront_lexical_span_invalid_utf8, fortfront_lexical_span_mixed_facts
+        fortfront_lexical_span_invalid_utf8, fortfront_lexical_span_mixed_facts, &
+        fortfront_lexical_span_no_match, fortfront_lexical_span_unsupported
     implicit none
 
     type(fortfront_lexical_facts_t) :: facts
@@ -83,7 +84,7 @@ program test_fortfront_lexical
 contains
 
     subroutine test_source_scalars(facts)
-        type(fortfront_lexical_facts_t), intent(in) :: facts
+        type(fortfront_lexical_facts_t), intent(inout) :: facts
 
         character(len=3) :: source
         character(len=3) :: invalid_source
@@ -151,6 +152,20 @@ contains
             status, message)
         call require(status == fortfront_lexical_scalar_invalid_utf8, &
             'overlong UTF-8 was accepted')
+
+        facts%count = 2
+        source = achar(95)//' '
+        call fortfront_lexical_classify_span(source, 0_int64, 1_int64, facts, span, &
+            status, message)
+        call require(status == fortfront_lexical_span_no_match, &
+            'span no-match status was not explicit')
+
+        call make_facts(facts)
+        source = achar(32)//' '
+        call fortfront_lexical_classify_span(source, 0_int64, 1_int64, facts, span, &
+            status, message)
+        call require(status == fortfront_lexical_span_unsupported, &
+            'span unsupported status was not explicit')
     end subroutine test_source_scalars
 
     subroutine make_facts(output)

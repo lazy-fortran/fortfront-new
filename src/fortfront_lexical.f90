@@ -22,6 +22,10 @@ module fortfront_lexical
     integer, parameter, public :: fortfront_lexical_span_invalid_utf8 = 2
     integer, parameter, public :: fortfront_lexical_span_invalid_bounds = 3
     integer, parameter, public :: fortfront_lexical_span_mixed_facts = 4
+    integer, parameter, public :: fortfront_lexical_span_no_match = 5
+    integer, parameter, public :: fortfront_lexical_span_unsupported = 6
+    integer, parameter, public :: fortfront_lexical_span_ambiguous = 7
+    integer, parameter, public :: fortfront_lexical_span_invalid_facts = 8
 
     type, public :: fortfront_lexical_fact_t
         character(len=256) :: source_term = ''
@@ -185,7 +189,7 @@ contains
         end if
         call fortfront_lexical_validate(facts, facts_ok, message)
         if (.not. facts_ok) then
-            status = fortfront_lexical_lookup_invalid_facts
+            status = fortfront_lexical_span_invalid_facts
             return
         end if
 
@@ -213,7 +217,16 @@ contains
                 result = fortfront_lexical_span_result_t()
                 result%start_byte = start_byte
                 result%end_byte = end_byte
-                status = lookup_status
+                select case (lookup_status)
+                case (fortfront_lexical_lookup_no_match)
+                    status = fortfront_lexical_span_no_match
+                case (fortfront_lexical_lookup_unsupported)
+                    status = fortfront_lexical_span_unsupported
+                case (fortfront_lexical_lookup_ambiguous)
+                    status = fortfront_lexical_span_ambiguous
+                case default
+                    status = fortfront_lexical_span_invalid_facts
+                end select
                 return
             end if
             if (result%scalar_count == 0) then
