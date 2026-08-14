@@ -8,7 +8,11 @@ program test_fortfront_lexical
         fortfront_lexical_lookup_invalid_facts, &
         fortfront_lexical_lookup_match, fortfront_lexical_lookup_no_match, &
         fortfront_lexical_lookup_unsupported, fortfront_lexical_reset, &
-        fortfront_lexical_validate
+        fortfront_lexical_validate, fortfront_lexical_next_scalar, &
+        fortfront_lexical_classify_span, fortfront_lexical_span_result_t, &
+        fortfront_lexical_scalar_ok, fortfront_lexical_scalar_end, &
+        fortfront_lexical_scalar_invalid_utf8, fortfront_lexical_span_match, &
+        fortfront_lexical_span_invalid_utf8, fortfront_lexical_span_mixed_facts
     implicit none
 
     type(fortfront_lexical_facts_t) :: facts
@@ -71,9 +75,83 @@ program test_fortfront_lexical
     call require(len_trim(result%target_name) == 0, &
         'invalid-facts lookup retained a stale result')
 
+    call make_facts(facts)
+    call test_source_scalars(facts)
+
     print '(a)', 'fortfront lexical fact behavioral checks: ok'
 
 contains
+
+    subroutine test_source_scalars(facts)
+        type(fortfront_lexical_facts_t), intent(in) :: facts
+
+        character(len=3) :: source
+        character(len=3) :: invalid_source
+        integer(int64) :: scalar, next_offset
+        integer :: status
+        character(len=256) :: message
+        type(fortfront_lexical_span_result_t) :: span
+
+        source = achar(65)//achar(206)//achar(177)
+        call fortfront_lexical_next_scalar(source, 0_int64, scalar, next_offset, &
+            status, message)
+        call require(status == fortfront_lexical_scalar_ok, &
+            'ASCII scalar iteration failed')
+        call require(scalar == 65_int64 .and. next_offset == 1_int64, &
+            'ASCII scalar span differs')
+        call fortfront_lexical_next_scalar(source, next_offset, scalar, next_offset, &
+            status, message)
+        call require(status == fortfront_lexical_scalar_ok, &
+            'multibyte scalar iteration failed')
+        call require(scalar == 945_int64 .and. next_offset == 3_int64, &
+            'multibyte scalar span differs')
+        call fortfront_lexical_next_scalar(source, next_offset, scalar, next_offset, &
+            status, message)
+        call require(status == fortfront_lexical_scalar_end, &
+            'end-of-source status differs')
+
+        call fortfront_lexical_classify_span(source, 0_int64, 1_int64, facts, span, &
+            status, message)
+        call require(status == fortfront_lexical_span_match, &
+            'ASCII span classification failed')
+        call require(span%scalar_count == 1 .and. span%start_byte == 0_int64 .and. &
+            span%end_byte == 1_int64, 'ASCII span metadata differs')
+        call require(trim(span%fact%target_name) == 'TARGET_RANGE', &
+            'ASCII span provenance fact differs')
+
+        call fortfront_lexical_classify_span(source, 1_int64, 3_int64, facts, span, &
+            status, message)
+        call require(status == fortfront_lexical_span_match, &
+            'multibyte span classification failed')
+        call require(span%scalar_count == 1 .and. trim(span%fact%target_name) == &
+            'TARGET_EXACT', 'multibyte span fact differs')
+
+        call fortfront_lexical_classify_span(source, 0_int64, 3_int64, facts, span, &
+            status, message)
+        call require(status == fortfront_lexical_span_mixed_facts, &
+            'mixed lexical facts were not rejected')
+        call require(span%scalar_count == 0, 'mixed span retained stale result')
+
+        call fortfront_lexical_classify_span(source, 0_int64, 2_int64, facts, span, &
+            status, message)
+        call require(status == fortfront_lexical_span_invalid_utf8, &
+            'partial UTF-8 span was accepted')
+
+        invalid_source = achar(192)//achar(128)//achar(128)
+        call fortfront_lexical_next_scalar(invalid_source, 0_int64, scalar, next_offset, &
+            status, message)
+        call require(status == fortfront_lexical_scalar_invalid_utf8, &
+            'invalid UTF-8 was accepted')
+        call fortfront_lexical_classify_span(invalid_source, 0_int64, 3_int64, facts, &
+            span, status, message)
+        call require(status == fortfront_lexical_span_invalid_utf8, &
+            'invalid UTF-8 span was accepted')
+        invalid_source = achar(224)//achar(128)//achar(128)
+        call fortfront_lexical_next_scalar(invalid_source, 0_int64, scalar, next_offset, &
+            status, message)
+        call require(status == fortfront_lexical_scalar_invalid_utf8, &
+            'overlong UTF-8 was accepted')
+    end subroutine test_source_scalars
 
     subroutine make_facts(output)
         type(fortfront_lexical_facts_t), intent(out) :: output

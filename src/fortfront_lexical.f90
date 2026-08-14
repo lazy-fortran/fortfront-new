@@ -13,6 +13,15 @@ module fortfront_lexical
     integer, parameter, public :: fortfront_lexical_lookup_ambiguous = 3
     integer, parameter, public :: fortfront_lexical_lookup_invalid_scalar = 4
     integer, parameter, public :: fortfront_lexical_lookup_invalid_facts = 5
+    integer, parameter, public :: fortfront_lexical_scalar_ok = 0
+    integer, parameter, public :: fortfront_lexical_scalar_end = 1
+    integer, parameter, public :: fortfront_lexical_scalar_invalid_utf8 = 2
+    integer, parameter, public :: fortfront_lexical_scalar_invalid_offset = 3
+    integer, parameter, public :: fortfront_lexical_span_match = 0
+    integer, parameter, public :: fortfront_lexical_span_empty = 1
+    integer, parameter, public :: fortfront_lexical_span_invalid_utf8 = 2
+    integer, parameter, public :: fortfront_lexical_span_invalid_bounds = 3
+    integer, parameter, public :: fortfront_lexical_span_mixed_facts = 4
 
     type, public :: fortfront_lexical_fact_t
         character(len=256) :: source_term = ''
@@ -34,11 +43,195 @@ module fortfront_lexical
         type(fortfront_lexical_fact_t) :: facts(fortfront_max_lexical_facts)
     end type fortfront_lexical_facts_t
 
+    type, public :: fortfront_lexical_span_result_t
+        integer(int64) :: start_byte = 0_int64
+        integer(int64) :: end_byte = 0_int64
+        integer :: scalar_count = 0
+        type(fortfront_lexical_fact_t) :: fact
+    end type fortfront_lexical_span_result_t
+
     public :: fortfront_lexical_lookup
     public :: fortfront_lexical_reset
     public :: fortfront_lexical_validate
+    public :: fortfront_lexical_next_scalar
+    public :: fortfront_lexical_classify_span
 
 contains
+
+    subroutine fortfront_lexical_next_scalar(source, byte_offset, scalar, &
+            next_byte_offset, status, message)
+        character(len=*), intent(in) :: source
+        integer(int64), intent(in) :: byte_offset
+        integer(int64), intent(out) :: scalar
+        integer(int64), intent(out) :: next_byte_offset
+        integer, intent(out) :: status
+        character(len=*), intent(out) :: message
+
+        integer :: first, width, i, byte_value, continuation
+        integer(int64) :: value
+
+        scalar = 0_int64
+        next_byte_offset = byte_offset
+        status = fortfront_lexical_scalar_invalid_offset
+        message = ''
+        if (byte_offset < 0_int64 .or. byte_offset > int(len(source), int64)) then
+            message = 'UTF-8 scalar offset is outside source bounds'
+            return
+        end if
+        if (byte_offset == int(len(source), int64)) then
+            status = fortfront_lexical_scalar_end
+            message = 'end of source'
+            return
+        end if
+
+        first = int(byte_offset) + 1
+        byte_value = iachar(source(first:first))
+        if (byte_value < 128) then
+            scalar = int(byte_value, int64)
+            next_byte_offset = byte_offset + 1_int64
+            status = fortfront_lexical_scalar_ok
+            return
+        end if
+        if (byte_value >= 194 .and. byte_value <= 223) then
+            width = 2
+            value = int(byte_value - 192, int64)
+        else if (byte_value >= 224 .and. byte_value <= 239) then
+            width = 3
+            value = int(byte_value - 224, int64)
+        else if (byte_value >= 240 .and. byte_value <= 244) then
+            width = 4
+            value = int(byte_value - 240, int64)
+        else
+            message = 'invalid UTF-8 leading byte'
+            status = fortfront_lexical_scalar_invalid_utf8
+            return
+        end if
+
+        if (byte_offset + int(width, int64) > int(len(source), int64)) then
+            message = 'truncated UTF-8 scalar'
+            status = fortfront_lexical_scalar_invalid_utf8
+            return
+        end if
+        do i = 2, width
+            continuation = iachar(source(first + i - 1:first + i - 1))
+            if (continuation < 128) then
+                message = 'invalid UTF-8 continuation byte'
+                status = fortfront_lexical_scalar_invalid_utf8
+                return
+            end if
+            if (continuation > 191) then
+                message = 'invalid UTF-8 continuation byte'
+                status = fortfront_lexical_scalar_invalid_utf8
+                return
+            end if
+            value = value * 64_int64 + int(continuation - 128, int64)
+        end do
+        if (width == 2 .and. value < 128_int64) then
+            message = 'UTF-8 sequence is overlong'
+            status = fortfront_lexical_scalar_invalid_utf8
+            return
+        end if
+        if (width == 3 .and. value < 2048_int64) then
+            message = 'UTF-8 sequence is overlong'
+            status = fortfront_lexical_scalar_invalid_utf8
+            return
+        end if
+        if (width == 4 .and. value < 65536_int64) then
+            message = 'UTF-8 sequence is overlong'
+            status = fortfront_lexical_scalar_invalid_utf8
+            return
+        end if
+        if (.not. is_unicode_scalar(value)) then
+            message = 'UTF-8 sequence is not a Unicode scalar'
+            status = fortfront_lexical_scalar_invalid_utf8
+            return
+        end if
+        scalar = value
+        next_byte_offset = byte_offset + int(width, int64)
+        status = fortfront_lexical_scalar_ok
+    end subroutine fortfront_lexical_next_scalar
+
+    subroutine fortfront_lexical_classify_span(source, start_byte, end_byte, facts, &
+            result, status, message)
+        character(len=*), intent(in) :: source
+        integer(int64), intent(in) :: start_byte, end_byte
+        type(fortfront_lexical_facts_t), intent(in) :: facts
+        type(fortfront_lexical_span_result_t), intent(out) :: result
+        integer, intent(out) :: status
+        character(len=*), intent(out) :: message
+
+        integer(int64) :: offset, next_offset, scalar
+        integer :: scalar_status, lookup_status
+        type(fortfront_lexical_fact_t) :: candidate
+        logical :: facts_ok
+
+        result = fortfront_lexical_span_result_t()
+        result%start_byte = start_byte
+        result%end_byte = end_byte
+        status = fortfront_lexical_span_invalid_bounds
+        message = ''
+        if (start_byte < 0_int64 .or. end_byte < start_byte) then
+            message = 'lexical span bounds are invalid'
+            return
+        end if
+        if (end_byte > int(len(source), int64)) then
+            message = 'lexical span exceeds source bounds'
+            return
+        end if
+        if (start_byte == end_byte) then
+            status = fortfront_lexical_span_empty
+            message = 'lexical span is empty'
+            return
+        end if
+        call fortfront_lexical_validate(facts, facts_ok, message)
+        if (.not. facts_ok) then
+            status = fortfront_lexical_lookup_invalid_facts
+            return
+        end if
+
+        offset = start_byte
+        do while (offset < end_byte)
+            call fortfront_lexical_next_scalar(source, offset, scalar, next_offset, &
+                scalar_status, message)
+            if (scalar_status /= fortfront_lexical_scalar_ok) then
+                result = fortfront_lexical_span_result_t()
+                result%start_byte = start_byte
+                result%end_byte = end_byte
+                status = fortfront_lexical_span_invalid_utf8
+                return
+            end if
+            if (next_offset > end_byte) then
+                result = fortfront_lexical_span_result_t()
+                result%start_byte = start_byte
+                result%end_byte = end_byte
+                status = fortfront_lexical_span_invalid_utf8
+                message = 'lexical span ends inside a UTF-8 scalar'
+                return
+            end if
+            call fortfront_lexical_lookup(facts, scalar, candidate, lookup_status, message)
+            if (lookup_status /= fortfront_lexical_lookup_match) then
+                result = fortfront_lexical_span_result_t()
+                result%start_byte = start_byte
+                result%end_byte = end_byte
+                status = lookup_status
+                return
+            end if
+            if (result%scalar_count == 0) then
+                result%fact = candidate
+            else if (result%fact%target_name /= candidate%target_name .or. &
+                    result%fact%class_name /= candidate%class_name) then
+                result = fortfront_lexical_span_result_t()
+                result%start_byte = start_byte
+                result%end_byte = end_byte
+                status = fortfront_lexical_span_mixed_facts
+                message = 'lexical span contains different facts'
+                return
+            end if
+            result%scalar_count = result%scalar_count + 1
+            offset = next_offset
+        end do
+        status = fortfront_lexical_span_match
+    end subroutine fortfront_lexical_classify_span
 
     subroutine fortfront_lexical_reset(facts)
         type(fortfront_lexical_facts_t), intent(out) :: facts
