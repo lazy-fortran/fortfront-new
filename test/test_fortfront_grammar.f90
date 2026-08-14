@@ -2,17 +2,21 @@ program test_fortfront_grammar
     use, intrinsic :: iso_fortran_env, only: int64
     use fortfront_grammar, only: fortfront_grammar_add, fortfront_grammar_capacity, &
         fortfront_grammar_duplicate_identity, fortfront_grammar_invalid_provenance, &
+        fortfront_grammar_match_kind_mismatch, fortfront_grammar_match_length_mismatch, &
+        fortfront_grammar_match_malformed_input, fortfront_grammar_match_malformed_rule, &
+        fortfront_grammar_match_name_mismatch, fortfront_grammar_match_rule, &
         fortfront_grammar_malformed, fortfront_grammar_query_lhs, &
         fortfront_grammar_query_missing, fortfront_grammar_query_table_empty, &
         fortfront_grammar_rule_capacity, fortfront_grammar_rule_t, &
         fortfront_grammar_rhs_capacity, fortfront_grammar_symbol_reference, &
-        fortfront_grammar_symbol_token, fortfront_grammar_table_t, &
+        fortfront_grammar_symbol_t, fortfront_grammar_symbol_token, fortfront_grammar_table_t, &
         fortfront_grammar_valid, fortfront_grammar_validate_rule, &
         fortfront_grammar_reset
     implicit none
 
     type(fortfront_grammar_table_t) :: table, empty_table
-    type(fortfront_grammar_rule_t) :: rule, duplicate, output(3)
+    type(fortfront_grammar_rule_t) :: rule, duplicate, output(3), matched
+    type(fortfront_grammar_symbol_t) :: input(3)
     integer :: count, status
     character(len=256) :: message
 
@@ -72,6 +76,7 @@ program test_fortfront_grammar
 
     call test_query_capacity(table)
     call test_table_capacity()
+    call test_rhs_matching(rule, matched, input)
     print '(a)', 'fortfront grammar boundary behavioral checks: ok'
 
 contains
@@ -140,6 +145,67 @@ contains
         call require(local_status == fortfront_grammar_capacity, &
             'table capacity was not reported')
     end subroutine test_table_capacity
+
+    subroutine test_rhs_matching(value, result, symbols)
+        type(fortfront_grammar_rule_t), intent(out) :: value
+        type(fortfront_grammar_rule_t), intent(out) :: result
+        type(fortfront_grammar_symbol_t), intent(out) :: symbols(:)
+
+        type(fortfront_grammar_rule_t) :: invalid_rule
+        integer :: local_status
+        character(len=256) :: local_message
+
+        call make_rule(value, 'MATCH', 'root', 'child', fortfront_grammar_symbol_reference)
+        value%rhs_count = 2
+        value%rhs(2)%name = 'literal'
+        value%rhs(2)%kind = fortfront_grammar_symbol_token
+        symbols = fortfront_grammar_symbol_t()
+        symbols(1) = value%rhs(1)
+        symbols(2) = value%rhs(2)
+        result%identity = 'stale'
+        call fortfront_grammar_match_rule(value, symbols, 2, result, local_status, &
+            local_message)
+        call require(local_status == fortfront_grammar_valid, 'valid RHS did not match')
+        call require(trim(result%identity) == 'MATCH' .and. &
+            trim(result%provenance%rule) == 'MATCH', 'match did not preserve provenance')
+
+        symbols(2)%name = 'other'
+        call fortfront_grammar_match_rule(value, symbols, 2, result, local_status, &
+            local_message)
+        call require(local_status == fortfront_grammar_match_name_mismatch .and. &
+            len_trim(result%identity) == 0, 'name mismatch was not reported or cleared')
+
+        symbols(2)%name = value%rhs(2)%name
+        symbols(2)%kind = fortfront_grammar_symbol_reference
+        call fortfront_grammar_match_rule(value, symbols, 2, result, local_status, &
+            local_message)
+        call require(local_status == fortfront_grammar_match_kind_mismatch .and. &
+            len_trim(result%identity) == 0, 'kind mismatch was not reported or cleared')
+
+        call fortfront_grammar_match_rule(value, symbols, 1, result, local_status, &
+            local_message)
+        call require(local_status == fortfront_grammar_match_length_mismatch .and. &
+            len_trim(result%identity) == 0, 'length mismatch was not reported or cleared')
+
+        symbols(1)%name = ' '
+        call fortfront_grammar_match_rule(value, symbols, 2, result, local_status, &
+            local_message)
+        call require(local_status == fortfront_grammar_match_malformed_input .and. &
+            len_trim(result%identity) == 0, 'malformed input was not reported or cleared')
+
+        invalid_rule = value
+        invalid_rule%identity = ' '
+        symbols(1) = value%rhs(1)
+        call fortfront_grammar_match_rule(invalid_rule, symbols, 2, result, local_status, &
+            local_message)
+        call require(local_status == fortfront_grammar_match_malformed_rule .and. &
+            len_trim(result%identity) == 0, 'malformed rule was not reported or cleared')
+
+        call fortfront_grammar_match_rule(value, symbols, 4, result, local_status, &
+            local_message)
+        call require(local_status == fortfront_grammar_match_malformed_input .and. &
+            len_trim(result%identity) == 0, 'input capacity was not reported or cleared')
+    end subroutine test_rhs_matching
 
     function integer_text(value) result(text)
         integer, intent(in) :: value

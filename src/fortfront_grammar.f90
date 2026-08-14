@@ -18,6 +18,11 @@ module fortfront_grammar
     integer, parameter, public :: fortfront_grammar_query_empty = 5
     integer, parameter, public :: fortfront_grammar_query_table_empty = 6
     integer, parameter, public :: fortfront_grammar_query_missing = 7
+    integer, parameter, public :: fortfront_grammar_match_malformed_rule = 8
+    integer, parameter, public :: fortfront_grammar_match_malformed_input = 9
+    integer, parameter, public :: fortfront_grammar_match_length_mismatch = 10
+    integer, parameter, public :: fortfront_grammar_match_name_mismatch = 11
+    integer, parameter, public :: fortfront_grammar_match_kind_mismatch = 12
 
     type, public :: fortfront_grammar_symbol_t
         character(len=128) :: name = ''
@@ -48,6 +53,7 @@ module fortfront_grammar
     end type fortfront_grammar_table_t
 
     public :: fortfront_grammar_add
+    public :: fortfront_grammar_match_rule
     public :: fortfront_grammar_query_lhs
     public :: fortfront_grammar_reset
     public :: fortfront_grammar_validate_rule
@@ -141,6 +147,59 @@ contains
         status = fortfront_grammar_valid
     end subroutine fortfront_grammar_add
 
+    subroutine fortfront_grammar_match_rule(rule, input, input_count, matched_rule, &
+            status, message)
+        type(fortfront_grammar_rule_t), intent(in) :: rule
+        type(fortfront_grammar_symbol_t), intent(in) :: input(:)
+        integer, intent(in) :: input_count
+        type(fortfront_grammar_rule_t), intent(out) :: matched_rule
+        integer, intent(out) :: status
+        character(len=*), intent(out) :: message
+
+        integer :: i, rule_status
+        character(len=256) :: rule_message
+
+        matched_rule = fortfront_grammar_rule_t()
+        status = fortfront_grammar_match_malformed_rule
+        message = ''
+        call fortfront_grammar_validate_rule(rule, rule_status, rule_message)
+        if (rule_status /= fortfront_grammar_valid) then
+            message = 'grammar-rule-is-invalid-for-matching'
+            return
+        end if
+        if (input_count < 0 .or. input_count > size(input)) then
+            status = fortfront_grammar_match_malformed_input
+            message = 'grammar-input-count-is-out-of-range'
+            return
+        end if
+        do i = 1, input_count
+            if (.not. valid_input_symbol(input(i))) then
+                status = fortfront_grammar_match_malformed_input
+                message = 'grammar-input-symbol-is-malformed'
+                return
+            end if
+        end do
+        if (input_count /= rule%rhs_count) then
+            status = fortfront_grammar_match_length_mismatch
+            message = 'grammar-rule-and-input-lengths-differ'
+            return
+        end if
+        do i = 1, rule%rhs_count
+            if (input(i)%kind /= rule%rhs(i)%kind) then
+                status = fortfront_grammar_match_kind_mismatch
+                message = 'grammar-input-symbol-kind-does-not-match'
+                return
+            end if
+            if (trim(input(i)%name) /= trim(rule%rhs(i)%name)) then
+                status = fortfront_grammar_match_name_mismatch
+                message = 'grammar-input-symbol-name-does-not-match'
+                return
+            end if
+        end do
+        matched_rule = rule
+        status = fortfront_grammar_valid
+    end subroutine fortfront_grammar_match_rule
+
     subroutine fortfront_grammar_query_lhs(table, lhs, output, output_count, status, &
             message)
         type(fortfront_grammar_table_t), intent(in) :: table
@@ -233,5 +292,14 @@ contains
             end if
         end do
     end function valid_atom
+
+    logical function valid_input_symbol(value)
+        type(fortfront_grammar_symbol_t), intent(in) :: value
+
+        valid_input_symbol = valid_atom(value%name)
+        if (.not. valid_input_symbol) return
+        valid_input_symbol = value%kind == fortfront_grammar_symbol_reference .or. &
+            value%kind == fortfront_grammar_symbol_token
+    end function valid_input_symbol
 
 end module fortfront_grammar
