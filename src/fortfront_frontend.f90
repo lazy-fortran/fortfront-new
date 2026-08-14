@@ -1,4 +1,10 @@
 module fortfront_frontend
+    use frontend_ast_v0_generated, only: generated_source_span_t => source_span_t, &
+        generated_program_root_t => program_root_t, &
+        generated_program_declaration_t => program_declaration_t, &
+        generated_program_unit_t => program_unit_t, &
+        generated_program_unit_to_sx => program_unit_to_sx, &
+        generated_program_unit_validate => program_unit_validate
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
     private
@@ -116,9 +122,30 @@ module fortfront_frontend
         program_root_from_sx, program_root_validate, &
         program_declaration_to_sx, program_declaration_from_sx, &
         program_declaration_validate, program_unit_to_sx, &
-        program_unit_from_sx, program_unit_validate
+        program_unit_from_sx, program_unit_validate, &
+        generated_source_span_t, generated_program_root_t, &
+        generated_program_declaration_t, generated_program_unit_t, &
+        frontend_generated_program_unit_to_sx, &
+        frontend_validate_generated_program_unit
 
 contains
+
+    subroutine frontend_generated_program_unit_to_sx(unit, output, ok, message)
+        type(generated_program_unit_t), intent(in) :: unit
+        character(len=*), intent(out) :: output
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        call generated_program_unit_to_sx(unit, output, ok, message)
+    end subroutine frontend_generated_program_unit_to_sx
+
+    logical function frontend_validate_generated_program_unit(unit, message)
+        type(generated_program_unit_t), intent(in) :: unit
+        character(len=*), intent(out) :: message
+
+        frontend_validate_generated_program_unit = &
+            generated_program_unit_validate(unit, message)
+    end function frontend_validate_generated_program_unit
 
     subroutine frontend_read(file_name, source, source_hash, result)
         character(len=*), intent(in) :: file_name
