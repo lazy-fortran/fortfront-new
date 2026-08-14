@@ -141,10 +141,17 @@ def emit_publics(records: list[dict]) -> list[str]:
     names += [
         "generated_ast_to_sx",
         "generated_ast_validate",
+        "generated_ast_visit",
+        "generated_ast_visitor_t",
     ]
     for item in records:
         base = fort_name(item["name"])
-        names += [f"{base}_to_sx", f"{base}_validate"]
+        names += [
+            f"{base}_to_sx",
+            f"{base}_validate",
+            f"generated_ast_{base}_callback",
+            f"generated_ast_visit_{base}",
+        ]
     lines = ["    public :: " + names[0]]
     for name in names[1:]:
         lines.append("    public :: " + name)
@@ -165,6 +172,28 @@ def emit_types(records: list[dict]) -> list[str]:
                 declaration = f"type({record_type(field_type)}) :: {component}"
             lines.append("        " + declaration)
         lines += [f"    end type {record_type(item['name'])}", ""]
+    return lines
+
+
+def emit_visitor_interfaces(records: list[dict]) -> list[str]:
+    lines = ["    abstract interface"]
+    for item in records:
+        base = fort_name(item["name"])
+        lines += [
+            f"        subroutine generated_ast_{base}_callback(value)",
+            f"            import {record_type(item['name'])}",
+            f"            type({record_type(item['name'])}), intent(in) :: value",
+            f"        end subroutine generated_ast_{base}_callback",
+            "",
+        ]
+    lines += ["    end interface", "", "    type, public :: generated_ast_visitor_t"]
+    for item in records:
+        base = fort_name(item["name"])
+        lines.append(
+            f"        procedure(generated_ast_{base}_callback), pointer, nopass :: "
+            f"visit_{base} => null()"
+        )
+    lines += ["    end type generated_ast_visitor_t", ""]
     return lines
 
 
@@ -305,6 +334,23 @@ def emit_public_serializers(records: list[dict]) -> list[str]:
 
 def emit_dispatch(records: list[dict]) -> list[str]:
     lines = [
+        "    subroutine generated_ast_visit(value, visitor)",
+        "        class(*), intent(in) :: value",
+        "        class(generated_ast_visitor_t), intent(inout) :: visitor",
+        "",
+        "        select type (value)",
+    ]
+    for item in records:
+        lines += [
+            f"            type is ({record_type(item['name'])})",
+            f"            call generated_ast_visit_{fort_name(item['name'])}(value, visitor)",
+        ]
+    lines += [
+        "        class default",
+        "            error stop 'unsupported-generated-record-visitor'",
+        "        end select",
+        "    end subroutine generated_ast_visit",
+        "",
         "    subroutine generated_ast_to_sx(value, output, ok, message)",
         "        class(*), intent(in) :: value",
         "        character(len=*), intent(out) :: output",
@@ -346,6 +392,27 @@ def emit_dispatch(records: list[dict]) -> list[str]:
         "        end select",
         "    end function generated_ast_validate",
     ]
+    return lines
+
+
+def emit_visitors(records: list[dict]) -> list[str]:
+    lines: list[str] = []
+    for item in records:
+        base = fort_name(item["name"])
+        lines += [
+            f"    subroutine generated_ast_visit_{base}(value, visitor)",
+            f"        type({record_type(item['name'])}), intent(in) :: value",
+            "        class(generated_ast_visitor_t), intent(inout) :: visitor",
+            "",
+            f"        call visitor%visit_{base}(value)",
+        ]
+        for field_name, field_type in item["fields"]:
+            if field_type not in {"name", "int"}:
+                lines.append(
+                    f"        call generated_ast_visit_{fort_name(field_type)}(value%{fort_name(field_name)}, &"
+                )
+                lines.append("            visitor)")
+        lines += [f"    end subroutine generated_ast_visit_{base}", ""]
     return lines
 
 
@@ -400,11 +467,13 @@ def generate(schema_text: str) -> tuple[str, str]:
     ]
     lines += emit_publics(records) + [""]
     lines += emit_types(records)
+    lines += emit_visitor_interfaces(records)
     lines += ["contains", ""]
     lines += emit_validators(records)
     lines += emit_text_functions(records)
     lines += emit_public_serializers(records)
     lines += emit_dispatch(records)
+    lines += emit_visitors(records)
     lines += emit_helpers()
     lines += [f"end module {module_name}", ""]
     return module_name, "\n".join(lines)

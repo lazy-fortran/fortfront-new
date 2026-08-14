@@ -51,13 +51,17 @@ def main() -> int:
         witness.write_text(
             """program generated_ast_witness
     use frontend_ast_v0_generated, only: program_declaration_t, program_root_t, &
-        program_unit_t, source_span_t, generated_ast_to_sx, generated_ast_validate
+        program_unit_t, source_span_t, generated_ast_to_sx, generated_ast_validate, &
+        generated_ast_visit, generated_ast_visitor_t
     implicit none
     type(source_span_t) :: span
     type(program_root_t) :: root
     type(program_declaration_t) :: declaration
     type(program_unit_t) :: unit
     character(len=2048) :: output, message
+    character(len=32) :: visited(5)
+    integer :: visit_count
+    type(generated_ast_visitor_t) :: visitor
     logical :: ok
 
     span%file = 'fixture.f90'
@@ -111,9 +115,55 @@ def main() -> int:
     ok = generated_ast_validate(unit, message)
     if (ok) error stop 'invalid field value was accepted'
     if (trim(message) /= 'invalid-program-root-name') error stop 'wrong invalid field diagnostic'
+
+    visitor%visit_source_span => record_source_span
+    visitor%visit_program_root => record_program_root
+    visitor%visit_program_declaration => record_program_declaration
+    visitor%visit_program_unit => record_program_unit
+    visit_count = 0
+    call generated_ast_visit(unit, visitor)
+    if (visit_count /= 5) error stop 'wrong visitor count'
+    if (trim(visited(1)) /= 'program-unit') error stop 'wrong visitor root order'
+    if (trim(visited(2)) /= 'program-root') error stop 'wrong visitor nested order'
+    if (trim(visited(3)) /= 'source-span') error stop 'wrong visitor first span order'
+    if (trim(visited(4)) /= 'program-declaration') error stop 'wrong visitor declaration order'
+    if (trim(visited(5)) /= 'source-span') error stop 'wrong visitor second span order'
     write (*, '(a)') 'generated AST behavioral checks: ok'
+
+contains
+
+    subroutine append_visit(label)
+        character(len=*), intent(in) :: label
+
+        visit_count = visit_count + 1
+        visited(visit_count) = label
+    end subroutine append_visit
+
+    subroutine record_source_span(value)
+        type(source_span_t), intent(in) :: value
+
+        call append_visit('source-span')
+    end subroutine record_source_span
+
+    subroutine record_program_root(value)
+        type(program_root_t), intent(in) :: value
+
+        call append_visit('program-root')
+    end subroutine record_program_root
+
+    subroutine record_program_declaration(value)
+        type(program_declaration_t), intent(in) :: value
+
+        call append_visit('program-declaration')
+    end subroutine record_program_declaration
+
+    subroutine record_program_unit(value)
+        type(program_unit_t), intent(in) :: value
+
+        call append_visit('program-unit')
+    end subroutine record_program_unit
 end program generated_ast_witness
-""",
+            """,
             encoding="utf-8",
         )
         executable = Path(directory) / "generated_ast_witness"

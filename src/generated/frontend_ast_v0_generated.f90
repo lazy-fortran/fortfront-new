@@ -11,14 +11,24 @@ module frontend_ast_v0_generated
     public :: program_unit_t
     public :: generated_ast_to_sx
     public :: generated_ast_validate
+    public :: generated_ast_visit
+    public :: generated_ast_visitor_t
     public :: source_span_to_sx
     public :: source_span_validate
+    public :: generated_ast_source_span_callback
+    public :: generated_ast_visit_source_span
     public :: program_root_to_sx
     public :: program_root_validate
+    public :: generated_ast_program_root_callback
+    public :: generated_ast_visit_program_root
     public :: program_declaration_to_sx
     public :: program_declaration_validate
+    public :: generated_ast_program_declaration_callback
+    public :: generated_ast_visit_program_declaration
     public :: program_unit_to_sx
     public :: program_unit_validate
+    public :: generated_ast_program_unit_callback
+    public :: generated_ast_visit_program_unit
 
     type, public :: source_span_t
         character(len=256) :: file = ''
@@ -43,6 +53,36 @@ module frontend_ast_v0_generated
         integer(int64) :: declaration_count = 0_int64
         type(program_declaration_t) :: declaration
     end type program_unit_t
+
+    abstract interface
+        subroutine generated_ast_source_span_callback(value)
+            import source_span_t
+            type(source_span_t), intent(in) :: value
+        end subroutine generated_ast_source_span_callback
+
+        subroutine generated_ast_program_root_callback(value)
+            import program_root_t
+            type(program_root_t), intent(in) :: value
+        end subroutine generated_ast_program_root_callback
+
+        subroutine generated_ast_program_declaration_callback(value)
+            import program_declaration_t
+            type(program_declaration_t), intent(in) :: value
+        end subroutine generated_ast_program_declaration_callback
+
+        subroutine generated_ast_program_unit_callback(value)
+            import program_unit_t
+            type(program_unit_t), intent(in) :: value
+        end subroutine generated_ast_program_unit_callback
+
+    end interface
+
+    type, public :: generated_ast_visitor_t
+        procedure(generated_ast_source_span_callback), pointer, nopass :: visit_source_span => null()
+        procedure(generated_ast_program_root_callback), pointer, nopass :: visit_program_root => null()
+        procedure(generated_ast_program_declaration_callback), pointer, nopass :: visit_program_declaration => null()
+        procedure(generated_ast_program_unit_callback), pointer, nopass :: visit_program_unit => null()
+    end type generated_ast_visitor_t
 
 contains
 
@@ -305,6 +345,24 @@ contains
         call generated_copy_text(text, output, ok, message)
     end subroutine program_unit_to_sx
 
+    subroutine generated_ast_visit(value, visitor)
+        class(*), intent(in) :: value
+        class(generated_ast_visitor_t), intent(inout) :: visitor
+
+        select type (value)
+            type is (source_span_t)
+            call generated_ast_visit_source_span(value, visitor)
+            type is (program_root_t)
+            call generated_ast_visit_program_root(value, visitor)
+            type is (program_declaration_t)
+            call generated_ast_visit_program_declaration(value, visitor)
+            type is (program_unit_t)
+            call generated_ast_visit_program_unit(value, visitor)
+        class default
+            error stop 'unsupported-generated-record-visitor'
+        end select
+    end subroutine generated_ast_visit
+
     subroutine generated_ast_to_sx(value, output, ok, message)
         class(*), intent(in) :: value
         character(len=*), intent(out) :: output
@@ -345,6 +403,42 @@ contains
             message = 'unsupported-generated-record'
         end select
     end function generated_ast_validate
+    subroutine generated_ast_visit_source_span(value, visitor)
+        type(source_span_t), intent(in) :: value
+        class(generated_ast_visitor_t), intent(inout) :: visitor
+
+        call visitor%visit_source_span(value)
+    end subroutine generated_ast_visit_source_span
+
+    subroutine generated_ast_visit_program_root(value, visitor)
+        type(program_root_t), intent(in) :: value
+        class(generated_ast_visitor_t), intent(inout) :: visitor
+
+        call visitor%visit_program_root(value)
+        call generated_ast_visit_source_span(value%span, &
+            visitor)
+    end subroutine generated_ast_visit_program_root
+
+    subroutine generated_ast_visit_program_declaration(value, visitor)
+        type(program_declaration_t), intent(in) :: value
+        class(generated_ast_visitor_t), intent(inout) :: visitor
+
+        call visitor%visit_program_declaration(value)
+        call generated_ast_visit_source_span(value%span, &
+            visitor)
+    end subroutine generated_ast_visit_program_declaration
+
+    subroutine generated_ast_visit_program_unit(value, visitor)
+        type(program_unit_t), intent(in) :: value
+        class(generated_ast_visitor_t), intent(inout) :: visitor
+
+        call visitor%visit_program_unit(value)
+        call generated_ast_visit_program_root(value%root, &
+            visitor)
+        call generated_ast_visit_program_declaration(value%declaration, &
+            visitor)
+    end subroutine generated_ast_visit_program_unit
+
     logical function generated_valid_atom(value)
         character(len=*), intent(in) :: value
         integer :: index
