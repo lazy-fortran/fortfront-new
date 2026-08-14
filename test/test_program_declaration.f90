@@ -1,6 +1,6 @@
 program test_program_declaration
     use, intrinsic :: iso_fortran_env, only: int64
-    use fortfront_frontend, only: declaration_kind_program, &
+    use fortfront_frontend, only: declaration_kind_module, declaration_kind_program, &
         program_declaration_from_sx, program_declaration_t, &
         program_declaration_to_sx, program_declaration_validate
     implicit none
@@ -47,8 +47,9 @@ program test_program_declaration
     declaration%name = 'unit'
     declaration%declaration_kind = ''
     call assert_invalid(declaration, 'missing-program-declaration-kind')
-    declaration%declaration_kind = 'module'
-    call assert_invalid(declaration, 'invalid-program-declaration-kind')
+    declaration%declaration_kind = declaration_kind_module
+    call program_declaration_to_sx(declaration, serialized, ok, message)
+    call assert_true(ok, 'module declaration was rejected')
     declaration%declaration_kind = declaration_kind_program
     declaration%span%source_hash = ''
     call assert_invalid(declaration, 'missing-program-declaration-source-hash')

@@ -17,8 +17,10 @@ module fortfront_frontend
     character(len=*), parameter, public :: severity_error = 'error'
     character(len=*), parameter, public :: root_kind_source = 'source'
     character(len=*), parameter, public :: root_kind_program = 'program'
+    character(len=*), parameter, public :: root_kind_module = 'module'
     character(len=*), parameter, public :: root_kind_none = 'none'
     character(len=*), parameter, public :: declaration_kind_program = 'program'
+    character(len=*), parameter, public :: declaration_kind_module = 'module'
     integer, parameter, public :: program_unit_declaration_capacity = 16
     integer, parameter, public :: semantic_item_table_capacity = 16
     integer, parameter, public :: diagnostic_table_capacity = 16
@@ -174,6 +176,7 @@ contains
         type(generated_source_span_t) :: span
         type(generated_source_span_t) :: declaration_span
         character(len=128) :: program_name
+        character(len=32) :: unit_kind
         integer(int64) :: declaration_end
         integer(int64) :: declaration_start
         integer(int64) :: unit_end
@@ -207,8 +210,11 @@ contains
             return
         end if
         program_name = result%root%name
-        if (.not. parse_program_witness(source, program_name, message, unit_start, &
-            unit_end, declaration_start, declaration_end)) return
+        unit_kind = trim(result%root_kind)
+        if (.not. parse_program_witness(source, program_name, message, &
+            unit_start=unit_start, unit_end=unit_end, &
+            declaration_start=declaration_start, declaration_end=declaration_end, &
+            expected_kind=unit_kind)) return
         span%start_byte = unit_start
         span%end_byte = unit_end
         if (.not. generated_source_span_validate(span, message)) return
@@ -220,7 +226,7 @@ contains
         unit%root%name = program_name
         unit%root%span = span
         unit%declaration_count = 1_int64
-        unit%declaration%declaration_kind = declaration_kind_program
+        unit%declaration%declaration_kind = unit_kind
         unit%declaration%name = program_name
         unit%declaration%span = declaration_span
         ok = generated_program_unit_validate(unit, message)
@@ -247,10 +253,11 @@ contains
             diagnostic_message = 'empty-source'
         else
             if (validate_syntax_item(syntax_item, diagnostic_message)) then
-                if (parse_program_witness(source, program_name, diagnostic_message)) then
+                if (parse_program_witness(source, program_name, diagnostic_message, &
+                    expected_kind=syntax_item%lhs)) then
                     result%status = frontend_accepted
-                    result%root_kind = root_kind_program
-                    result%root%kind = root_kind_program
+                    result%root_kind = lowercase(trim(syntax_item%lhs))
+                    result%root%kind = result%root_kind
                     result%root%name = program_name
                     result%diagnostic_count = 0_int64
                     return
@@ -564,8 +571,9 @@ contains
             ok = .false.
             return
         end if
-        if (trim(result%root_kind) /= root_kind_program .or. &
-            trim(result%root%kind) /= root_kind_program) then
+        if ((trim(result%root_kind) /= root_kind_program .and. &
+            trim(result%root_kind) /= root_kind_module) .or. &
+            trim(result%root%kind) /= trim(result%root_kind)) then
             message = 'non-program-root'
             ok = .false.
             return
@@ -707,7 +715,7 @@ contains
         end if
 
         unit%declaration_count = 1_int64
-        unit%declarations(1)%declaration_kind = declaration_kind_program
+        unit%declarations(1)%declaration_kind = result%root_kind
         unit%declarations(1)%name = unit%root%name
         unit%declarations(1)%span = unit%root%span
         if (.not. frontend_validate_program_unit_handoff(result, unit, message)) then
@@ -1218,7 +1226,8 @@ contains
             program_declaration_validate = .false.
             return
         end if
-        if (trim(declaration%declaration_kind) /= declaration_kind_program) then
+        if (trim(declaration%declaration_kind) /= declaration_kind_program .and. &
+            trim(declaration%declaration_kind) /= declaration_kind_module) then
             message = 'invalid-program-declaration-kind'
             program_declaration_validate = .false.
             return
@@ -2399,6 +2408,7 @@ contains
 
         valid_root_kind = trim(root_kind) == root_kind_source .or. &
             trim(root_kind) == root_kind_program .or. &
+            trim(root_kind) == root_kind_module .or. &
             trim(root_kind) == root_kind_none
     end function valid_root_kind
 
@@ -2420,12 +2430,18 @@ contains
             validate_syntax_item = .false.
             return
         end if
-        if (trim(syntax_item%id) /= 'R501' .or. &
-            lowercase(trim(syntax_item%lhs)) /= 'program') then
+        if (trim(syntax_item%id) /= 'R501') then
             message = 'unsupported-syntax-item'
             validate_syntax_item = .false.
             return
         end if
+        select case (lowercase(trim(syntax_item%lhs)))
+        case ('program', 'module')
+        case default
+            message = 'unsupported-syntax-item'
+            validate_syntax_item = .false.
+            return
+        end select
         if (lowercase(trim(syntax_item%resolution)) /= 'resolved') then
             message = 'unresolved-syntax'
             validate_syntax_item = .false.
@@ -2472,7 +2488,7 @@ contains
     end function valid_resolution
 
     logical function parse_program_witness(source, program_name, message, unit_start, &
-            unit_end, declaration_start, declaration_end)
+            unit_end, declaration_start, declaration_end, expected_kind)
         character(len=*), intent(in) :: source
         character(len=*), intent(out) :: program_name
         character(len=*), intent(out) :: message
@@ -2480,6 +2496,7 @@ contains
         integer(int64), intent(out), optional :: unit_end
         integer(int64), intent(out), optional :: declaration_start
         integer(int64), intent(out), optional :: declaration_end
+        character(len=*), intent(in), optional :: expected_kind
 
         integer :: first_line_end
         integer :: first_line_first
@@ -2503,10 +2520,12 @@ contains
         integer :: token_end
         integer :: token_start
         logical :: has_token
+        character(len=32) :: header_kind
         character(len=128) :: terminator_name
 
         program_name = ''
         message = 'unsupported-syntax'
+        header_kind = ''
         if (present(unit_start)) unit_start = 0_int64
         if (present(unit_end)) unit_end = 0_int64
         if (present(declaration_start)) declaration_start = 0_int64
@@ -2518,7 +2537,8 @@ contains
             call next_line_token(source, len(source), position, token_start, &
                 token_end, has_token)
             if (has_token) then
-                if (trim(lowercase(source(token_start:token_end))) == 'program') then
+                if (trim(lowercase(source(token_start:token_end))) == 'program' .or. &
+                    trim(lowercase(source(token_start:token_end))) == 'module') then
                     message = 'invalid-program'
                 end if
             end if
@@ -2566,16 +2586,30 @@ contains
         end if
         header_keyword_start = token_start
         header_keyword_end = token_end
-        if (trim(lowercase(source(header_keyword_start:header_keyword_end))) &
-            /= 'program') then
+        select case (trim(lowercase(source(header_keyword_start:header_keyword_end))))
+        case ('program')
+            header_kind = root_kind_program
+        case ('module')
+            header_kind = root_kind_module
+        case default
             if (header_keyword_end - header_keyword_start + 1 >= len('program')) then
                 if (trim(lowercase(source(header_keyword_start:header_keyword_start + &
-                    len('program') - 1))) == 'program') then
-                    message = 'invalid-program'
-                end if
+                    len('program') - 1))) == 'program') message = 'invalid-program'
+            end if
+            if (header_keyword_end - header_keyword_start + 1 >= len('module')) then
+                if (trim(lowercase(source(header_keyword_start:header_keyword_start + &
+                    len('module') - 1))) == 'module') message = 'invalid-program'
             end if
             parse_program_witness = .false.
             return
+        end select
+
+        if (present(expected_kind)) then
+            if (trim(lowercase(expected_kind)) /= trim(header_kind)) then
+                message = 'unsupported-syntax-item'
+                parse_program_witness = .false.
+                return
+            end if
         end if
 
         call next_line_token(source, first_line_end, position, header_name_start, &
@@ -2631,7 +2665,7 @@ contains
         if (.not. has_token) then
             terminator_end = terminator_keyword_end
         else
-            if (trim(lowercase(source(token_start:token_end))) /= 'program') then
+            if (trim(lowercase(source(token_start:token_end))) /= trim(header_kind)) then
                 message = 'invalid-program'
                 parse_program_witness = .false.
                 return

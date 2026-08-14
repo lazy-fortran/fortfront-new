@@ -2,7 +2,7 @@ program test_frontend
     use, intrinsic :: iso_fortran_env, only: int64
     use fortfront_frontend, only: frontend_accepted, frontend_parse, &
         frontend_read, frontend_rejected, frontend_result_from_sx, &
-        root_kind_none, root_kind_program, root_kind_source, &
+        root_kind_module, root_kind_none, root_kind_program, root_kind_source, &
         severity_error, frontend_result_t, standardir_syntax_item_t, &
         frontend_result_to_sx, frontend_validate, program_root_t, &
         frontend_result_to_program_root, standardir_semantic_item_t, &
@@ -169,12 +169,14 @@ program test_frontend
     syntax_item%lhs = 'module'
     call frontend_parse('module.f90', 'module unit'//new_line('a')//'end', &
         'hash-unsupported', syntax_item, result)
-    call assert_equal(result%status, frontend_rejected, &
-        'unsupported syntax was accepted')
-    call assert_equal(result%diagnostics(1)%message, 'unsupported-syntax-item', &
-        'unsupported syntax diagnostic changed')
-    call assert_equal(result%diagnostics(1)%span%file, 'module.f90', &
-        'unsupported syntax span lost its file')
+    call assert_equal(result%status, frontend_accepted, &
+        'module syntax was rejected')
+    call assert_equal(result%root_kind, root_kind_module, &
+        'accepted module root kind was not module')
+    call assert_equal(result%root%name, 'unit', &
+        'accepted module name was not parsed')
+    call assert_equal(result%root%span%file, 'module.f90', &
+        'accepted module span lost its file')
 
     call set_program_witness(syntax_item)
     syntax_item%resolution = 'unresolved'

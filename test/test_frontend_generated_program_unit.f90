@@ -1,6 +1,6 @@
 program test_frontend_generated_program_unit
     use, intrinsic :: iso_fortran_env, only: int64
-    use fortfront_frontend, only: declaration_kind_program, &
+    use fortfront_frontend, only: declaration_kind_module, declaration_kind_program, &
         frontend_generated_program_unit_to_sx, &
         frontend_parse_generated_program_unit, &
         frontend_validate_generated_program_unit, generated_program_unit_t, &
@@ -64,12 +64,20 @@ program test_frontend_generated_program_unit
     call assert_accepted_spans('  program unit_2 '//new_line('a')// &
         ' end program unit_2 ', 'unit_2', 2_int64, 37_int64, 2_int64, 16_int64)
 
+    syntax_item%lhs = 'module'
+    call assert_accepted_module_source('module unit'//new_line('a')//'end', 'unit')
+    call assert_accepted_module_source('module unit'//new_line('a')//'end module', &
+        'unit')
+    call assert_accepted_module_source('module Unit'//new_line('a')// &
+        'END MODULE UNIT', 'Unit')
+    call assert_accepted_module_spans('  module unit_2 '//new_line('a')// &
+        ' end module unit_2 ', 'unit_2', 2_int64, 35_int64, 2_int64, 15_int64)
+
+    syntax_item%lhs = 'program'
     call assert_rejected('empty.f90', '', 'hash-empty', syntax_item, &
         'empty-source')
     call assert_rejected('broken.f90', 'program'//new_line('a')//'end', &
         'hash-broken', syntax_item, 'invalid-program')
-    call assert_rejected('module.f90', 'module unit'//new_line('a')//'end', &
-        'hash-module', syntax_item, 'unsupported-syntax')
     call assert_rejected('mismatch.f90', 'program unit'//new_line('a')// &
         'end program other', 'hash-mismatch', syntax_item, 'invalid-program')
     call assert_rejected('empty-name.f90', 'program '//new_line('a')//'end', &
@@ -90,6 +98,25 @@ program test_frontend_generated_program_unit
         'program unit'//new_line('a')//'end module', 'hash-invalid-terminator', &
         syntax_item, 'invalid-program')
 
+    syntax_item%lhs = 'module'
+    call assert_rejected('module-mismatch.f90', 'module unit'//new_line('a')// &
+        'end module other', 'hash-module-mismatch', syntax_item, 'invalid-program')
+    call assert_rejected('module-empty-name.f90', 'module '//new_line('a')//'end', &
+        'hash-module-empty-name', syntax_item, 'invalid-program')
+    call assert_rejected('module-invalid-name.f90', &
+        'module 2unit'//new_line('a')//'end', 'hash-module-invalid-name', &
+        syntax_item, 'invalid-program')
+    call assert_rejected('module-extra-header-token.f90', &
+        'module unit extra'//new_line('a')//'end', 'hash-module-extra-header', &
+        syntax_item, 'invalid-program')
+    call assert_rejected('module-extra-terminator-token.f90', &
+        'module unit'//new_line('a')//'end module unit extra', &
+        'hash-module-extra-terminator', syntax_item, 'invalid-program')
+    call assert_rejected('module-invalid-terminator.f90', &
+        'module unit'//new_line('a')//'end program', 'hash-module-invalid-terminator', &
+        syntax_item, 'invalid-program')
+
+    syntax_item%lhs = 'program'
     call assert_rejected('', 'program unit'//new_line('a')//'end', &
         'hash-invalid-file', syntax_item, 'invalid-source-span-file')
     call assert_rejected('unit.f90', 'program unit'//new_line('a')//'end', &
@@ -157,6 +184,46 @@ contains
             expected_declaration_end, &
             'declaration span did not end at the program name')
     end subroutine assert_accepted_spans
+
+    subroutine assert_accepted_module_source(source, expected_name)
+        character(len=*), intent(in) :: source, expected_name
+
+        call frontend_parse_generated_program_unit('module.f90', source, &
+            'hash-module', syntax_item, unit, ok, message)
+        call assert_true(ok, 'valid module terminator variant was rejected')
+        call assert_equal(message, '', &
+            'valid module terminator variant returned a diagnostic')
+        call assert_equal(unit%root%name, expected_name, &
+            'valid module terminator variant changed the module name')
+        call assert_equal(unit%declaration%declaration_kind, declaration_kind_module, &
+            'valid module changed its declaration kind')
+        call assert_equal(unit%declaration%name, expected_name, &
+            'valid module changed its declaration name')
+    end subroutine assert_accepted_module_source
+
+    subroutine assert_accepted_module_spans(source, expected_name, expected_root_start, &
+            expected_root_end, expected_declaration_start, expected_declaration_end)
+        character(len=*), intent(in) :: source, expected_name
+        integer(int64), intent(in) :: expected_root_start, expected_root_end
+        integer(int64), intent(in) :: expected_declaration_start
+        integer(int64), intent(in) :: expected_declaration_end
+
+        call frontend_parse_generated_program_unit('module-spans.f90', source, &
+            'hash-module-spans', syntax_item, unit, ok, message)
+        call assert_true(ok, 'whitespace-padded module witness was rejected')
+        call assert_equal(unit%root%name, expected_name, &
+            'whitespace-padded module changed the name')
+        call assert_equal_integer(unit%root%span%start_byte, expected_root_start, &
+            'module root span did not start at the first token')
+        call assert_equal_integer(unit%root%span%end_byte, expected_root_end, &
+            'module root span did not end at the terminator name')
+        call assert_equal_integer(unit%declaration%span%start_byte, &
+            expected_declaration_start, &
+            'module declaration span did not start at the module token')
+        call assert_equal_integer(unit%declaration%span%end_byte, &
+            expected_declaration_end, &
+            'module declaration span did not end at the module name')
+    end subroutine assert_accepted_module_spans
 
     subroutine assert_rejected(file_name, source, source_hash, witness, expected)
         character(len=*), intent(in) :: file_name, source, source_hash
