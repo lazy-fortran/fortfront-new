@@ -1,7 +1,7 @@
 program test_frontend_generated_program_unit
     use, intrinsic :: iso_fortran_env, only: int64
-    use fortfront_frontend, only: declaration_kind_module, declaration_kind_program, &
-        declaration_kind_subroutine, &
+    use fortfront_frontend, only: declaration_kind_function, declaration_kind_module, &
+        declaration_kind_program, declaration_kind_subroutine, &
         frontend_generated_program_unit_to_sx, &
         frontend_parse_generated_program_unit, &
         frontend_validate_generated_program_unit, generated_program_unit_t, &
@@ -84,6 +84,15 @@ program test_frontend_generated_program_unit
     call assert_accepted_subroutine_spans('  subroutine unit_2 '//new_line('a')// &
         ' end subroutine unit_2 ', 'unit_2', 2_int64, 43_int64, 2_int64, 19_int64)
 
+    syntax_item%lhs = 'function'
+    call assert_accepted_function_source('function unit'//new_line('a')//'end', 'unit')
+    call assert_accepted_function_source('function unit'//new_line('a')//'end function', &
+        'unit')
+    call assert_accepted_function_source('function Unit'//new_line('a')// &
+        'END FUNCTION UNIT', 'Unit')
+    call assert_accepted_function_spans('  function unit_2 '//new_line('a')// &
+        ' end function unit_2 ', 'unit_2', 2_int64, 39_int64, 2_int64, 17_int64)
+
     syntax_item%lhs = 'program'
     call assert_rejected('empty.f90', '', 'hash-empty', syntax_item, &
         'empty-source')
@@ -146,6 +155,32 @@ program test_frontend_generated_program_unit
     call assert_rejected('subroutine-invalid-terminator.f90', &
         'subroutine unit'//new_line('a')//'end program', &
         'hash-subroutine-invalid-terminator', syntax_item, 'invalid-program')
+
+    syntax_item%lhs = 'function'
+    call assert_rejected('function-mismatch.f90', &
+        'function unit'//new_line('a')//'end function other', &
+        'hash-function-mismatch', syntax_item, 'invalid-program')
+    call assert_rejected('function-empty-name.f90', &
+        'function '//new_line('a')//'end', 'hash-function-empty-name', &
+        syntax_item, 'invalid-program')
+    call assert_rejected('function-invalid-name.f90', &
+        'function 2unit'//new_line('a')//'end', 'hash-function-invalid-name', &
+        syntax_item, 'invalid-program')
+    call assert_rejected('function-extra-header-token.f90', &
+        'function unit extra'//new_line('a')//'end', &
+        'hash-function-extra-header', syntax_item, 'invalid-program')
+    call assert_rejected('function-extra-terminator-token.f90', &
+        'function unit'//new_line('a')//'end function unit extra', &
+        'hash-function-extra-terminator', syntax_item, 'invalid-program')
+    call assert_rejected('function-invalid-terminator.f90', &
+        'function unit'//new_line('a')//'end subroutine', &
+        'hash-function-invalid-terminator', syntax_item, 'invalid-program')
+    call assert_rejected('function-keyword-boundary.f90', &
+        'functionality unit'//new_line('a')//'end', &
+        'hash-function-keyword-boundary', syntax_item, 'invalid-program')
+    call assert_rejected('function-terminator-boundary.f90', &
+        'function unit'//new_line('a')//'end functionally', &
+        'hash-function-terminator-boundary', syntax_item, 'invalid-program')
 
     syntax_item%lhs = 'program'
     call assert_rejected('', 'program unit'//new_line('a')//'end', &
@@ -297,6 +332,46 @@ contains
             expected_declaration_end, &
             'subroutine declaration span did not end at the subroutine name')
     end subroutine assert_accepted_subroutine_spans
+
+    subroutine assert_accepted_function_source(source, expected_name)
+        character(len=*), intent(in) :: source, expected_name
+
+        call frontend_parse_generated_program_unit('function.f90', source, &
+            'hash-function', syntax_item, unit, ok, message)
+        call assert_true(ok, 'valid function terminator variant was rejected')
+        call assert_equal(message, '', &
+            'valid function terminator variant returned a diagnostic')
+        call assert_equal(unit%root%name, expected_name, &
+            'valid function terminator variant changed the function name')
+        call assert_equal(unit%declaration%declaration_kind, declaration_kind_function, &
+            'valid function changed its declaration kind')
+        call assert_equal(unit%declaration%name, expected_name, &
+            'valid function changed its declaration name')
+    end subroutine assert_accepted_function_source
+
+    subroutine assert_accepted_function_spans(source, expected_name, expected_root_start, &
+            expected_root_end, expected_declaration_start, expected_declaration_end)
+        character(len=*), intent(in) :: source, expected_name
+        integer(int64), intent(in) :: expected_root_start, expected_root_end
+        integer(int64), intent(in) :: expected_declaration_start
+        integer(int64), intent(in) :: expected_declaration_end
+
+        call frontend_parse_generated_program_unit('function-spans.f90', source, &
+            'hash-function-spans', syntax_item, unit, ok, message)
+        call assert_true(ok, 'whitespace-padded function witness was rejected')
+        call assert_equal(unit%root%name, expected_name, &
+            'whitespace-padded function changed the name')
+        call assert_equal_integer(unit%root%span%start_byte, expected_root_start, &
+            'function root span did not start at the first token')
+        call assert_equal_integer(unit%root%span%end_byte, expected_root_end, &
+            'function root span did not end at the terminator name')
+        call assert_equal_integer(unit%declaration%span%start_byte, &
+            expected_declaration_start, &
+            'function declaration span did not start at the function token')
+        call assert_equal_integer(unit%declaration%span%end_byte, &
+            expected_declaration_end, &
+            'function declaration span did not end at the function name')
+    end subroutine assert_accepted_function_spans
 
     subroutine assert_rejected(file_name, source, source_hash, witness, expected)
         character(len=*), intent(in) :: file_name, source, source_hash
