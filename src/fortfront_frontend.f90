@@ -88,6 +88,7 @@ module fortfront_frontend
     public :: frontend_parse, frontend_read, frontend_result_from_sx, &
         frontend_result_to_sx, frontend_validate, &
         frontend_result_to_program_root, frontend_result_to_program_root_sx, &
+        frontend_result_to_program_unit, &
         standardir_syntax_item_to_sx, standardir_syntax_item_from_sx, &
         standardir_syntax_item_validate, &
         frontend_validate_semantic_item, program_root_to_sx, &
@@ -461,6 +462,20 @@ contains
         root%span = result%root%span
         message = ''
     end subroutine frontend_result_to_program_root
+
+    subroutine frontend_result_to_program_unit(result, unit, ok, message)
+        type(frontend_result_t), intent(in) :: result
+        type(program_unit_t), intent(out) :: unit
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        unit = program_unit_t()
+        call frontend_result_to_program_root(result, unit%root, ok, message)
+        if (.not. ok) return
+
+        unit%declaration_count = 0_int64
+        ok = program_unit_validate(unit, message)
+    end subroutine frontend_result_to_program_unit
 
     subroutine frontend_result_to_program_root_sx(result, output, ok, message)
         type(frontend_result_t), intent(in) :: result
