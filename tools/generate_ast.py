@@ -142,6 +142,7 @@ def emit_publics(records: list[dict]) -> list[str]:
         "generated_ast_to_sx",
         "generated_ast_validate",
         "generated_ast_visit",
+        "generated_ast_kind_count",
         "generated_ast_visitor_t",
     ]
     for item in records:
@@ -416,6 +417,67 @@ def emit_visitors(records: list[dict]) -> list[str]:
     return lines
 
 
+def emit_kind_count(records: list[dict]) -> list[str]:
+    lines: list[str] = []
+    for item in records:
+        base = fort_name(item["name"])
+        block = [
+            f"    subroutine generated_ast_count_{base}(kind, count)",
+            "        character(len=*), intent(in) :: kind",
+            "        integer(int64), intent(inout) :: count",
+            "",
+            f"        if (trim(kind) == '{item['name']}') count = count + 1_int64",
+        ]
+        for _, field_type in item["fields"]:
+            if field_type not in {"name", "int"}:
+                block += [
+                    f"        call generated_ast_count_{fort_name(field_type)}( &",
+                    "            kind, count)",
+                ]
+        block += [
+            f"    end subroutine generated_ast_count_{base}",
+            "",
+        ]
+        lines += block
+
+    lines += [
+        "    subroutine generated_ast_kind_count(value, kind, count, ok, message)",
+        "        class(*), optional, intent(in) :: value",
+        "        character(len=*), intent(in) :: kind",
+        "        integer(int64), intent(out) :: count",
+        "        logical, intent(out) :: ok",
+        "        character(len=*), intent(out) :: message",
+        "",
+        "        count = 0_int64",
+        "        ok = .false.",
+        "        message = ''",
+        "        if (len_trim(kind) == 0) then",
+        "            message = 'empty-generated-record-kind'",
+        "            return",
+        "        end if",
+        "        if (.not. present(value)) then",
+        "            ok = .true.",
+        "            return",
+        "        end if",
+        "        select type (value)",
+    ]
+    for item in records:
+        base = fort_name(item["name"])
+        lines += [
+            f"            type is ({record_type(item['name'])})",
+            f"            call generated_ast_count_{base}(kind, count)",
+            "            ok = .true.",
+        ]
+    lines += [
+        "        class default",
+        "            message = 'unsupported-generated-record-kind-query'",
+        "        end select",
+        "    end subroutine generated_ast_kind_count",
+        "",
+    ]
+    return lines
+
+
 def emit_helpers() -> list[str]:
     return [
         "    logical function generated_valid_atom(value)",
@@ -474,6 +536,7 @@ def generate(schema_text: str) -> tuple[str, str]:
     lines += emit_public_serializers(records)
     lines += emit_dispatch(records)
     lines += emit_visitors(records)
+    lines += emit_kind_count(records)
     lines += emit_helpers()
     lines += [f"end module {module_name}", ""]
     return module_name, "\n".join(lines)

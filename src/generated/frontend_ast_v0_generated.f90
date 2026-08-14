@@ -12,6 +12,7 @@ module frontend_ast_v0_generated
     public :: generated_ast_to_sx
     public :: generated_ast_validate
     public :: generated_ast_visit
+    public :: generated_ast_kind_count
     public :: generated_ast_visitor_t
     public :: source_span_to_sx
     public :: source_span_validate
@@ -438,6 +439,78 @@ contains
         call generated_ast_visit_program_declaration(value%declaration, &
             visitor)
     end subroutine generated_ast_visit_program_unit
+
+    subroutine generated_ast_count_source_span(kind, count)
+        character(len=*), intent(in) :: kind
+        integer(int64), intent(inout) :: count
+
+        if (trim(kind) == 'source-span') count = count + 1_int64
+    end subroutine generated_ast_count_source_span
+
+    subroutine generated_ast_count_program_root(kind, count)
+        character(len=*), intent(in) :: kind
+        integer(int64), intent(inout) :: count
+
+        if (trim(kind) == 'program-root') count = count + 1_int64
+        call generated_ast_count_source_span( &
+            kind, count)
+    end subroutine generated_ast_count_program_root
+
+    subroutine generated_ast_count_program_declaration(kind, count)
+        character(len=*), intent(in) :: kind
+        integer(int64), intent(inout) :: count
+
+        if (trim(kind) == 'program-declaration') count = count + 1_int64
+        call generated_ast_count_source_span( &
+            kind, count)
+    end subroutine generated_ast_count_program_declaration
+
+    subroutine generated_ast_count_program_unit(kind, count)
+        character(len=*), intent(in) :: kind
+        integer(int64), intent(inout) :: count
+
+        if (trim(kind) == 'program-unit') count = count + 1_int64
+        call generated_ast_count_program_root( &
+            kind, count)
+        call generated_ast_count_program_declaration( &
+            kind, count)
+    end subroutine generated_ast_count_program_unit
+
+    subroutine generated_ast_kind_count(value, kind, count, ok, message)
+        class(*), optional, intent(in) :: value
+        character(len=*), intent(in) :: kind
+        integer(int64), intent(out) :: count
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        count = 0_int64
+        ok = .false.
+        message = ''
+        if (len_trim(kind) == 0) then
+            message = 'empty-generated-record-kind'
+            return
+        end if
+        if (.not. present(value)) then
+            ok = .true.
+            return
+        end if
+        select type (value)
+            type is (source_span_t)
+            call generated_ast_count_source_span(kind, count)
+            ok = .true.
+            type is (program_root_t)
+            call generated_ast_count_program_root(kind, count)
+            ok = .true.
+            type is (program_declaration_t)
+            call generated_ast_count_program_declaration(kind, count)
+            ok = .true.
+            type is (program_unit_t)
+            call generated_ast_count_program_unit(kind, count)
+            ok = .true.
+        class default
+            message = 'unsupported-generated-record-kind-query'
+        end select
+    end subroutine generated_ast_kind_count
 
     logical function generated_valid_atom(value)
         character(len=*), intent(in) :: value

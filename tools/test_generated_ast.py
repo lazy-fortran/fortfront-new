@@ -50,9 +50,10 @@ def main() -> int:
         witness = Path(directory) / "witness.f90"
         witness.write_text(
             """program generated_ast_witness
+    use, intrinsic :: iso_fortran_env, only: int64
     use frontend_ast_v0_generated, only: program_declaration_t, program_root_t, &
         program_unit_t, source_span_t, generated_ast_to_sx, generated_ast_validate, &
-        generated_ast_visit, generated_ast_visitor_t
+        generated_ast_visit, generated_ast_visitor_t, generated_ast_kind_count
     implicit none
     type(source_span_t) :: span
     type(program_root_t) :: root
@@ -63,6 +64,7 @@ def main() -> int:
     integer :: visit_count
     type(generated_ast_visitor_t) :: visitor
     logical :: ok
+    integer(int64) :: node_count
 
     span%file = 'fixture.f90'
     span%start_byte = 0
@@ -133,6 +135,23 @@ def main() -> int:
     visit_count = 0
     call generated_ast_visit(unit, visitor)
     if (visit_count /= 1) error stop 'unset visitor callbacks were not optional'
+
+    call generated_ast_kind_count(unit, 'program-unit', node_count, ok, message)
+    if (.not. ok .or. node_count /= 1_int64) error stop 'wrong program-unit kind count'
+    call generated_ast_kind_count(unit, 'source-span', node_count, ok, message)
+    if (.not. ok .or. node_count /= 2_int64) error stop 'wrong nested source-span count'
+    call generated_ast_kind_count(unit, 'missing-kind', node_count, ok, message)
+    if (.not. ok .or. node_count /= 0_int64) error stop 'missing kind was counted'
+    call generated_ast_kind_count(source_span_t(), 'source-span', node_count, ok, message)
+    if (.not. ok .or. node_count /= 1_int64) error stop 'empty record was not counted'
+    call generated_ast_kind_count(kind='source-span', count=node_count, ok=ok, message=message)
+    if (.not. ok .or. node_count /= 0_int64) error stop 'empty input was not counted as zero'
+    call generated_ast_kind_count(unit, '', node_count, ok, message)
+    if (ok .or. trim(message) /= 'empty-generated-record-kind') &
+        error stop 'empty kind diagnostic changed'
+    call generated_ast_kind_count(0, 'program-unit', node_count, ok, message)
+    if (ok .or. trim(message) /= 'unsupported-generated-record-kind-query') &
+        error stop 'unsupported kind query diagnostic changed'
     write (*, '(a)') 'generated AST behavioral checks: ok'
 
 contains
