@@ -19,6 +19,11 @@ source-dir = "test"
 main = "test_frontend.f90"
 
 [[test]]
+name = "test_frontend_result_sx"
+source-dir = "test"
+main = "test_frontend_result_sx.f90"
+
+[[test]]
 name = "test_program_declaration"
 source-dir = "test"
 main = "test_program_declaration.f90"

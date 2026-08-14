@@ -1384,7 +1384,9 @@ contains
         character(len=*), intent(out) :: message
 
         character(len=32) :: count_text
-        character(len=256) :: canonical
+        character(len=2048) :: diagnostic_sx
+        character(len=32768) :: canonical
+        integer :: index
 
         output = ''
         ok = frontend_validate(result, message)
@@ -1393,7 +1395,18 @@ contains
         write (count_text, '(i0)') result%diagnostic_count
         canonical = '(frontend-result (status '//trim(result%status)//') '// &
             '(root-kind '//trim(result%root_kind)//') (diagnostic-count '// &
-            trim(count_text)//'))'
+            trim(count_text)//')'
+        if (trim(result%status) == frontend_rejected) then
+            canonical = trim(canonical)//' (diagnostics'
+            do index = 1, int(result%diagnostic_count)
+                call diagnostic_to_sx(result%diagnostics(index), diagnostic_sx, &
+                    ok, message)
+                if (.not. ok) return
+                canonical = trim(canonical)//' '//trim(diagnostic_sx)
+            end do
+            canonical = trim(canonical)//')'
+        end if
+        canonical = trim(canonical)//')'
         if (len_trim(canonical) > len(output)) then
             ok = .false.
             message = 'sx-output-too-short'
@@ -1409,31 +1422,12 @@ contains
         logical, intent(out) :: ok
         character(len=*), intent(out) :: message
 
-        character(len=32) :: parsed_root_kind
-        character(len=8) :: parsed_status
-        integer(int64) :: parsed_diagnostic_count
-        integer :: diagnostic_count
-
         result = frontend_result_t()
-        ok = parse_frontend_result_sx(input, parsed_status, parsed_root_kind, &
-            parsed_diagnostic_count, message)
-        if (.not. ok) return
-
-        result%status = parsed_status
-        result%root_kind = parsed_root_kind
-        result%diagnostic_count = parsed_diagnostic_count
-        if (parsed_diagnostic_count > 0_int64) then
-            if (parsed_diagnostic_count > int(huge(0), int64)) then
-                ok = .false.
-                message = 'diagnostic-count-too-large'
-                return
-            end if
-            diagnostic_count = int(parsed_diagnostic_count)
-            allocate (result%diagnostics(diagnostic_count))
-            result%diagnostics%status = frontend_rejected
-            result%diagnostics%severity = severity_error
+        ok = parse_frontend_result_sx(input, result, message)
+        if (.not. ok) then
+            result = frontend_result_t()
+            return
         end if
-
         ok = frontend_validate(result, message)
         if (.not. ok) return
         message = ''
@@ -1444,7 +1438,6 @@ contains
         character(len=*), intent(out) :: message
 
         integer(int64) :: actual_diagnostic_count
-        integer :: index
 
         message = ''
         if (.not. valid_status(result%status)) then
@@ -1492,34 +1485,31 @@ contains
         end select
 
         if (allocated(result%diagnostics)) then
-            do index = 1, size(result%diagnostics)
-                if (.not. valid_status(result%diagnostics(index)%status)) then
-                    message = 'invalid-diagnostic-status'
-                    frontend_validate = .false.
-                    return
-                end if
-                if (.not. valid_severity(result%diagnostics(index)%severity)) then
-                    message = 'invalid-diagnostic-severity'
-                    frontend_validate = .false.
-                    return
-                end if
-            end do
+            if (.not. frontend_validate_diagnostic_table(result%diagnostics, &
+                result%diagnostic_count, message)) then
+                frontend_validate = .false.
+                return
+            end if
         end if
         frontend_validate = .true.
     end function frontend_validate
 
-    logical function parse_frontend_result_sx(input, status, root_kind, &
-            diagnostic_count, message)
+    logical function parse_frontend_result_sx(input, result, message)
         character(len=*), intent(in) :: input
-        character(len=*), intent(out) :: status, root_kind
-        integer(int64), intent(out) :: diagnostic_count
+        type(frontend_result_t), intent(out) :: result
         character(len=*), intent(out) :: message
 
-        integer :: position
+        character(len=8) :: status
+        character(len=32) :: root_kind
+        character(len=2048) :: diagnostic_expression
+        integer(int64) :: diagnostic_count_value
+        integer :: diagnostic_count, index, position
+        logical :: diagnostic_ok
 
+        result = frontend_result_t()
         status = ''
         root_kind = ''
-        diagnostic_count = 0_int64
+        diagnostic_count_value = 0_int64
         position = 1
         call skip_sx_spaces(input, position)
         if (.not. consume_sx_text(input, position, '(frontend-result')) then
@@ -1538,9 +1528,49 @@ contains
             return
         end if
         if (.not. consume_sx_integer_field(input, position, 'diagnostic-count', &
-            diagnostic_count, message)) then
+            diagnostic_count_value, message)) then
             parse_frontend_result_sx = .false.
             return
+        end if
+        result%status = status
+        result%root_kind = root_kind
+        result%diagnostic_count = diagnostic_count_value
+        if (diagnostic_count_value > int(diagnostic_table_capacity, int64)) then
+            message = 'diagnostic-table-capacity-exceeded'
+            parse_frontend_result_sx = .false.
+            return
+        end if
+        if (diagnostic_count_value > 0_int64) then
+            diagnostic_count = int(diagnostic_count_value)
+            allocate (result%diagnostics(diagnostic_count))
+        end if
+        if (trim(status) == frontend_rejected .and. diagnostic_count_value > 0_int64) then
+            call skip_sx_spaces(input, position)
+            if (.not. consume_sx_text(input, position, '(diagnostics')) then
+                message = 'malformed-sx-diagnostics'
+                parse_frontend_result_sx = .false.
+                return
+            end if
+            do index = 1, diagnostic_count
+                if (.not. consume_sx_expression(input, position, &
+                    diagnostic_expression)) then
+                    message = 'malformed-diagnostic'
+                    parse_frontend_result_sx = .false.
+                    return
+                end if
+                call diagnostic_from_sx(trim(diagnostic_expression), &
+                    result%diagnostics(index), diagnostic_ok, message)
+                if (.not. diagnostic_ok) then
+                    parse_frontend_result_sx = .false.
+                    return
+                end if
+            end do
+            call skip_sx_spaces(input, position)
+            if (.not. consume_sx_character(input, position, ')')) then
+                message = 'diagnostic-count-mismatch'
+                parse_frontend_result_sx = .false.
+                return
+            end if
         end if
         call skip_sx_spaces(input, position)
         if (position > len(input)) then

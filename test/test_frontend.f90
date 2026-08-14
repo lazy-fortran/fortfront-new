@@ -16,7 +16,7 @@ program test_frontend
     type(standardir_syntax_item_t) :: syntax_item
     type(standardir_semantic_item_t) :: semantic_item
     type(standardir_semantic_item_t) :: semantic_items(semantic_item_table_capacity)
-    character(len=256) :: sx
+    character(len=2048) :: sx
     character(len=128) :: message
     logical :: ok
 
@@ -143,7 +143,10 @@ program test_frontend
     call assert_true(ok, 'rejected result failed SX validation')
     call assert_equal(trim(sx), &
         '(frontend-result (status rejected) (root-kind none) '// &
-        '(diagnostic-count 1))', 'rejected SX oracle changed')
+        '(diagnostic-count 1) (diagnostics (diagnostic (status rejected) '// &
+        '(severity error) (message empty-source) (span (file empty.f90) '// &
+        '(start-byte 0) (end-byte 0) (source-hash hash-negative)))))', &
+        'rejected SX oracle changed')
     call assert_sx_round_trip(sx, 'rejected SX did not round-trip')
 
     call assert_invalid_sx('(frontend-result (status unknown) '// &
@@ -278,7 +281,7 @@ contains
     subroutine assert_sx_round_trip(serialized, failure_message)
         character(len=*), intent(in) :: serialized, failure_message
 
-        character(len=256) :: reread, message
+        character(len=2048) :: reread, message
         type(frontend_result_t) :: parsed
         logical :: ok
 
