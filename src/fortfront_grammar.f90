@@ -121,6 +121,7 @@ module fortfront_grammar
     public :: fortfront_grammar_match_rule
     public :: fortfront_grammar_project_contract_sequence
     public :: fortfront_grammar_query_lhs
+    public :: fortfront_grammar_read_contract_sx
     public :: fortfront_grammar_reset
     public :: fortfront_grammar_validate_contract_rule
     public :: fortfront_grammar_validate_rule
@@ -507,6 +508,433 @@ contains
         end if
         output = input
     end subroutine fortfront_grammar_consume_contract_rule
+
+    subroutine fortfront_grammar_read_contract_sx(input, output, status, message)
+        character(len=*), intent(in) :: input
+        type(fortfront_grammar_contract_rule_t), intent(out) :: output
+        integer, intent(out) :: status
+        character(len=*), intent(out) :: message
+
+        type(fortfront_grammar_contract_rule_t) :: parsed, accepted
+        integer :: position
+        logical :: ok
+
+        output = fortfront_grammar_contract_rule_t()
+        parsed = fortfront_grammar_contract_rule_t()
+        position = 1
+        call sx_expect_character(input, position, '(', ok)
+        if (.not. ok) then
+            call sx_read_failure(status, message)
+            return
+        end if
+        call sx_expect_atom(input, position, 'syntax-rule', ok)
+        if (.not. ok) then
+            call sx_read_failure(status, message)
+            return
+        end if
+        call sx_read_pair_atom(input, position, 'id', parsed%identity, ok)
+        if (.not. ok) then
+            call sx_read_failure(status, message)
+            return
+        end if
+        call sx_read_pair_int(input, position, 'alternative', parsed%alternative, ok)
+        if (.not. ok) then
+            call sx_read_failure(status, message)
+            return
+        end if
+        call sx_read_pair_atom(input, position, 'lhs', parsed%lhs, ok)
+        if (.not. ok) then
+            call sx_read_failure(status, message)
+            return
+        end if
+        call sx_read_pair_int(input, position, 'root', parsed%root, ok)
+        if (.not. ok) then
+            call sx_read_failure(status, message)
+            return
+        end if
+        call sx_read_nodes(input, position, parsed, ok, status, message)
+        if (.not. ok) return
+        call sx_read_source(input, position, parsed%source, ok)
+        if (.not. ok) then
+            call sx_read_failure(status, message)
+            return
+        end if
+        call sx_read_pair_origin(input, position, parsed%origin, ok)
+        if (.not. ok) then
+            call sx_read_failure(status, message)
+            return
+        end if
+        call sx_read_pair_resolution(input, position, parsed%resolution, ok)
+        if (.not. ok) then
+            call sx_read_failure(status, message)
+            return
+        end if
+        call sx_expect_character(input, position, ')', ok)
+        call sx_skip_spaces(input, position)
+        if (.not. ok .or. position <= len(input)) then
+            call sx_read_failure(status, message)
+            return
+        end if
+
+        call fortfront_grammar_consume_contract_rule(parsed, accepted, status, message)
+        if (status == fortfront_grammar_contract_valid) output = accepted
+    end subroutine fortfront_grammar_read_contract_sx
+
+    subroutine sx_read_failure(status, message)
+        integer, intent(out) :: status
+        character(len=*), intent(out) :: message
+
+        status = fortfront_grammar_contract_malformed
+        message = 'malformed-standardir-grammar-v0-record'
+    end subroutine sx_read_failure
+
+    subroutine sx_skip_spaces(input, position)
+        character(len=*), intent(in) :: input
+        integer, intent(inout) :: position
+
+        do while (position <= len(input))
+            if (input(position:position) /= ' ' .and. input(position:position) /= achar(9) .and. &
+                input(position:position) /= achar(10) .and. input(position:position) /= achar(13)) then
+                return
+            end if
+            position = position + 1
+        end do
+    end subroutine sx_skip_spaces
+
+    subroutine sx_expect_character(input, position, expected, ok)
+        character(len=*), intent(in) :: input
+        integer, intent(inout) :: position
+        character, intent(in) :: expected
+        logical, intent(out) :: ok
+
+        call sx_skip_spaces(input, position)
+        ok = position <= len(input)
+        if (.not. ok) return
+        ok = input(position:position) == expected
+        if (ok) position = position + 1
+    end subroutine sx_expect_character
+
+    subroutine sx_read_token(input, position, token, ok)
+        character(len=*), intent(in) :: input
+        integer, intent(inout) :: position
+        character(len=*), intent(out) :: token
+        logical, intent(out) :: ok
+
+        integer :: first
+
+        token = ''
+        call sx_skip_spaces(input, position)
+        if (position > len(input)) then
+            ok = .false.
+            return
+        end if
+        if (input(position:position) == '(' .or. input(position:position) == ')') then
+            ok = .false.
+            return
+        end if
+        first = position
+        do while (position <= len(input))
+            if (input(position:position) == ' ' .or. input(position:position) == achar(9) .or. &
+                input(position:position) == achar(10) .or. input(position:position) == achar(13) .or. &
+                input(position:position) == '(' .or. input(position:position) == ')') then
+                exit
+            end if
+            position = position + 1
+        end do
+        if (position - first > len(token)) then
+            ok = .false.
+            return
+        end if
+        token(:position - first) = input(first:position - 1)
+        ok = position > first
+    end subroutine sx_read_token
+
+    subroutine sx_expect_atom(input, position, expected, ok)
+        character(len=*), intent(in) :: input, expected
+        integer, intent(inout) :: position
+        logical, intent(out) :: ok
+
+        character(len=256) :: token
+
+        call sx_read_token(input, position, token, ok)
+        if (ok) ok = trim(token) == expected
+    end subroutine sx_expect_atom
+
+    subroutine sx_read_pair_atom(input, position, label, value, ok)
+        character(len=*), intent(in) :: input, label
+        integer, intent(inout) :: position
+        character(len=*), intent(out) :: value
+        logical, intent(out) :: ok
+
+        value = ''
+        call sx_expect_character(input, position, '(', ok)
+        if (.not. ok) return
+        call sx_expect_atom(input, position, label, ok)
+        if (.not. ok) return
+        call sx_read_token(input, position, value, ok)
+        if (.not. ok) return
+        call sx_expect_character(input, position, ')', ok)
+    end subroutine sx_read_pair_atom
+
+    subroutine sx_read_pair_int(input, position, label, value, ok)
+        character(len=*), intent(in) :: input, label
+        integer, intent(inout) :: position
+        integer, intent(out) :: value
+        logical, intent(out) :: ok
+
+        character(len=256) :: token
+
+        value = 0
+        call sx_expect_character(input, position, '(', ok)
+        if (.not. ok) return
+        call sx_expect_atom(input, position, label, ok)
+        if (.not. ok) return
+        call sx_read_token(input, position, token, ok)
+        if (ok) call sx_parse_integer(token, value, ok)
+        if (.not. ok) return
+        call sx_expect_character(input, position, ')', ok)
+    end subroutine sx_read_pair_int
+
+    subroutine sx_parse_integer(token, value, ok)
+        character(len=*), intent(in) :: token
+        integer, intent(out) :: value
+        logical, intent(out) :: ok
+
+        integer :: i, sign
+        integer(int64) :: digit, magnitude, limit
+
+        value = 0
+        ok = len_trim(token) > 0
+        if (.not. ok) return
+        sign = 1
+        i = 1
+        if (token(i:i) == '-') then
+            sign = -1
+            i = i + 1
+        else if (token(i:i) == '+') then
+            i = i + 1
+        end if
+        ok = i <= len_trim(token)
+        if (.not. ok) return
+        magnitude = 0_int64
+        limit = int(huge(value), int64)
+        do while (i <= len_trim(token))
+            if (token(i:i) < '0' .or. token(i:i) > '9') then
+                ok = .false.
+                return
+            end if
+            digit = int(iachar(token(i:i)) - iachar('0'), int64)
+            if (magnitude > (limit - digit) / 10_int64) then
+                ok = .false.
+                return
+            end if
+            magnitude = magnitude * 10_int64 + digit
+            i = i + 1
+        end do
+        value = sign * int(magnitude)
+    end subroutine sx_parse_integer
+
+    subroutine sx_read_nodes(input, position, rule, ok, status, message)
+        character(len=*), intent(in) :: input
+        integer, intent(inout) :: position
+        type(fortfront_grammar_contract_rule_t), intent(inout) :: rule
+        logical, intent(out) :: ok
+        integer, intent(out) :: status
+        character(len=*), intent(out) :: message
+
+        type(fortfront_grammar_node_t) :: node
+
+        status = fortfront_grammar_contract_malformed
+        message = ''
+        call sx_expect_character(input, position, '(', ok)
+        if (.not. ok) then
+            call sx_read_failure(status, message)
+            return
+        end if
+        call sx_expect_atom(input, position, 'nodes', ok)
+        if (.not. ok) then
+            call sx_read_failure(status, message)
+            return
+        end if
+        call sx_expect_character(input, position, '(', ok)
+        if (.not. ok) then
+            call sx_read_failure(status, message)
+            return
+        end if
+        call sx_expect_atom(input, position, 'grammar-nodes', ok)
+        if (.not. ok) then
+            call sx_read_failure(status, message)
+            return
+        end if
+        call sx_skip_spaces(input, position)
+        do while (position <= len(input))
+            if (input(position:position) == ')') exit
+            if (rule%node_count == fortfront_grammar_contract_node_capacity) then
+                status = fortfront_grammar_contract_capacity
+                message = 'standardir-grammar-v0-node-capacity-exhausted'
+                ok = .false.
+                return
+            end if
+            call sx_read_node(input, position, node, ok)
+            if (.not. ok) then
+                call sx_read_failure(status, message)
+                return
+            end if
+            rule%node_count = rule%node_count + 1
+            rule%nodes(rule%node_count) = node
+            call sx_skip_spaces(input, position)
+        end do
+        call sx_expect_character(input, position, ')', ok)
+        if (ok) call sx_expect_character(input, position, ')', ok)
+        if (.not. ok) call sx_read_failure(status, message)
+    end subroutine sx_read_nodes
+
+    subroutine sx_read_node(input, position, node, ok)
+        character(len=*), intent(in) :: input
+        integer, intent(inout) :: position
+        type(fortfront_grammar_node_t), intent(out) :: node
+        logical, intent(out) :: ok
+
+        character(len=32) :: kind
+
+        node = fortfront_grammar_node_t()
+        call sx_expect_character(input, position, '(', ok)
+        if (.not. ok) return
+        call sx_expect_atom(input, position, 'grammar-node', ok)
+        if (.not. ok) return
+        call sx_read_token(input, position, kind, ok)
+        if (.not. ok) return
+        select case (trim(kind))
+        case ('reference'); node%kind = fortfront_grammar_node_reference
+        case ('token'); node%kind = fortfront_grammar_node_token
+        case ('sequence'); node%kind = fortfront_grammar_node_sequence
+        case ('choice'); node%kind = fortfront_grammar_node_choice
+        case ('optional'); node%kind = fortfront_grammar_node_optional
+        case ('repeat'); node%kind = fortfront_grammar_node_repeat
+        case default
+            ok = .false.
+            return
+        end select
+        call sx_read_token(input, position, node%name, ok)
+        if (.not. ok) return
+        call sx_read_integer_atom(input, position, node%minimum, ok)
+        if (.not. ok) return
+        call sx_read_bool_atom(input, position, node%unbounded, ok)
+        if (.not. ok) return
+        call sx_read_integer_atom(input, position, node%first_child, ok)
+        if (.not. ok) return
+        call sx_read_integer_atom(input, position, node%child_count, ok)
+        if (ok) call sx_expect_character(input, position, ')', ok)
+    end subroutine sx_read_node
+
+    subroutine sx_read_integer_atom(input, position, value, ok)
+        character(len=*), intent(in) :: input
+        integer, intent(inout) :: position
+        integer, intent(out) :: value
+        logical, intent(out) :: ok
+        character(len=256) :: token
+        call sx_read_token(input, position, token, ok)
+        if (ok) call sx_parse_integer(token, value, ok)
+    end subroutine sx_read_integer_atom
+
+    subroutine sx_read_bool_atom(input, position, value, ok)
+        character(len=*), intent(in) :: input
+        integer, intent(inout) :: position
+        logical, intent(out) :: value, ok
+        character(len=32) :: token
+        value = .false.
+        call sx_read_token(input, position, token, ok)
+        if (.not. ok) return
+        if (trim(token) == 'true') then
+            value = .true.
+        else if (trim(token) /= 'false') then
+            ok = .false.
+        end if
+    end subroutine sx_read_bool_atom
+
+    subroutine sx_read_source(input, position, source, ok)
+        character(len=*), intent(in) :: input
+        integer, intent(inout) :: position
+        type(fortfront_grammar_contract_source_t), intent(out) :: source
+        logical, intent(out) :: ok
+        integer :: page
+
+        source = fortfront_grammar_contract_source_t()
+        page = 0
+        call sx_expect_character(input, position, '(', ok)
+        if (.not. ok) return
+        call sx_expect_atom(input, position, 'source', ok)
+        if (.not. ok) return
+        call sx_expect_character(input, position, '(', ok)
+        if (.not. ok) return
+        call sx_expect_atom(input, position, 'source-ref', ok)
+        if (.not. ok) return
+        call sx_read_pair_atom(input, position, 'document', source%document, ok)
+        if (.not. ok) return
+        call sx_read_pair_atom(input, position, 'clause', source%clause, ok)
+        if (.not. ok) return
+        call sx_read_pair_atom(input, position, 'rule', source%rule, ok)
+        if (.not. ok) return
+        call sx_read_pair_int(input, position, 'page', page, ok)
+        if (.not. ok) return
+        source%page = int(page, int64)
+        call sx_read_pair_atom(input, position, 'source-hash', source%source_hash, ok)
+        if (.not. ok) return
+        call sx_expect_character(input, position, ')', ok)
+        if (ok) call sx_expect_character(input, position, ')', ok)
+    end subroutine sx_read_source
+
+    subroutine sx_read_pair_origin(input, position, value, ok)
+        character(len=*), intent(in) :: input
+        integer, intent(inout) :: position
+        integer, intent(out) :: value
+        logical, intent(out) :: ok
+        call sx_read_pair_enum(input, position, 'origin', value, ok)
+    end subroutine sx_read_pair_origin
+
+    subroutine sx_read_pair_resolution(input, position, value, ok)
+        character(len=*), intent(in) :: input
+        integer, intent(inout) :: position
+        integer, intent(out) :: value
+        logical, intent(out) :: ok
+        call sx_read_pair_enum(input, position, 'resolution', value, ok)
+    end subroutine sx_read_pair_resolution
+
+    subroutine sx_read_pair_enum(input, position, label, value, ok)
+        character(len=*), intent(in) :: input, label
+        integer, intent(inout) :: position
+        integer, intent(out) :: value
+        logical, intent(out) :: ok
+        character(len=32) :: token
+        value = 0
+        call sx_expect_character(input, position, '(', ok)
+        if (.not. ok) return
+        call sx_expect_atom(input, position, label, ok)
+        if (.not. ok) return
+        call sx_read_token(input, position, token, ok)
+        if (.not. ok) return
+        if (label == 'origin') then
+            select case (trim(token))
+            case ('mechanical'); value = fortfront_grammar_origin_mechanical
+            case ('search'); value = fortfront_grammar_origin_search
+            case ('smt'); value = fortfront_grammar_origin_smt
+            case ('llm'); value = fortfront_grammar_origin_llm
+            case ('llm-repair'); value = fortfront_grammar_origin_llm_repair
+            case ('human'); value = fortfront_grammar_origin_human
+            case ('imported'); value = fortfront_grammar_origin_imported
+            case ('differential'); value = fortfront_grammar_origin_differential
+            case default; ok = .false.; return
+            end select
+        else
+            select case (trim(token))
+            case ('resolved'); value = fortfront_grammar_resolution_resolved
+            case ('unresolved'); value = fortfront_grammar_resolution_unresolved
+            case ('disputed'); value = fortfront_grammar_resolution_disputed
+            case default; ok = .false.; return
+            end select
+        end if
+        call sx_expect_character(input, position, ')', ok)
+    end subroutine sx_read_pair_enum
 
     subroutine fortfront_grammar_project_contract_sequence(contract_rule, output, status, &
             message)
