@@ -172,7 +172,12 @@ contains
 
         type(frontend_result_t) :: result
         type(generated_source_span_t) :: span
+        type(generated_source_span_t) :: declaration_span
         character(len=128) :: program_name
+        integer(int64) :: declaration_end
+        integer(int64) :: declaration_start
+        integer(int64) :: unit_end
+        integer(int64) :: unit_start
 
         unit = generated_program_unit_t()
         ok = .false.
@@ -202,13 +207,22 @@ contains
             return
         end if
         program_name = result%root%name
+        if (.not. parse_program_witness(source, program_name, message, unit_start, &
+            unit_end, declaration_start, declaration_end)) return
+        span%start_byte = unit_start
+        span%end_byte = unit_end
+        if (.not. generated_source_span_validate(span, message)) return
+        declaration_span = span
+        declaration_span%start_byte = declaration_start
+        declaration_span%end_byte = declaration_end
+        if (.not. generated_source_span_validate(declaration_span, message)) return
 
         unit%root%name = program_name
         unit%root%span = span
         unit%declaration_count = 1_int64
         unit%declaration%declaration_kind = declaration_kind_program
         unit%declaration%name = program_name
-        unit%declaration%span = span
+        unit%declaration%span = declaration_span
         ok = generated_program_unit_validate(unit, message)
     end subroutine frontend_parse_generated_program_unit
 
@@ -2457,54 +2471,292 @@ contains
         end select
     end function valid_resolution
 
-    logical function parse_program_witness(source, program_name, message)
+    logical function parse_program_witness(source, program_name, message, unit_start, &
+            unit_end, declaration_start, declaration_end)
         character(len=*), intent(in) :: source
         character(len=*), intent(out) :: program_name
         character(len=*), intent(out) :: message
+        integer(int64), intent(out), optional :: unit_start
+        integer(int64), intent(out), optional :: unit_end
+        integer(int64), intent(out), optional :: declaration_start
+        integer(int64), intent(out), optional :: declaration_end
 
-        integer :: newline_position
-        character(len=256) :: header
-        character(len=256) :: trailer
+        integer :: first_line_end
+        integer :: first_line_first
+        integer :: first_line_limit
+        integer :: first_newline
+        integer :: header_name_end
+        integer :: header_name_start
+        integer :: header_keyword_end
+        integer :: header_keyword_start
+        integer :: position
+        integer :: second_line_end
+        integer :: second_line_first
+        integer :: second_line_limit
+        integer :: second_line_start
+        integer :: second_newline
+        integer :: terminator_end
+        integer :: terminator_keyword_end
+        integer :: terminator_keyword_start
+        integer :: terminator_name_end
+        integer :: terminator_name_start
+        integer :: token_end
+        integer :: token_start
+        logical :: has_token
+        character(len=128) :: terminator_name
 
         program_name = ''
         message = 'unsupported-syntax'
-        newline_position = index(source, new_line('a'))
-        if (newline_position == 0) then
-            if (lowercase(trim(source)) == 'program') message = 'invalid-program'
+        if (present(unit_start)) unit_start = 0_int64
+        if (present(unit_end)) unit_end = 0_int64
+        if (present(declaration_start)) declaration_start = 0_int64
+        if (present(declaration_end)) declaration_end = 0_int64
+
+        first_newline = index(source, new_line('a'))
+        if (first_newline == 0) then
+            position = 1
+            call next_line_token(source, len(source), position, token_start, &
+                token_end, has_token)
+            if (has_token) then
+                if (trim(lowercase(source(token_start:token_end))) == 'program') then
+                    message = 'invalid-program'
+                end if
+            end if
             parse_program_witness = .false.
             return
         end if
 
-        header = trim(source(:newline_position - 1))
-        trailer = trim(source(newline_position + 1:))
-        if (lowercase(trailer) /= 'end') then
-            message = 'invalid-program'
-            parse_program_witness = .false.
-            return
+        first_line_end = first_newline - 1
+        first_line_limit = first_line_end
+        second_line_start = first_newline + 1
+        second_line_end = len(source)
+        second_newline = 0
+        if (second_line_start <= len(source)) then
+            second_newline = index(source(second_line_start:), new_line('a'))
         end if
-        if (len_trim(header) <= len('program')) then
-            message = 'invalid-program'
-            parse_program_witness = .false.
-            return
+        if (second_newline > 0) then
+            if (first_newline + second_newline == len(source)) then
+                second_line_end = len(source) - 1
+            else
+                message = 'invalid-program'
+                parse_program_witness = .false.
+                return
+            end if
         end if
-        if (lowercase(header(:len('program'))) /= 'program') then
-            parse_program_witness = .false.
-            return
-        end if
-        if (header(len('program') + 1:len('program') + 1) /= ' ') then
+        second_line_limit = second_line_end
+
+        call trim_line_bounds(source, 1, first_line_limit, first_line_first, &
+            first_line_end)
+        call trim_line_bounds(source, second_line_start, second_line_limit, &
+            second_line_first, second_line_end)
+        if (first_line_first > first_line_end .or. &
+            second_line_first > second_line_end) then
             message = 'invalid-program'
             parse_program_witness = .false.
             return
         end if
 
-        program_name = adjustl(header(len('program') + 2:len_trim(header)))
-        if (len_trim(program_name) == 0) then
+        position = first_line_first
+        call next_line_token(source, first_line_end, position, token_start, &
+            token_end, has_token)
+        if (.not. has_token) then
             message = 'invalid-program'
             parse_program_witness = .false.
             return
         end if
+        header_keyword_start = token_start
+        header_keyword_end = token_end
+        if (trim(lowercase(source(header_keyword_start:header_keyword_end))) &
+            /= 'program') then
+            if (header_keyword_end - header_keyword_start + 1 >= len('program')) then
+                if (trim(lowercase(source(header_keyword_start:header_keyword_start + &
+                    len('program') - 1))) == 'program') then
+                    message = 'invalid-program'
+                end if
+            end if
+            parse_program_witness = .false.
+            return
+        end if
+
+        call next_line_token(source, first_line_end, position, header_name_start, &
+            header_name_end, has_token)
+        if (.not. has_token) then
+            message = 'invalid-program'
+            parse_program_witness = .false.
+            return
+        end if
+        call next_line_token(source, first_line_end, position, token_start, &
+            token_end, has_token)
+        if (has_token) then
+            message = 'invalid-program'
+            parse_program_witness = .false.
+            return
+        end if
+
+        if (header_name_end - header_name_start + 1 > len(program_name)) then
+            message = 'invalid-program'
+            parse_program_witness = .false.
+            return
+        end if
+
+        program_name(:header_name_end - header_name_start + 1) = &
+            source(header_name_start:header_name_end)
+        if (.not. valid_program_identifier(program_name(:header_name_end - &
+            header_name_start + 1))) then
+            program_name = ''
+            message = 'invalid-program'
+            parse_program_witness = .false.
+            return
+        end if
+
+        position = second_line_first
+        call next_line_token(source, second_line_end, position, token_start, &
+            token_end, has_token)
+        if (.not. has_token) then
+            message = 'invalid-program'
+            parse_program_witness = .false.
+            return
+        end if
+        terminator_keyword_start = token_start
+        terminator_keyword_end = token_end
+        if (trim(lowercase(source(terminator_keyword_start: &
+            terminator_keyword_end))) /= 'end') then
+            message = 'invalid-program'
+            parse_program_witness = .false.
+            return
+        end if
+
+        call next_line_token(source, second_line_end, position, token_start, &
+            token_end, has_token)
+        if (.not. has_token) then
+            terminator_end = terminator_keyword_end
+        else
+            if (trim(lowercase(source(token_start:token_end))) /= 'program') then
+                message = 'invalid-program'
+                parse_program_witness = .false.
+                return
+            end if
+            call next_line_token(source, second_line_end, position, &
+                terminator_name_start, terminator_name_end, has_token)
+            if (.not. has_token) then
+                terminator_end = token_end
+            else
+                terminator_name = ''
+                if (terminator_name_end - terminator_name_start + 1 > &
+                    len(terminator_name)) then
+                    message = 'invalid-program'
+                    parse_program_witness = .false.
+                    return
+                end if
+                terminator_name(:terminator_name_end - terminator_name_start + 1) = &
+                    source(terminator_name_start:terminator_name_end)
+                if (trim(lowercase(terminator_name)) /= &
+                    trim(lowercase(program_name))) then
+                    message = 'invalid-program'
+                    parse_program_witness = .false.
+                    return
+                end if
+                terminator_end = terminator_name_end
+                call next_line_token(source, second_line_end, position, token_start, &
+                    token_end, has_token)
+                if (has_token) then
+                    message = 'invalid-program'
+                    parse_program_witness = .false.
+                    return
+                end if
+            end if
+        end if
+
+        if (present(unit_start)) unit_start = int(first_line_first - 1, int64)
+        if (present(unit_end)) unit_end = int(terminator_end, int64)
+        if (present(declaration_start)) then
+            declaration_start = int(header_keyword_start - 1, int64)
+        end if
+        if (present(declaration_end)) declaration_end = int(header_name_end, int64)
         parse_program_witness = .true.
     end function parse_program_witness
+
+    subroutine trim_line_bounds(source, line_start, line_end, first, last)
+        character(len=*), intent(in) :: source
+        integer, intent(in) :: line_start
+        integer, intent(in) :: line_end
+        integer, intent(out) :: first
+        integer, intent(out) :: last
+
+        first = line_start
+        last = line_end
+        do while (first <= last)
+            if (.not. is_line_whitespace(source(first:first))) exit
+            first = first + 1
+        end do
+        do while (last >= first)
+            if (.not. is_line_whitespace(source(last:last))) exit
+            last = last - 1
+        end do
+    end subroutine trim_line_bounds
+
+    subroutine next_line_token(source, line_end, position, token_start, token_end, &
+            has_token)
+        character(len=*), intent(in) :: source
+        integer, intent(in) :: line_end
+        integer, intent(inout) :: position
+        integer, intent(out) :: token_start
+        integer, intent(out) :: token_end
+        logical, intent(out) :: has_token
+
+        token_start = 0
+        token_end = -1
+        has_token = .false.
+        do while (position <= line_end)
+            if (.not. is_line_whitespace(source(position:position))) exit
+            position = position + 1
+        end do
+        if (position > line_end) return
+
+        token_start = position
+        do while (position <= line_end)
+            if (is_line_whitespace(source(position:position))) exit
+            position = position + 1
+        end do
+        token_end = position - 1
+        has_token = .true.
+    end subroutine next_line_token
+
+    logical function is_line_whitespace(value)
+        character(len=1), intent(in) :: value
+
+        is_line_whitespace = value == ' ' .or. value == achar(9) .or. &
+            value == achar(13)
+    end function is_line_whitespace
+
+    logical function valid_program_identifier(value)
+        character(len=*), intent(in) :: value
+
+        integer :: position
+
+        valid_program_identifier = .false.
+        if (len(value) == 0 .or. len(value) > 128) return
+        if (.not. is_identifier_character(value(1:1), .true.)) return
+        do position = 2, len(value)
+            if (.not. is_identifier_character(value(position:position), .false.)) &
+                return
+        end do
+        valid_program_identifier = .true.
+    end function valid_program_identifier
+
+    logical function is_identifier_character(value, first_character)
+        character(len=1), intent(in) :: value
+        logical, intent(in) :: first_character
+        character(len=*), parameter :: letters = &
+            'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+        character(len=*), parameter :: digits = '0123456789'
+
+        if (first_character) then
+            is_identifier_character = scan(letters, value) > 0
+        else
+            is_identifier_character = scan(letters//digits//'_', value) > 0
+        end if
+    end function is_identifier_character
 
     pure function lowercase(value) result(lowered)
         character(len=*), intent(in) :: value
