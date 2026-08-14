@@ -404,7 +404,7 @@ def emit_visitors(records: list[dict]) -> list[str]:
             f"        type({record_type(item['name'])}), intent(in) :: value",
             "        class(generated_ast_visitor_t), intent(inout) :: visitor",
             "",
-            f"        call visitor%visit_{base}(value)",
+            f"        if (associated(visitor%visit_{base})) call visitor%visit_{base}(value)",
         ]
         for field_name, field_type in item["fields"]:
             if field_type not in {"name", "int"}:

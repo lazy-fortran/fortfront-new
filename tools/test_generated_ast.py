@@ -128,6 +128,11 @@ def main() -> int:
     if (trim(visited(3)) /= 'source-span') error stop 'wrong visitor first span order'
     if (trim(visited(4)) /= 'program-declaration') error stop 'wrong visitor declaration order'
     if (trim(visited(5)) /= 'source-span') error stop 'wrong visitor second span order'
+    visitor = generated_ast_visitor_t()
+    visitor%visit_program_unit => record_program_unit
+    visit_count = 0
+    call generated_ast_visit(unit, visitor)
+    if (visit_count /= 1) error stop 'unset visitor callbacks were not optional'
     write (*, '(a)') 'generated AST behavioral checks: ok'
 
 contains

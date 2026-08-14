@@ -407,14 +407,14 @@ contains
         type(source_span_t), intent(in) :: value
         class(generated_ast_visitor_t), intent(inout) :: visitor
 
-        call visitor%visit_source_span(value)
+        if (associated(visitor%visit_source_span)) call visitor%visit_source_span(value)
     end subroutine generated_ast_visit_source_span
 
     subroutine generated_ast_visit_program_root(value, visitor)
         type(program_root_t), intent(in) :: value
         class(generated_ast_visitor_t), intent(inout) :: visitor
 
-        call visitor%visit_program_root(value)
+        if (associated(visitor%visit_program_root)) call visitor%visit_program_root(value)
         call generated_ast_visit_source_span(value%span, &
             visitor)
     end subroutine generated_ast_visit_program_root
@@ -423,7 +423,7 @@ contains
         type(program_declaration_t), intent(in) :: value
         class(generated_ast_visitor_t), intent(inout) :: visitor
 
-        call visitor%visit_program_declaration(value)
+        if (associated(visitor%visit_program_declaration)) call visitor%visit_program_declaration(value)
         call generated_ast_visit_source_span(value%span, &
             visitor)
     end subroutine generated_ast_visit_program_declaration
@@ -432,7 +432,7 @@ contains
         type(program_unit_t), intent(in) :: value
         class(generated_ast_visitor_t), intent(inout) :: visitor
 
-        call visitor%visit_program_unit(value)
+        if (associated(visitor%visit_program_unit)) call visitor%visit_program_unit(value)
         call generated_ast_visit_program_root(value%root, &
             visitor)
         call generated_ast_visit_program_declaration(value%declaration, &
