@@ -89,6 +89,7 @@ module fortfront_frontend
         frontend_result_to_sx, frontend_validate, &
         frontend_result_to_program_root, frontend_result_to_program_root_sx, &
         frontend_result_to_program_unit, &
+        frontend_validate_program_unit_handoff, &
         standardir_syntax_item_to_sx, standardir_syntax_item_from_sx, &
         standardir_syntax_item_validate, &
         frontend_validate_semantic_item, program_root_to_sx, &
@@ -476,6 +477,49 @@ contains
         unit%declaration_count = 0_int64
         ok = program_unit_validate(unit, message)
     end subroutine frontend_result_to_program_unit
+
+    logical function frontend_validate_program_unit_handoff(result, unit, message)
+        type(frontend_result_t), intent(in) :: result
+        type(program_unit_t), intent(in) :: unit
+        character(len=*), intent(out) :: message
+
+        type(program_root_t) :: expected_root
+        logical :: ok
+
+        message = ''
+        call frontend_result_to_program_root(result, expected_root, ok, message)
+        if (.not. ok) then
+            frontend_validate_program_unit_handoff = .false.
+            return
+        end if
+        if (.not. program_unit_validate(unit, message)) then
+            frontend_validate_program_unit_handoff = .false.
+            return
+        end if
+        if (trim(unit%root%name) /= trim(expected_root%name)) then
+            message = 'program-unit-root-name-mismatch'
+            frontend_validate_program_unit_handoff = .false.
+            return
+        end if
+        if (trim(unit%root%span%file) /= trim(expected_root%span%file)) then
+            message = 'program-unit-root-file-mismatch'
+            frontend_validate_program_unit_handoff = .false.
+            return
+        end if
+        if (unit%root%span%start_byte /= expected_root%span%start_byte .or. &
+            unit%root%span%end_byte /= expected_root%span%end_byte) then
+            message = 'program-unit-root-span-mismatch'
+            frontend_validate_program_unit_handoff = .false.
+            return
+        end if
+        if (trim(unit%root%span%source_hash) /= &
+            trim(expected_root%span%source_hash)) then
+            message = 'program-unit-root-source-hash-mismatch'
+            frontend_validate_program_unit_handoff = .false.
+            return
+        end if
+        frontend_validate_program_unit_handoff = .true.
+    end function frontend_validate_program_unit_handoff
 
     subroutine frontend_result_to_program_root_sx(result, output, ok, message)
         type(frontend_result_t), intent(in) :: result

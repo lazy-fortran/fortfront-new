@@ -2,8 +2,9 @@ program test_frontend_result_program_unit
     use, intrinsic :: iso_fortran_env, only: int64
     use fortfront_frontend, only: frontend_accepted, frontend_parse, &
         frontend_read, frontend_rejected, frontend_result_to_program_unit, &
-        frontend_result_t, program_unit_t, program_unit_to_sx, &
-        program_unit_validate, root_kind_none, root_kind_source, &
+        frontend_result_t, frontend_validate_program_unit_handoff, &
+        program_unit_t, program_unit_to_sx, program_unit_validate, root_kind_none, &
+        root_kind_source, &
         standardir_syntax_item_t
     implicit none
 
@@ -23,6 +24,8 @@ program test_frontend_result_program_unit
     call assert_true(ok, 'accepted result was not converted to program unit')
     call assert_true(program_unit_validate(unit, message), &
         'converted program unit was not valid')
+    call assert_true(frontend_validate_program_unit_handoff(result, unit, message), &
+        'converted program unit failed handoff validation')
     call assert_equal(unit%root%name, 'unit', &
         'converted program unit lost the root name')
     call assert_equal(unit%root%span%file, 'unit.f90', &
@@ -42,6 +45,22 @@ program test_frontend_result_program_unit
         '(start-byte 0) (end-byte 16) (source-hash hash-positive)))) '// &
         '(declaration-count 0) (declarations))', &
         'converted program unit SX changed')
+
+    unit%root%name = 'other'
+    call assert_invalid_handoff(result, unit, 'program-unit-root-name-mismatch')
+    unit%root%name = 'unit'
+    unit%root%span%source_hash = 'other-hash'
+    call assert_invalid_handoff(result, unit, &
+        'program-unit-root-source-hash-mismatch')
+    unit%root%span%source_hash = 'hash-positive'
+    unit%root%span%end_byte = 15_int64
+    call assert_invalid_handoff(result, unit, 'program-unit-root-span-mismatch')
+    unit%root%span%end_byte = 16_int64
+    unit%root%span%file = 'other.f90'
+    call assert_invalid_handoff(result, unit, 'program-unit-root-file-mismatch')
+    unit%root%span%file = 'unit.f90'
+    unit%root%name = ''
+    call assert_invalid_handoff(result, unit, 'missing-program-root-name')
 
     call frontend_read('rejected.f90', '', 'hash-rejected', result)
     call frontend_result_to_program_unit(result, unit, ok, message)
@@ -66,6 +85,7 @@ program test_frontend_result_program_unit
     call assert_true(.not. ok, 'invalid rejected result became a program unit')
     call assert_equal(message, 'invalid-rejected-result', &
         'invalid rejected result reported the wrong conversion failure')
+    call assert_invalid_handoff(result, unit, 'invalid-rejected-result')
 
     write (*, '(a)') 'frontend result program-unit behavioral checks: ok'
 
@@ -104,5 +124,18 @@ contains
 
         if (.not. value) error stop failure
     end subroutine assert_true
+
+    subroutine assert_invalid_handoff(result, unit, expected_message)
+        type(frontend_result_t), intent(in) :: result
+        type(program_unit_t), intent(in) :: unit
+        character(len=*), intent(in) :: expected_message
+
+        logical :: valid
+
+        valid = frontend_validate_program_unit_handoff(result, unit, message)
+        call assert_true(.not. valid, 'invalid program-unit handoff was accepted')
+        call assert_equal(message, expected_message, &
+            'invalid program-unit handoff reported the wrong failure')
+    end subroutine assert_invalid_handoff
 
 end program test_frontend_result_program_unit
