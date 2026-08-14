@@ -92,6 +92,7 @@ module fortfront_frontend
         frontend_result_to_program_unit_sx, &
         frontend_query_program_unit, &
         frontend_query_diagnostic, &
+        frontend_query_result_span, &
         frontend_validate_program_unit_handoff, &
         standardir_syntax_item_to_sx, standardir_syntax_item_from_sx, &
         standardir_syntax_item_validate, &
@@ -574,6 +575,73 @@ contains
         message = ''
         frontend_query_diagnostic = .true.
     end function frontend_query_diagnostic
+
+    logical function frontend_query_result_span(result, expected_root_kind, &
+            expected_file, expected_source_hash, expected_start_byte, &
+            expected_end_byte, span, message)
+        type(frontend_result_t), intent(in) :: result
+        character(len=*), intent(in) :: expected_root_kind
+        character(len=*), intent(in) :: expected_file
+        character(len=*), intent(in) :: expected_source_hash
+        integer(int64), intent(in) :: expected_start_byte
+        integer(int64), intent(in) :: expected_end_byte
+        type(source_span_t), intent(out) :: span
+        character(len=*), intent(out) :: message
+
+        type(program_root_t) :: root
+
+        span = source_span_t()
+        frontend_query_result_span = .false.
+        if (.not. frontend_validate(result, message)) return
+        if (trim(result%status) /= frontend_accepted) then
+            message = 'rejected-frontend-result'
+            return
+        end if
+        if (.not. valid_root_kind(expected_root_kind) .or. &
+            trim(expected_root_kind) == root_kind_none) then
+            message = 'invalid-expected-root-kind'
+            return
+        end if
+        if (trim(result%root_kind) /= trim(expected_root_kind) .or. &
+            trim(result%root%kind) /= trim(expected_root_kind)) then
+            message = 'frontend-result-root-kind-mismatch'
+            return
+        end if
+
+        root%name = result%root%name
+        root%span = result%root%span
+        if (.not. program_root_validate(root, message)) return
+        if (len_trim(expected_file) == 0) then
+            message = 'missing-expected-source-file'
+            return
+        end if
+        if (len_trim(expected_source_hash) == 0) then
+            message = 'missing-expected-source-hash'
+            return
+        end if
+        if (expected_start_byte < 0_int64 .or. &
+            expected_end_byte < expected_start_byte) then
+            message = 'invalid-expected-source-span'
+            return
+        end if
+        if (trim(root%span%file) /= trim(expected_file)) then
+            message = 'frontend-result-source-file-mismatch'
+            return
+        end if
+        if (trim(root%span%source_hash) /= trim(expected_source_hash)) then
+            message = 'frontend-result-source-hash-mismatch'
+            return
+        end if
+        if (root%span%start_byte /= expected_start_byte .or. &
+            root%span%end_byte /= expected_end_byte) then
+            message = 'frontend-result-source-span-mismatch'
+            return
+        end if
+
+        span = root%span
+        message = ''
+        frontend_query_result_span = .true.
+    end function frontend_query_result_span
 
     logical function frontend_validate_program_unit_handoff(result, unit, message)
         type(frontend_result_t), intent(in) :: result
