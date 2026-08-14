@@ -91,6 +91,7 @@ module fortfront_frontend
         frontend_result_to_program_unit, &
         frontend_result_to_program_unit_sx, &
         frontend_query_program_unit, &
+        frontend_query_diagnostic, &
         frontend_validate_program_unit_handoff, &
         standardir_syntax_item_to_sx, standardir_syntax_item_from_sx, &
         standardir_syntax_item_validate, &
@@ -532,6 +533,47 @@ contains
         message = ''
         frontend_query_program_unit = .true.
     end function frontend_query_program_unit
+
+    logical function frontend_query_diagnostic(result, expected_file, &
+            expected_source_hash, diagnostic, message)
+        type(frontend_result_t), intent(in) :: result
+        character(len=*), intent(in) :: expected_file
+        character(len=*), intent(in) :: expected_source_hash
+        type(diagnostic_t), intent(out) :: diagnostic
+        character(len=*), intent(out) :: message
+
+        logical :: ok
+
+        diagnostic = diagnostic_t()
+        frontend_query_diagnostic = .false.
+        if (.not. frontend_validate(result, message)) return
+        if (trim(result%status) /= frontend_rejected) then
+            message = 'accepted-frontend-result'
+            return
+        end if
+        if (len_trim(expected_file) == 0) then
+            message = 'missing-expected-source-file'
+            return
+        end if
+        if (len_trim(expected_source_hash) == 0) then
+            message = 'missing-expected-source-hash'
+            return
+        end if
+
+        diagnostic = result%diagnostics(1)
+        ok = diagnostic_validate(diagnostic, message, expected_source_hash)
+        if (.not. ok) return
+        if (trim(diagnostic%status) /= trim(result%status)) then
+            message = 'diagnostic-result-status-mismatch'
+            return
+        end if
+        if (trim(diagnostic%span%file) /= trim(expected_file)) then
+            message = 'diagnostic-source-file-mismatch'
+            return
+        end if
+        message = ''
+        frontend_query_diagnostic = .true.
+    end function frontend_query_diagnostic
 
     logical function frontend_validate_program_unit_handoff(result, unit, message)
         type(frontend_result_t), intent(in) :: result
