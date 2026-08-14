@@ -100,6 +100,7 @@ module fortfront_frontend
         frontend_result_to_program_unit_sx, &
         frontend_query_program_unit, &
         frontend_query_diagnostic, &
+        frontend_query_diagnostic_count, &
         frontend_query_result_span, &
         frontend_query_result_header, &
         frontend_validate_program_unit_handoff, &
@@ -584,6 +585,72 @@ contains
         message = ''
         frontend_query_diagnostic = .true.
     end function frontend_query_diagnostic
+
+    logical function frontend_query_diagnostic_count(result, expected_file, &
+            expected_source_hash, diagnostic_count, message)
+        type(frontend_result_t), intent(in) :: result
+        character(len=*), intent(in) :: expected_file
+        character(len=*), intent(in) :: expected_source_hash
+        integer(int64), intent(out) :: diagnostic_count
+        character(len=*), intent(out) :: message
+
+        integer :: index
+        type(diagnostic_t) :: diagnostic
+        type(program_root_t) :: root
+
+        diagnostic_count = 0_int64
+        frontend_query_diagnostic_count = .false.
+        if (.not. frontend_validate(result, message)) return
+        if (len_trim(expected_file) == 0) then
+            message = 'missing-expected-source-file'
+            return
+        end if
+        if (len_trim(expected_source_hash) == 0) then
+            message = 'missing-expected-source-hash'
+            return
+        end if
+
+        select case (trim(result%status))
+        case (frontend_accepted)
+            if (trim(result%root%kind) /= trim(result%root_kind)) then
+                message = 'frontend-result-root-kind-mismatch'
+                return
+            end if
+            root%name = result%root%name
+            root%span = result%root%span
+            if (.not. program_root_validate(root, message)) return
+            if (trim(root%span%file) /= trim(expected_file)) then
+                message = 'frontend-result-source-file-mismatch'
+                return
+            end if
+            if (trim(root%span%source_hash) /= trim(expected_source_hash)) then
+                message = 'frontend-result-source-hash-mismatch'
+                return
+            end if
+        case (frontend_rejected)
+            do index = 1, int(result%diagnostic_count)
+                diagnostic = result%diagnostics(index)
+                if (.not. diagnostic_validate(diagnostic, message)) return
+                if (trim(diagnostic%status) /= trim(result%status)) then
+                    message = 'diagnostic-result-status-mismatch'
+                    return
+                end if
+                if (trim(diagnostic%span%file) /= trim(expected_file)) then
+                    message = 'diagnostic-source-file-mismatch'
+                    return
+                end if
+                if (trim(diagnostic%span%source_hash) /= &
+                    trim(expected_source_hash)) then
+                    message = 'diagnostic-source-hash-mismatch'
+                    return
+                end if
+            end do
+        end select
+
+        diagnostic_count = result%diagnostic_count
+        message = ''
+        frontend_query_diagnostic_count = .true.
+    end function frontend_query_diagnostic_count
 
     logical function frontend_query_result_span(result, expected_root_kind, &
             expected_file, expected_source_hash, expected_start_byte, &
