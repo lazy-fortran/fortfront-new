@@ -39,6 +39,11 @@ source-dir = "test"
 main = "test_frontend_diagnostic_query.f90"
 
 [[test]]
+name = "test_frontend_diagnostic_at_query"
+source-dir = "test"
+main = "test_frontend_diagnostic_at_query.f90"
+
+[[test]]
 name = "test_frontend_diagnostic_count_query"
 source-dir = "test"
 main = "test_frontend_diagnostic_count_query.f90"
