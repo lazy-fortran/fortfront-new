@@ -92,3 +92,8 @@ main = "test_diagnostic.f90"
 name = "test_standardir_syntax_item"
 source-dir = "test"
 main = "test_standardir_syntax_item.f90"
+
+[[test]]
+name = "test_fortfront_lexical"
+source-dir = "test"
+main = "test_fortfront_lexical.f90"
