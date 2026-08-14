@@ -99,6 +99,7 @@ module fortfront_frontend
         frontend_result_to_program_unit, &
         frontend_result_to_program_unit_sx, &
         frontend_query_program_unit, &
+        frontend_query_program_declaration_count, &
         frontend_query_program_declaration_at, &
         frontend_query_diagnostic, &
         frontend_query_diagnostic_at, &
@@ -546,6 +547,46 @@ contains
         message = ''
         frontend_query_program_unit = .true.
     end function frontend_query_program_unit
+
+    logical function frontend_query_program_declaration_count(result, &
+            expected_file, expected_source_hash, declaration_count, message)
+        type(frontend_result_t), intent(in) :: result
+        character(len=*), intent(in) :: expected_file
+        character(len=*), intent(in) :: expected_source_hash
+        integer(int64), intent(out) :: declaration_count
+        character(len=*), intent(out) :: message
+
+        type(program_unit_t) :: unit
+        logical :: ok
+
+        declaration_count = 0_int64
+        frontend_query_program_declaration_count = .false.
+        if (.not. frontend_validate(result, message)) return
+        call frontend_result_to_program_unit(result, unit, ok, message)
+        if (.not. ok) return
+        if (.not. frontend_validate_program_unit_handoff(result, unit, message)) then
+            return
+        end if
+        if (len_trim(expected_file) == 0) then
+            message = 'missing-expected-source-file'
+            return
+        end if
+        if (len_trim(expected_source_hash) == 0) then
+            message = 'missing-expected-source-hash'
+            return
+        end if
+        if (trim(unit%root%span%file) /= trim(expected_file)) then
+            message = 'program-unit-source-file-mismatch'
+            return
+        end if
+        if (trim(unit%root%span%source_hash) /= trim(expected_source_hash)) then
+            message = 'program-unit-source-hash-mismatch'
+            return
+        end if
+        declaration_count = unit%declaration_count
+        message = ''
+        frontend_query_program_declaration_count = .true.
+    end function frontend_query_program_declaration_count
 
     logical function frontend_query_program_declaration_at(result, &
             declaration_index, expected_file, expected_source_hash, &
