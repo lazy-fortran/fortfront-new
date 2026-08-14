@@ -3,6 +3,7 @@ module fortfront_frontend
         generated_program_root_t => program_root_t, &
         generated_program_declaration_t => program_declaration_t, &
         generated_program_unit_t => program_unit_t, &
+        generated_source_span_validate => source_span_validate, &
         generated_program_unit_to_sx => program_unit_to_sx, &
         generated_program_unit_validate => program_unit_validate
     use, intrinsic :: iso_fortran_env, only: int64
@@ -100,6 +101,7 @@ module fortfront_frontend
     end type frontend_result_header_t
 
     public :: frontend_parse, frontend_read, frontend_result_from_sx, &
+        frontend_parse_generated_program_unit, &
         frontend_result_to_sx, frontend_validate, &
         frontend_result_to_program_root, frontend_result_to_program_root_sx, &
         frontend_result_to_program_unit, &
@@ -157,6 +159,58 @@ contains
 
         call frontend_parse(file_name, source, source_hash, missing_witness, result)
     end subroutine frontend_read
+
+    subroutine frontend_parse_generated_program_unit(file_name, source, source_hash, &
+            syntax_item, unit, ok, message)
+        character(len=*), intent(in) :: file_name
+        character(len=*), intent(in) :: source
+        character(len=*), intent(in) :: source_hash
+        type(standardir_syntax_item_t), intent(in) :: syntax_item
+        type(generated_program_unit_t), intent(out) :: unit
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        type(frontend_result_t) :: result
+        type(generated_source_span_t) :: span
+        character(len=128) :: program_name
+
+        unit = generated_program_unit_t()
+        ok = .false.
+        message = ''
+
+        span%file = file_name
+        span%start_byte = 0_int64
+        span%end_byte = int(len(source), int64)
+        span%source_hash = source_hash
+        if (len_trim(file_name) > len(span%file)) then
+            message = 'invalid-source-span-file'
+            return
+        end if
+        if (len_trim(source_hash) > len(span%source_hash)) then
+            message = 'invalid-source-span-source-hash'
+            return
+        end if
+        if (.not. generated_source_span_validate(span, message)) return
+
+        call frontend_parse(file_name, source, source_hash, syntax_item, result)
+        if (trim(result%status) /= frontend_accepted) then
+            if (allocated(result%diagnostics)) then
+                message = result%diagnostics(1)%message
+            else
+                message = 'frontend-rejected'
+            end if
+            return
+        end if
+        program_name = result%root%name
+
+        unit%root%name = program_name
+        unit%root%span = span
+        unit%declaration_count = 1_int64
+        unit%declaration%declaration_kind = declaration_kind_program
+        unit%declaration%name = program_name
+        unit%declaration%span = span
+        ok = generated_program_unit_validate(unit, message)
+    end subroutine frontend_parse_generated_program_unit
 
     subroutine frontend_parse(file_name, source, source_hash, syntax_item, result)
         character(len=*), intent(in) :: file_name
