@@ -125,6 +125,9 @@ contains
             if (facts(fact_index)%status == fortfront_grammar_analysis_unresolved) then
                 fact_unresolved(i) = .true.
             end if
+            if (facts(fact_index)%nullable_state == fortfront_grammar_analysis_nullable_unknown) then
+                fact_unresolved(i) = .true.
+            end if
         end do
 
         max_iterations = 2 * lhs_count * position_count * position_count + 1
@@ -210,6 +213,9 @@ contains
         known_count = 0
         do i = 1, table%count
             if (rule_lhs(i) /= start_index) cycle
+            if (.not. rule_can_start(table%rules(i), facts, fact_count, input, input_count)) then
+                cycle
+            end if
             if (complete(start_index, 1, position_count)) then
                 if (rule_derives(table%rules(i), complete, lhs_names, lhs_count, input, &
                     input_count)) then
@@ -243,6 +249,28 @@ contains
             message = 'grammar-frontier-input-is-ambiguous'
         end if
     end subroutine fortfront_grammar_advance_frontier
+
+    logical function rule_can_start(rule, facts, fact_count, input, input_count)
+        type(fortfront_grammar_rule_t), intent(in) :: rule
+        type(fortfront_grammar_analysis_result_t), intent(in) :: facts(:)
+        integer, intent(in) :: fact_count, input_count
+        character(len=*), intent(in) :: input(:)
+
+        integer :: i, fact_index
+
+        rule_can_start = .true.
+        if (input_count == 0) return
+        fact_index = find_fact(facts, fact_count, rule%lhs)
+        if (fact_index == 0) return
+        if (facts(fact_index)%first_count == 0) return
+        rule_can_start = .false.
+        do i = 1, facts(fact_index)%first_count
+            if (trim(facts(fact_index)%first(i)%name) == trim(input(1))) then
+                rule_can_start = .true.
+                return
+            end if
+        end do
+    end function rule_can_start
 
     subroutine validate_table(table, lhs_names, rule_lhs, lhs_count, status, message)
         type(fortfront_grammar_table_t), intent(in) :: table

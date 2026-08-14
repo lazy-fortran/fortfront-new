@@ -7,6 +7,7 @@ program test_fortfront_grammar_frontier
         fortfront_grammar_analyze
     use fortfront_grammar_frontier, only: fortfront_grammar_advance_frontier, &
         fortfront_grammar_frontier_accepted, fortfront_grammar_frontier_ambiguous, &
+        fortfront_grammar_frontier_capacity, &
         fortfront_grammar_frontier_malformed, &
         fortfront_grammar_frontier_rejected, fortfront_grammar_frontier_result_t, &
         fortfront_grammar_frontier_unresolved
@@ -18,6 +19,7 @@ program test_fortfront_grammar_frontier
     call test_recursion()
     call test_unresolved_reference()
     call test_malformed_table_and_input_clear_outputs()
+    call test_capacity_and_oracle()
     print '(a)', 'fortfront grammar frontier behavioral checks: ok'
 
 contains
@@ -194,6 +196,49 @@ contains
             'malformed abstract input was not reported')
         call require(trim(output(1)%identity) == '', 'malformed input did not clear output')
     end subroutine test_malformed_table_and_input_clear_outputs
+
+    subroutine test_capacity_and_oracle()
+        type(fortfront_grammar_table_t) :: table
+        type(fortfront_grammar_analysis_result_t) :: facts(8)
+        type(fortfront_grammar_frontier_result_t) :: output(1)
+        character(len=128) :: input(2)
+        integer :: fact_count, output_count, status
+        character(len=256) :: message
+
+        call reset_table(table)
+        call make_one(table%rules(1), 'ORACLE-A', 'S', 'a', fortfront_grammar_symbol_token)
+        call add_rule(table, table%rules(1))
+        call make_one(table%rules(2), 'ORACLE-B', 'S', 'a', fortfront_grammar_symbol_token)
+        call add_rule(table, table%rules(2))
+        call analyze(table, facts, fact_count)
+
+        input = ''
+        input(1) = 'a'
+        call advance(table, facts, fact_count, 'S', input, 1, output, output_count, status, &
+            message)
+        call require(status == fortfront_grammar_frontier_capacity .and. output_count == 0, &
+            'frontier capacity was not reported')
+        call require(trim(output(1)%identity) == '', 'capacity failure did not clear output')
+
+        ! Independent finite oracle for the two S -> a alternatives.
+        input(2) = 'b'
+        call advance(table, facts, fact_count, 'S', input, 2, output, output_count, status, &
+            message)
+        call require(status == fortfront_grammar_frontier_rejected .and. output_count == 0, &
+            'rejection did not clear the capacity-sized output')
+        call require(oracle_accepts(input, 1) .and. .not. oracle_accepts(input, 2), &
+            'independent frontier oracle was inconsistent')
+    end subroutine test_capacity_and_oracle
+
+    logical function oracle_accepts(input, input_count)
+        character(len=*), intent(in) :: input(:)
+        integer, intent(in) :: input_count
+
+        oracle_accepts = .false.
+        if (input_count == 1) then
+            oracle_accepts = trim(input(1)) == 'a'
+        end if
+    end function oracle_accepts
 
     subroutine advance(table, facts, fact_count, lhs, input, input_count, output, output_count, &
             status, message)
