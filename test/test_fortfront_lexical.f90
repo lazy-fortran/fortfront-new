@@ -88,25 +88,28 @@ contains
 
         character(len=3) :: source
         character(len=3) :: invalid_source
-        integer(int64) :: scalar, next_offset
+        integer(int64) :: byte_offset, scalar, next_offset
         integer :: status
         character(len=256) :: message
         type(fortfront_lexical_span_result_t) :: span
 
-        source = achar(65)//achar(206)//achar(177)
-        call fortfront_lexical_next_scalar(source, 0_int64, scalar, next_offset, &
+        source = char(65)//char(206)//char(177)
+        byte_offset = 0_int64
+        call fortfront_lexical_next_scalar(source, byte_offset, scalar, next_offset, &
             status, message)
         call require(status == fortfront_lexical_scalar_ok, &
             'ASCII scalar iteration failed')
         call require(scalar == 65_int64 .and. next_offset == 1_int64, &
             'ASCII scalar span differs')
-        call fortfront_lexical_next_scalar(source, next_offset, scalar, next_offset, &
+        byte_offset = next_offset
+        call fortfront_lexical_next_scalar(source, byte_offset, scalar, next_offset, &
             status, message)
         call require(status == fortfront_lexical_scalar_ok, &
             'multibyte scalar iteration failed')
         call require(scalar == 945_int64 .and. next_offset == 3_int64, &
             'multibyte scalar span differs')
-        call fortfront_lexical_next_scalar(source, next_offset, scalar, next_offset, &
+        byte_offset = next_offset
+        call fortfront_lexical_next_scalar(source, byte_offset, scalar, next_offset, &
             status, message)
         call require(status == fortfront_lexical_scalar_end, &
             'end-of-source status differs')
@@ -138,7 +141,7 @@ contains
         call require(status == fortfront_lexical_span_invalid_utf8, &
             'partial UTF-8 span was accepted')
 
-        invalid_source = achar(192)//achar(128)//achar(128)
+        invalid_source = char(192)//char(128)//char(128)
         call fortfront_lexical_next_scalar(invalid_source, 0_int64, scalar, next_offset, &
             status, message)
         call require(status == fortfront_lexical_scalar_invalid_utf8, &
@@ -147,7 +150,7 @@ contains
             span, status, message)
         call require(status == fortfront_lexical_span_invalid_utf8, &
             'invalid UTF-8 span was accepted')
-        invalid_source = achar(224)//achar(128)//achar(128)
+        invalid_source = char(224)//char(128)//char(128)
         call fortfront_lexical_next_scalar(invalid_source, 0_int64, scalar, next_offset, &
             status, message)
         call require(status == fortfront_lexical_scalar_invalid_utf8, &

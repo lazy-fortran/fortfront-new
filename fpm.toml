@@ -122,3 +122,8 @@ main = "test_fortfront_grammar_contract_sx.f90"
 name = "test_fortfront_grammar_analysis"
 source-dir = "test"
 main = "test_fortfront_grammar_analysis.f90"
+
+[[test]]
+name = "test_fortfront_grammar_frontier"
+source-dir = "test"
+main = "test_fortfront_grammar_frontier.f90"

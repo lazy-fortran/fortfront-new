@@ -969,7 +969,7 @@ contains
             message = 'projected-rule-identity-exceeds-capacity'
             return
         end if
-        output%identity = projected_identity
+        output%identity = projected_identity(1:len(output%identity))
         output%lhs = accepted%lhs
         output%rhs_count = accepted%nodes(accepted%root)%child_count
         do i = 1, output%rhs_count

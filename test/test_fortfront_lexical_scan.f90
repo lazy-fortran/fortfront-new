@@ -31,7 +31,7 @@ contains
         type(fortfront_lexical_scanned_span_t) :: output(8)
         integer :: count, status
 
-        source = achar(65)//achar(66)//achar(206)//achar(177)
+        source = char(65)//char(66)//char(206)//char(177)
         call fortfront_lexical_scan(source, facts, output, count, status, message)
         call require(status == fortfront_lexical_scan_complete, &
             'complete scan status differs')
@@ -100,7 +100,7 @@ contains
         type(fortfront_lexical_scanned_span_t) :: output(8)
         integer :: count, status
 
-        source = achar(65)//achar(192)//achar(128)//achar(70)
+        source = char(65)//char(192)//char(128)//char(70)
         call fortfront_lexical_scan(source, facts, output, count, status, message)
         call require(status == fortfront_lexical_scan_complete, &
             'malformed input did not complete with explicit spans')
@@ -125,7 +125,7 @@ contains
         integer :: count, status
 
         output = fortfront_lexical_scanned_span_t()
-        source = achar(65)//achar(67)//achar(206)//achar(177)//achar(70)
+        source = char(65)//char(67)//char(206)//char(177)//char(70)
         call fortfront_lexical_scan(source, facts, output, count, status, message)
         call require(status == fortfront_lexical_scan_capacity, &
             'capacity exhaustion was not reported')
