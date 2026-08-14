@@ -23,6 +23,11 @@ module fortfront_grammar
     integer, parameter, public :: fortfront_grammar_match_length_mismatch = 10
     integer, parameter, public :: fortfront_grammar_match_name_mismatch = 11
     integer, parameter, public :: fortfront_grammar_match_kind_mismatch = 12
+    integer, parameter, public :: fortfront_grammar_candidate_no_match = 13
+    integer, parameter, public :: fortfront_grammar_candidate_ambiguous = 14
+    integer, parameter, public :: fortfront_grammar_candidate_malformed_table = 15
+    integer, parameter, public :: fortfront_grammar_candidate_malformed_input = 16
+    integer, parameter, public :: fortfront_grammar_candidate_capacity = 17
 
     type, public :: fortfront_grammar_symbol_t
         character(len=128) :: name = ''
@@ -53,6 +58,7 @@ module fortfront_grammar
     end type fortfront_grammar_table_t
 
     public :: fortfront_grammar_add
+    public :: fortfront_grammar_collect_matches
     public :: fortfront_grammar_match_rule
     public :: fortfront_grammar_query_lhs
     public :: fortfront_grammar_reset
@@ -199,6 +205,99 @@ contains
         matched_rule = rule
         status = fortfront_grammar_valid
     end subroutine fortfront_grammar_match_rule
+
+    subroutine fortfront_grammar_collect_matches(table, lhs, input, input_count, output, &
+            output_count, status, message)
+        type(fortfront_grammar_table_t), intent(in) :: table
+        character(len=*), intent(in) :: lhs
+        type(fortfront_grammar_symbol_t), intent(in) :: input(:)
+        integer, intent(in) :: input_count
+        type(fortfront_grammar_rule_t), intent(out) :: output(:)
+        integer, intent(out) :: output_count
+        integer, intent(out) :: status
+        character(len=*), intent(out) :: message
+
+        type(fortfront_grammar_rule_t) :: lhs_rules(fortfront_grammar_rule_capacity)
+        type(fortfront_grammar_rule_t) :: matches(fortfront_grammar_rule_capacity)
+        type(fortfront_grammar_rule_t) :: matched_rule
+        integer :: i, lhs_count, match_count, query_status, match_status
+        character(len=256) :: query_message, match_message
+
+        output = fortfront_grammar_rule_t()
+        output_count = 0
+        status = fortfront_grammar_candidate_malformed_input
+        message = ''
+        if (.not. valid_atom(lhs)) then
+            message = 'grammar-candidate-lhs-is-empty-or-malformed'
+            return
+        end if
+        if (input_count < 0) then
+            message = 'grammar-candidate-input-count-is-negative'
+            return
+        end if
+        if (input_count > size(input)) then
+            message = 'grammar-candidate-input-count-is-out-of-range'
+            return
+        end if
+        do i = 1, input_count
+            if (.not. valid_input_symbol(input(i))) then
+                message = 'grammar-candidate-input-symbol-is-malformed'
+                return
+            end if
+        end do
+
+        call fortfront_grammar_query_lhs(table, lhs, lhs_rules, lhs_count, query_status, &
+            query_message)
+        if (query_status == fortfront_grammar_query_table_empty .or. &
+            query_status == fortfront_grammar_query_missing) then
+            status = fortfront_grammar_candidate_no_match
+            message = 'grammar-candidate-has-no-matching-rule'
+            return
+        end if
+        if (query_status /= fortfront_grammar_valid) then
+            status = fortfront_grammar_candidate_malformed_table
+            message = 'grammar-candidate-table-is-invalid'
+            return
+        end if
+
+        matches = fortfront_grammar_rule_t()
+        match_count = 0
+        do i = 1, lhs_count
+            call fortfront_grammar_match_rule(lhs_rules(i), input, input_count, matched_rule, &
+                match_status, match_message)
+            if (match_status == fortfront_grammar_valid) then
+                match_count = match_count + 1
+                matches(match_count) = matched_rule
+            else if (match_status == fortfront_grammar_match_malformed_input) then
+                status = fortfront_grammar_candidate_malformed_input
+                message = 'grammar-candidate-input-is-invalid'
+                return
+            else if (match_status == fortfront_grammar_match_malformed_rule) then
+                status = fortfront_grammar_candidate_malformed_table
+                message = 'grammar-candidate-table-rule-is-invalid'
+                return
+            end if
+        end do
+        if (match_count == 0) then
+            status = fortfront_grammar_candidate_no_match
+            message = 'grammar-candidate-has-no-matching-rule'
+            return
+        end if
+        if (match_count > size(output)) then
+            status = fortfront_grammar_candidate_capacity
+            message = 'grammar-candidate-output-capacity-exhausted'
+            return
+        end if
+        output(1:match_count) = matches(1:match_count)
+        output_count = match_count
+        if (match_count == 1) then
+            status = fortfront_grammar_valid
+            message = 'grammar-candidate-is-unique'
+        else
+            status = fortfront_grammar_candidate_ambiguous
+            message = 'grammar-candidate-is-ambiguous'
+        end if
+    end subroutine fortfront_grammar_collect_matches
 
     subroutine fortfront_grammar_query_lhs(table, lhs, output, output_count, status, &
             message)

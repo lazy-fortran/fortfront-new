@@ -1,6 +1,10 @@
 program test_fortfront_grammar
     use, intrinsic :: iso_fortran_env, only: int64
     use fortfront_grammar, only: fortfront_grammar_add, fortfront_grammar_capacity, &
+        fortfront_grammar_candidate_ambiguous, fortfront_grammar_candidate_capacity, &
+        fortfront_grammar_candidate_malformed_input, &
+        fortfront_grammar_candidate_malformed_table, fortfront_grammar_candidate_no_match, &
+        fortfront_grammar_collect_matches, &
         fortfront_grammar_duplicate_identity, fortfront_grammar_invalid_provenance, &
         fortfront_grammar_match_kind_mismatch, fortfront_grammar_match_length_mismatch, &
         fortfront_grammar_match_malformed_input, fortfront_grammar_match_malformed_rule, &
@@ -77,6 +81,7 @@ program test_fortfront_grammar
     call test_query_capacity(table)
     call test_table_capacity()
     call test_rhs_matching(rule, matched, input)
+    call test_candidate_collection(table, input)
     print '(a)', 'fortfront grammar boundary behavioral checks: ok'
 
 contains
@@ -206,6 +211,82 @@ contains
         call require(local_status == fortfront_grammar_match_malformed_input .and. &
             len_trim(result%identity) == 0, 'input capacity was not reported or cleared')
     end subroutine test_rhs_matching
+
+    subroutine test_candidate_collection(value, symbols)
+        type(fortfront_grammar_table_t), intent(in) :: value
+        type(fortfront_grammar_symbol_t), intent(inout) :: symbols(:)
+
+        type(fortfront_grammar_table_t) :: ambiguous_table, malformed_table
+        type(fortfront_grammar_rule_t) :: extra_rule, output(3), small_output(1)
+        integer :: local_count, local_status
+        character(len=256) :: local_message
+
+        symbols = fortfront_grammar_symbol_t()
+        symbols(1)%name = 'child'
+        symbols(1)%kind = fortfront_grammar_symbol_reference
+        call fortfront_grammar_collect_matches(value, 'root', symbols, 1, output, &
+            local_count, local_status, local_message)
+        call require(local_status == fortfront_grammar_valid .and. local_count == 1, &
+            'unique grammar candidate was not collected')
+        call require(trim(output(1)%identity) == 'R2' .and. &
+            trim(output(1)%provenance%rule) == 'R2', &
+            'unique candidate did not preserve identity and provenance')
+
+        symbols(1)%name = 'missing'
+        output(1)%identity = 'stale'
+        call fortfront_grammar_collect_matches(value, 'root', symbols, 1, output, &
+            local_count, local_status, local_message)
+        call require(local_status == fortfront_grammar_candidate_no_match .and. &
+            local_count == 0 .and. len_trim(output(1)%identity) == 0, &
+            'no-match candidate result was not explicit and clear')
+
+        ambiguous_table = value
+        call make_rule(extra_rule, 'R4', 'root', 'child', fortfront_grammar_symbol_reference)
+        call fortfront_grammar_add(ambiguous_table, extra_rule, local_status, local_message)
+        call require(local_status == fortfront_grammar_valid, &
+            'ambiguity fixture could not be added')
+        symbols(1)%name = 'child'
+        call fortfront_grammar_collect_matches(ambiguous_table, 'root', symbols, 1, output, &
+            local_count, local_status, local_message)
+        call require(local_status == fortfront_grammar_candidate_ambiguous .and. &
+            local_count == 2, 'ambiguous grammar candidates were not reported')
+        call require(trim(output(1)%identity) == 'R2' .and. &
+            trim(output(2)%identity) == 'R4', 'candidate order was not preserved')
+
+        malformed_table = value
+        malformed_table%rules(1)%identity = ' '
+        output(1)%identity = 'stale'
+        call fortfront_grammar_collect_matches(malformed_table, 'root', symbols, 1, output, &
+            local_count, local_status, local_message)
+        call require(local_status == fortfront_grammar_candidate_malformed_table .and. &
+            local_count == 0 .and. len_trim(output(1)%identity) == 0, &
+            'malformed grammar table was not reported and cleared')
+
+        symbols(1)%name = ' '
+        output(1)%identity = 'stale'
+        call fortfront_grammar_collect_matches(value, 'root', symbols, 1, output, &
+            local_count, local_status, local_message)
+        call require(local_status == fortfront_grammar_candidate_malformed_input .and. &
+            local_count == 0 .and. len_trim(output(1)%identity) == 0, &
+            'malformed grammar input was not reported and cleared')
+
+        symbols(1)%name = 'child'
+        small_output(1)%identity = 'stale'
+        call fortfront_grammar_collect_matches(ambiguous_table, 'root', symbols, 1, &
+            small_output, local_count, local_status, local_message)
+        call require(local_status == fortfront_grammar_candidate_capacity .and. &
+            local_count == 0 .and. len_trim(small_output(1)%identity) == 0, &
+            'candidate output capacity was not reported and cleared')
+
+        symbols(1)%name = 'child'
+        symbols(2) = symbols(1)
+        output(1)%identity = 'stale'
+        call fortfront_grammar_collect_matches(value, 'root', symbols, 2, output, local_count, &
+            local_status, local_message)
+        call require(local_status == fortfront_grammar_candidate_no_match .and. &
+            local_count == 0 .and. len_trim(output(1)%identity) == 0, &
+            'candidate length mismatch was not reported as no match and cleared')
+    end subroutine test_candidate_collection
 
     function integer_text(value) result(text)
         integer, intent(in) :: value
