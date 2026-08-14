@@ -3,6 +3,7 @@ program test_frontend
     use fortfront_frontend, only: frontend_accepted, frontend_parse, &
         frontend_read, frontend_rejected, frontend_result_from_sx, &
         root_kind_module, root_kind_none, root_kind_program, root_kind_source, &
+        root_kind_subroutine, &
         severity_error, frontend_result_t, standardir_syntax_item_t, &
         frontend_result_to_sx, frontend_validate, program_root_t, &
         frontend_result_to_program_root, standardir_semantic_item_t, &
@@ -177,6 +178,21 @@ program test_frontend
         'accepted module name was not parsed')
     call assert_equal(result%root%span%file, 'module.f90', &
         'accepted module span lost its file')
+
+    syntax_item%lhs = 'subroutine'
+    call frontend_parse('subroutine.f90', &
+        'subroutine unit'//new_line('a')//'end subroutine unit', &
+        'hash-subroutine', syntax_item, result)
+    call assert_equal(result%status, frontend_accepted, &
+        'subroutine syntax was rejected')
+    call assert_equal(result%root_kind, root_kind_subroutine, &
+        'accepted subroutine root kind was not subroutine')
+    call assert_equal(result%root%name, 'unit', &
+        'accepted subroutine name was not parsed')
+    call frontend_result_to_program_root(result, program_root, ok, message)
+    call assert_true(ok, 'accepted subroutine was not converted to typed root')
+    call assert_equal(program_root%name, 'unit', &
+        'typed subroutine root lost the subroutine name')
 
     call set_program_witness(syntax_item)
     syntax_item%resolution = 'unresolved'

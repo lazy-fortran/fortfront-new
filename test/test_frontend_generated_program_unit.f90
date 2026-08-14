@@ -1,6 +1,7 @@
 program test_frontend_generated_program_unit
     use, intrinsic :: iso_fortran_env, only: int64
     use fortfront_frontend, only: declaration_kind_module, declaration_kind_program, &
+        declaration_kind_subroutine, &
         frontend_generated_program_unit_to_sx, &
         frontend_parse_generated_program_unit, &
         frontend_validate_generated_program_unit, generated_program_unit_t, &
@@ -73,6 +74,16 @@ program test_frontend_generated_program_unit
     call assert_accepted_module_spans('  module unit_2 '//new_line('a')// &
         ' end module unit_2 ', 'unit_2', 2_int64, 35_int64, 2_int64, 15_int64)
 
+    syntax_item%lhs = 'subroutine'
+    call assert_accepted_subroutine_source('subroutine unit'//new_line('a')// &
+        'end', 'unit')
+    call assert_accepted_subroutine_source('subroutine unit'//new_line('a')// &
+        'end subroutine', 'unit')
+    call assert_accepted_subroutine_source('subroutine Unit'//new_line('a')// &
+        'END SUBROUTINE UNIT', 'Unit')
+    call assert_accepted_subroutine_spans('  subroutine unit_2 '//new_line('a')// &
+        ' end subroutine unit_2 ', 'unit_2', 2_int64, 43_int64, 2_int64, 19_int64)
+
     syntax_item%lhs = 'program'
     call assert_rejected('empty.f90', '', 'hash-empty', syntax_item, &
         'empty-source')
@@ -115,6 +126,26 @@ program test_frontend_generated_program_unit
     call assert_rejected('module-invalid-terminator.f90', &
         'module unit'//new_line('a')//'end program', 'hash-module-invalid-terminator', &
         syntax_item, 'invalid-program')
+
+    syntax_item%lhs = 'subroutine'
+    call assert_rejected('subroutine-mismatch.f90', &
+        'subroutine unit'//new_line('a')//'end subroutine other', &
+        'hash-subroutine-mismatch', syntax_item, 'invalid-program')
+    call assert_rejected('subroutine-empty-name.f90', &
+        'subroutine '//new_line('a')//'end', 'hash-subroutine-empty-name', &
+        syntax_item, 'invalid-program')
+    call assert_rejected('subroutine-invalid-name.f90', &
+        'subroutine 2unit'//new_line('a')//'end', 'hash-subroutine-invalid-name', &
+        syntax_item, 'invalid-program')
+    call assert_rejected('subroutine-extra-header-token.f90', &
+        'subroutine unit extra'//new_line('a')//'end', &
+        'hash-subroutine-extra-header', syntax_item, 'invalid-program')
+    call assert_rejected('subroutine-extra-terminator-token.f90', &
+        'subroutine unit'//new_line('a')//'end subroutine unit extra', &
+        'hash-subroutine-extra-terminator', syntax_item, 'invalid-program')
+    call assert_rejected('subroutine-invalid-terminator.f90', &
+        'subroutine unit'//new_line('a')//'end program', &
+        'hash-subroutine-invalid-terminator', syntax_item, 'invalid-program')
 
     syntax_item%lhs = 'program'
     call assert_rejected('', 'program unit'//new_line('a')//'end', &
@@ -224,6 +255,48 @@ contains
             expected_declaration_end, &
             'module declaration span did not end at the module name')
     end subroutine assert_accepted_module_spans
+
+    subroutine assert_accepted_subroutine_source(source, expected_name)
+        character(len=*), intent(in) :: source, expected_name
+
+        call frontend_parse_generated_program_unit('subroutine.f90', source, &
+            'hash-subroutine', syntax_item, unit, ok, message)
+        call assert_true(ok, 'valid subroutine terminator variant was rejected')
+        call assert_equal(message, '', &
+            'valid subroutine terminator variant returned a diagnostic')
+        call assert_equal(unit%root%name, expected_name, &
+            'valid subroutine terminator variant changed the subroutine name')
+        call assert_equal(unit%declaration%declaration_kind, &
+            declaration_kind_subroutine, &
+            'valid subroutine changed its declaration kind')
+        call assert_equal(unit%declaration%name, expected_name, &
+            'valid subroutine changed its declaration name')
+    end subroutine assert_accepted_subroutine_source
+
+    subroutine assert_accepted_subroutine_spans(source, expected_name, &
+            expected_root_start, expected_root_end, expected_declaration_start, &
+            expected_declaration_end)
+        character(len=*), intent(in) :: source, expected_name
+        integer(int64), intent(in) :: expected_root_start, expected_root_end
+        integer(int64), intent(in) :: expected_declaration_start
+        integer(int64), intent(in) :: expected_declaration_end
+
+        call frontend_parse_generated_program_unit('subroutine-spans.f90', source, &
+            'hash-subroutine-spans', syntax_item, unit, ok, message)
+        call assert_true(ok, 'whitespace-padded subroutine witness was rejected')
+        call assert_equal(unit%root%name, expected_name, &
+            'whitespace-padded subroutine changed the name')
+        call assert_equal_integer(unit%root%span%start_byte, expected_root_start, &
+            'subroutine root span did not start at the first token')
+        call assert_equal_integer(unit%root%span%end_byte, expected_root_end, &
+            'subroutine root span did not end at the terminator name')
+        call assert_equal_integer(unit%declaration%span%start_byte, &
+            expected_declaration_start, &
+            'subroutine declaration span did not start at the subroutine token')
+        call assert_equal_integer(unit%declaration%span%end_byte, &
+            expected_declaration_end, &
+            'subroutine declaration span did not end at the subroutine name')
+    end subroutine assert_accepted_subroutine_spans
 
     subroutine assert_rejected(file_name, source, source_hash, witness, expected)
         character(len=*), intent(in) :: file_name, source, source_hash

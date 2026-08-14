@@ -18,9 +18,11 @@ module fortfront_frontend
     character(len=*), parameter, public :: root_kind_source = 'source'
     character(len=*), parameter, public :: root_kind_program = 'program'
     character(len=*), parameter, public :: root_kind_module = 'module'
+    character(len=*), parameter, public :: root_kind_subroutine = 'subroutine'
     character(len=*), parameter, public :: root_kind_none = 'none'
     character(len=*), parameter, public :: declaration_kind_program = 'program'
     character(len=*), parameter, public :: declaration_kind_module = 'module'
+    character(len=*), parameter, public :: declaration_kind_subroutine = 'subroutine'
     integer, parameter, public :: program_unit_declaration_capacity = 16
     integer, parameter, public :: semantic_item_table_capacity = 16
     integer, parameter, public :: diagnostic_table_capacity = 16
@@ -572,7 +574,8 @@ contains
             return
         end if
         if ((trim(result%root_kind) /= root_kind_program .and. &
-            trim(result%root_kind) /= root_kind_module) .or. &
+            trim(result%root_kind) /= root_kind_module .and. &
+            trim(result%root_kind) /= root_kind_subroutine) .or. &
             trim(result%root%kind) /= trim(result%root_kind)) then
             message = 'non-program-root'
             ok = .false.
@@ -1227,7 +1230,8 @@ contains
             return
         end if
         if (trim(declaration%declaration_kind) /= declaration_kind_program .and. &
-            trim(declaration%declaration_kind) /= declaration_kind_module) then
+            trim(declaration%declaration_kind) /= declaration_kind_module .and. &
+            trim(declaration%declaration_kind) /= declaration_kind_subroutine) then
             message = 'invalid-program-declaration-kind'
             program_declaration_validate = .false.
             return
@@ -2409,6 +2413,7 @@ contains
         valid_root_kind = trim(root_kind) == root_kind_source .or. &
             trim(root_kind) == root_kind_program .or. &
             trim(root_kind) == root_kind_module .or. &
+            trim(root_kind) == root_kind_subroutine .or. &
             trim(root_kind) == root_kind_none
     end function valid_root_kind
 
@@ -2436,7 +2441,7 @@ contains
             return
         end if
         select case (lowercase(trim(syntax_item%lhs)))
-        case ('program', 'module')
+        case ('program', 'module', 'subroutine')
         case default
             message = 'unsupported-syntax-item'
             validate_syntax_item = .false.
@@ -2538,7 +2543,8 @@ contains
                 token_end, has_token)
             if (has_token) then
                 if (trim(lowercase(source(token_start:token_end))) == 'program' .or. &
-                    trim(lowercase(source(token_start:token_end))) == 'module') then
+                    trim(lowercase(source(token_start:token_end))) == 'module' .or. &
+                    trim(lowercase(source(token_start:token_end))) == 'subroutine') then
                     message = 'invalid-program'
                 end if
             end if
@@ -2591,6 +2597,8 @@ contains
             header_kind = root_kind_program
         case ('module')
             header_kind = root_kind_module
+        case ('subroutine')
+            header_kind = root_kind_subroutine
         case default
             if (header_keyword_end - header_keyword_start + 1 >= len('program')) then
                 if (trim(lowercase(source(header_keyword_start:header_keyword_start + &
@@ -2599,6 +2607,10 @@ contains
             if (header_keyword_end - header_keyword_start + 1 >= len('module')) then
                 if (trim(lowercase(source(header_keyword_start:header_keyword_start + &
                     len('module') - 1))) == 'module') message = 'invalid-program'
+            end if
+            if (header_keyword_end - header_keyword_start + 1 >= len('subroutine')) then
+                if (trim(lowercase(source(header_keyword_start:header_keyword_start + &
+                    len('subroutine') - 1))) == 'subroutine') message = 'invalid-program'
             end if
             parse_program_witness = .false.
             return
