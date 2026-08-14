@@ -85,6 +85,14 @@ module fortfront_frontend
         type(diagnostic_t), allocatable :: diagnostics(:)
     end type frontend_result_t
 
+    type, public :: frontend_result_header_t
+        character(len=8) :: status = frontend_rejected
+        character(len=32) :: root_kind = root_kind_none
+        character(len=128) :: root_name = ''
+        integer(int64) :: diagnostic_count = 0_int64
+        type(source_span_t) :: span
+    end type frontend_result_header_t
+
     public :: frontend_parse, frontend_read, frontend_result_from_sx, &
         frontend_result_to_sx, frontend_validate, &
         frontend_result_to_program_root, frontend_result_to_program_root_sx, &
@@ -93,6 +101,7 @@ module fortfront_frontend
         frontend_query_program_unit, &
         frontend_query_diagnostic, &
         frontend_query_result_span, &
+        frontend_query_result_header, &
         frontend_validate_program_unit_handoff, &
         standardir_syntax_item_to_sx, standardir_syntax_item_from_sx, &
         standardir_syntax_item_validate, &
@@ -642,6 +651,67 @@ contains
         message = ''
         frontend_query_result_span = .true.
     end function frontend_query_result_span
+
+    logical function frontend_query_result_header(result, expected_file, &
+            expected_source_hash, header, message)
+        type(frontend_result_t), intent(in) :: result
+        character(len=*), intent(in) :: expected_file
+        character(len=*), intent(in) :: expected_source_hash
+        type(frontend_result_header_t), intent(out) :: header
+        character(len=*), intent(out) :: message
+
+        type(diagnostic_t) :: diagnostic
+        type(program_root_t) :: root
+
+        header = frontend_result_header_t()
+        frontend_query_result_header = .false.
+        if (.not. frontend_validate(result, message)) return
+
+        if (len_trim(expected_file) == 0) then
+            message = 'missing-expected-source-file'
+            return
+        end if
+        if (len_trim(expected_source_hash) == 0) then
+            message = 'missing-expected-source-hash'
+            return
+        end if
+
+        header%status = result%status
+        header%root_kind = result%root_kind
+        header%root_name = result%root%name
+        header%diagnostic_count = result%diagnostic_count
+
+        select case (trim(result%status))
+        case (frontend_accepted)
+            if (trim(result%root%kind) /= trim(result%root_kind)) then
+                message = 'frontend-result-root-kind-mismatch'
+                return
+            end if
+            root%name = result%root%name
+            root%span = result%root%span
+            if (.not. program_root_validate(root, message)) return
+            header%span = root%span
+        case (frontend_rejected)
+            diagnostic = result%diagnostics(1)
+            if (.not. diagnostic_validate(diagnostic, message)) return
+            if (trim(diagnostic%status) /= trim(result%status)) then
+                message = 'diagnostic-result-status-mismatch'
+                return
+            end if
+            header%span = diagnostic%span
+        end select
+
+        if (trim(header%span%file) /= trim(expected_file)) then
+            message = 'frontend-result-source-file-mismatch'
+            return
+        end if
+        if (trim(header%span%source_hash) /= trim(expected_source_hash)) then
+            message = 'frontend-result-source-hash-mismatch'
+            return
+        end if
+        message = ''
+        frontend_query_result_header = .true.
+    end function frontend_query_result_header
 
     logical function frontend_validate_program_unit_handoff(result, unit, message)
         type(frontend_result_t), intent(in) :: result
