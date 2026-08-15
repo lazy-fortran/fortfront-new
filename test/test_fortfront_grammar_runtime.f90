@@ -19,6 +19,7 @@ program test_fortfront_grammar_runtime
     call test_ambiguity_and_unresolved()
     call test_malformed_contract_and_token_retry()
     call test_large_dynamic_grammar()
+    call test_long_source_names()
     print '(a)', 'fortfront grammar runtime behavioral checks: ok'
 
 contains
@@ -152,6 +153,45 @@ contains
         call require(status == fortfront_grammar_runtime_accepted .and. output_count == 1 .and. &
             output(1)%consumed == 40, 'runtime did not execute the large RHS')
     end subroutine test_large_dynamic_grammar
+
+    subroutine test_long_source_names()
+        type(fortfront_grammar_contract_rule_t) :: rules(2)
+        type(fortfront_grammar_runtime_t) :: runtime
+        type(fortfront_grammar_frontier_result_t) :: output(8)
+        character(len=64) :: identity_a, identity_b
+        character(len=128) :: lhs
+        character(len=256) :: message
+        integer :: output_count, status
+
+        identity_a = repeat('i', 63)//'a'
+        identity_b = repeat('i', 63)//'b'
+        lhs = repeat('l', 127)//'a'
+        call make_long_named_repeat_rule(rules(1), identity_a, lhs)
+        call make_long_named_repeat_rule(rules(2), identity_b, lhs)
+        call fortfront_grammar_runtime_initialize(runtime, rules, 2, lhs, status, message)
+        call require(status == fortfront_grammar_runtime_initialized, &
+            'runtime rejected valid source names at grammar field capacities')
+        call fortfront_grammar_runtime_push(runtime, 'token', output, output_count, status, &
+            message)
+        call require(status == fortfront_grammar_runtime_ambiguous .and. output_count == 2, &
+            'bounded generated names did not preserve distinct long source rules')
+        call require(output(1)%lhs == lhs .and. output(2)%lhs == lhs .and. &
+            output(1)%provenance%rule == identity_a .and. &
+            output(2)%provenance%rule == identity_b, &
+            'long source names changed result names or provenance')
+    end subroutine test_long_source_names
+
+    subroutine make_long_named_repeat_rule(rule, identity, lhs)
+        type(fortfront_grammar_contract_rule_t), intent(out) :: rule
+        character(len=*), intent(in) :: identity, lhs
+
+        rule = fortfront_grammar_contract_rule_t(identity=identity, alternative=1, lhs=lhs, &
+            root=1, node_count=2, origin=1, resolution=fortfront_grammar_resolution_resolved)
+        allocate(rule%nodes(2))
+        call set_source(rule)
+        call set_node(rule, 1, fortfront_grammar_node_repeat, '-', 1, .true., 2, 1)
+        call set_node(rule, 2, fortfront_grammar_node_token, 'token', 1, .false., 0, 0)
+    end subroutine make_long_named_repeat_rule
 
     subroutine make_long_sequence_rule(rule)
         type(fortfront_grammar_contract_rule_t), intent(out) :: rule

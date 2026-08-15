@@ -46,6 +46,10 @@ module fortfront_grammar_runtime
         fortfront_grammar_frontier_capacity
     integer, parameter, public :: fortfront_grammar_runtime_initialized = 6
     integer, parameter :: runtime_line_capacity = 262144
+    integer, parameter :: runtime_generated_identity_capacity = 64
+    integer, parameter :: runtime_generated_lhs_capacity = 128
+    integer, parameter :: runtime_name_digest_length = 20
+    integer(int64), parameter :: runtime_name_hash_modulus = 2147483629_int64
 
     type, public :: fortfront_grammar_runtime_t
         private
@@ -61,7 +65,6 @@ module fortfront_grammar_runtime
 
     type :: runtime_builder_t
         type(fortfront_grammar_table_t) :: table
-        integer :: source_rule_index = 0
     end type runtime_builder_t
 
 contains
@@ -192,7 +195,6 @@ contains
                 call map_contract_failure(validation_status, status, message, local_message)
                 return
             end if
-            builder%source_rule_index = i
             if (rules(i)%resolution /= fortfront_grammar_resolution_resolved) then
                 unresolved = .true.
                 call add_unresolved_rule(builder, rules(i), i, status, message)
@@ -803,7 +805,8 @@ contains
         value = trim(identity)
         if (alternative /= 0) then
             write (number, '(i0)') alternative
-            value = trim(value)//':ALT'//trim(number)
+            value = bounded_generated_name(trim(value)//':ALT'//trim(number), &
+                runtime_generated_identity_capacity)
         end if
     end function base_identity
 
@@ -814,28 +817,76 @@ contains
         character(len=32) :: number
 
         write (number, '(i0)') number_value
-        value = trim(identity)//':'//trim(label)//trim(number)
+        value = bounded_generated_name(trim(identity)//':'//trim(label)//trim(number), &
+            runtime_generated_identity_capacity)
     end function identity_with_suffix
 
     function repeat_name(rule, node_index) result(value)
         type(fortfront_grammar_contract_rule_t), intent(in) :: rule
         integer, intent(in) :: node_index
         character(len=128) :: value
+        character(len=256) :: candidate
         character(len=32) :: alternative
 
         write (alternative, '(i0)') rule%alternative
-        value = '__runtime_repeat_'//trim(rule%identity)//'_ALT'//trim(alternative)//'_'// &
+        candidate = '__runtime_repeat_'//trim(rule%identity)//'_ALT'//trim(alternative)//'_'// &
             trim(integer_text(node_index))
+        value = bounded_generated_name(candidate, runtime_generated_lhs_capacity)
     end function repeat_name
 
     function repeat_identity(rule, node_index, alternative) result(value)
         type(fortfront_grammar_contract_rule_t), intent(in) :: rule
         integer, intent(in) :: node_index, alternative
         character(len=128) :: value
+        character(len=256) :: candidate
 
-        value = 'RUNTIME-REPEAT-'//trim(adjustl(repeat_name(rule, node_index)))
-        if (alternative > 0) value = identity_with_suffix(value, 'ALT', alternative)
+        candidate = 'RUNTIME-REPEAT-'//trim(adjustl(repeat_name(rule, node_index)))
+        if (alternative > 0) candidate = trim(candidate)//':ALT'//trim(integer_text(alternative))
+        value = bounded_generated_name(candidate, runtime_generated_identity_capacity)
     end function repeat_identity
+
+    function bounded_generated_name(candidate, capacity) result(value)
+        character(len=*), intent(in) :: candidate
+        integer, intent(in) :: capacity
+        character(len=128) :: value
+
+        character(len=runtime_name_digest_length) :: digest
+        integer :: prefix_length
+
+        value = ''
+        if (capacity < 1) return
+        if (len_trim(candidate) <= capacity) then
+            value = trim(candidate)
+            return
+        end if
+        digest = generated_name_digest(candidate)
+        prefix_length = capacity - runtime_name_digest_length - 1
+        if (prefix_length > 0) then
+            value = candidate(:prefix_length)//'-'//digest
+        else
+            value = digest(:capacity)
+        end if
+    end function bounded_generated_name
+
+    function generated_name_digest(value) result(digest)
+        character(len=*), intent(in) :: value
+        character(len=runtime_name_digest_length) :: digest
+
+        integer(int64) :: first_hash, second_hash, code, index_value
+        integer :: i
+
+        first_hash = 2166136261_int64
+        second_hash = 16777619_int64
+        do i = 1, len_trim(value)
+            code = int(iachar(value(i:i)), int64)
+            index_value = int(i, int64)
+            first_hash = modulo(first_hash*65599_int64 + code + index_value, &
+                runtime_name_hash_modulus)
+            second_hash = modulo(second_hash*131071_int64 + code + 3_int64*index_value, &
+                runtime_name_hash_modulus)
+        end do
+        write (digest, '(i10.10,i10.10)') first_hash, second_hash
+    end function generated_name_digest
 
     logical function same_generated_rule(left, right)
         type(fortfront_grammar_rule_t), intent(in) :: left, right
