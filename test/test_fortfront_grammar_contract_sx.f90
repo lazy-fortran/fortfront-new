@@ -60,6 +60,8 @@ program test_fortfront_grammar_contract_sx
         replace(fixture, '(resolution resolved)', '(resolution unresolved)'), stale, status, message)
     call require(status == fortfront_grammar_contract_not_accepted .and. len_trim(stale%identity) == 0, &
         'unresolved rule was accepted or not cleared')
+    call test_quoted_punctuation()
+    call test_escaped_atoms()
 
     capacity_fixture = '(syntax-rule (id BIG) (alternative 1) (lhs root) (root 1) '// &
         '(nodes (grammar-nodes (grammar-node sequence - 1 false 2 128) '
@@ -76,6 +78,60 @@ program test_fortfront_grammar_contract_sx
     print '(a)', 'fortfront grammar contract SX behavioral checks: ok'
 
 contains
+
+    subroutine test_quoted_punctuation()
+        character(len=*), parameter :: punctuation_fixture = &
+            '(syntax-rule (id PUNCT) (alternative 1) (lhs punctuation) (root 1) '// &
+            '(nodes (grammar-nodes (grammar-node sequence - 1 false 2 2) '// &
+            '(grammar-node token "(" 1 false 0 0) '// &
+            '(grammar-node token ")" 1 false 0 0))) '// &
+            '(source (source-ref (document test) (clause punctuation) (rule PUNCT) '// &
+            '(page 1) (source-hash punctuation-hash))) '// &
+            '(origin mechanical) (resolution resolved))'
+        type(fortfront_grammar_contract_rule_t) :: parsed
+        type(fortfront_grammar_rule_t) :: projected
+        integer :: punctuation_status
+        character(len=256) :: punctuation_message
+
+        call fortfront_grammar_read_contract_sx(punctuation_fixture, parsed, punctuation_status, &
+            punctuation_message)
+        call require(punctuation_status == fortfront_grammar_contract_valid .and. &
+            parsed%nodes(2)%name == '(' .and. parsed%nodes(3)%name == ')', &
+            'quoted punctuation atoms were not read')
+        call fortfront_grammar_project_contract_sequence(parsed, projected, punctuation_status, &
+            punctuation_message)
+        call require(punctuation_status == fortfront_grammar_contract_valid .and. &
+            projected%rhs_count == 2 .and. projected%rhs(1)%name == '(' .and. &
+            projected%rhs(2)%name == ')', 'quoted punctuation atoms did not round-trip')
+    end subroutine test_quoted_punctuation
+
+    subroutine test_escaped_atoms()
+        character(len=*), parameter :: escaped_fixture = &
+            '(syntax-rule (id ESCAPED) (alternative 1) (lhs escaped) (root 1) '// &
+            '(nodes (grammar-nodes (grammar-node sequence - 1 false 2 2) '// &
+            '(grammar-node token "'//achar(92)//'"" 1 false 0 0) '// &
+            '(grammar-node token "\\" 1 false 0 0))) '// &
+            '(source (source-ref (document test) (clause escaped) (rule ESCAPED) '// &
+            '(page 1) (source-hash escaped-hash))) '// &
+            '(origin mechanical) (resolution resolved))'
+        type(fortfront_grammar_contract_rule_t) :: parsed
+        type(fortfront_grammar_rule_t) :: projected
+        integer :: escaped_status
+        character(len=256) :: escaped_message
+
+        call fortfront_grammar_read_contract_sx(escaped_fixture, parsed, escaped_status, &
+            escaped_message)
+        call require(escaped_status == fortfront_grammar_contract_valid, &
+            'escaped SX fixture was rejected: '//trim(escaped_message))
+        call require(parsed%nodes(2)%name == '"' .and. parsed%nodes(3)%name == '\', &
+            'escaped SX atoms were not decoded')
+        call fortfront_grammar_project_contract_sequence(parsed, projected, escaped_status, &
+            escaped_message)
+        call require(escaped_status == fortfront_grammar_contract_valid, &
+            'escaped SX projection was rejected: '//trim(escaped_message))
+        call require(projected%rhs_count == 2 .and. projected%rhs(1)%name == '"' .and. &
+            projected%rhs(2)%name == '\', 'escaped SX atoms did not round-trip')
+    end subroutine test_escaped_atoms
 
     function replace(value, old, new) result(output)
         character(len=*), intent(in) :: value, old, new

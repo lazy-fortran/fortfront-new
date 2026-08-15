@@ -649,11 +649,50 @@ contains
         character(len=*), intent(out) :: token
         logical, intent(out) :: ok
 
-        integer :: first
+        integer :: first, output_length
+        character :: value
 
         token = ''
         call sx_skip_spaces(input, position)
         if (position > len(input)) then
+            ok = .false.
+            return
+        end if
+        if (input(position:position) == '"') then
+            position = position + 1
+            output_length = 0
+            do while (position <= len(input))
+                if (input(position:position) == '"') then
+                    if (output_length == 0) then
+                        ok = .false.
+                        return
+                    end if
+                    position = position + 1
+                    ok = .true.
+                    return
+                end if
+                value = input(position:position)
+                if (value == '\') then
+                    position = position + 1
+                    if (position > len(input)) then
+                        ok = .false.
+                        return
+                    end if
+                    if (input(position:position) /= '\' .and. &
+                        input(position:position) /= '"') then
+                        ok = .false.
+                        return
+                    end if
+                    value = input(position:position)
+                end if
+                output_length = output_length + 1
+                if (output_length > len(token)) then
+                    ok = .false.
+                    return
+                end if
+                token(output_length:output_length) = value
+                position = position + 1
+            end do
             ok = .false.
             return
         end if

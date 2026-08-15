@@ -10,6 +10,11 @@ auto-executables = false
 auto-tests = false
 auto-examples = false
 
+[[executable]]
+name = "fortfront-grammar-runtime"
+source-dir = "app"
+main = "fortfront_grammar_runtime_cli.f90"
+
 [library]
 source-dir = "src"
 
@@ -137,3 +142,8 @@ main = "test_fortfront_grammar_session.f90"
 name = "test_fortfront_grammar_runtime"
 source-dir = "test"
 main = "test_fortfront_grammar_runtime.f90"
+
+[[test]]
+name = "test_fortfront_grammar_runtime_file"
+source-dir = "test"
+main = "test_fortfront_grammar_runtime_file.f90"

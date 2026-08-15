@@ -5,7 +5,7 @@ module fortfront_grammar_runtime
     !! frontier and session remain the only recognizer; this module supplies
     !! the generic contract-to-table bridge and no source-language dispatch.
 
-    use, intrinsic :: iso_fortran_env, only: int64
+    use, intrinsic :: iso_fortran_env, only: int64, iostat_end
     use fortfront_grammar, only: fortfront_grammar_add, fortfront_grammar_capacity, &
         fortfront_grammar_consume_contract_rule, fortfront_grammar_contract_rule_t, &
         fortfront_grammar_contract_capacity, &
@@ -14,6 +14,7 @@ module fortfront_grammar_runtime
         fortfront_grammar_node_repeat, fortfront_grammar_node_sequence, &
         fortfront_grammar_node_token, fortfront_grammar_rule_t, &
         fortfront_grammar_resolution_resolved, &
+        fortfront_grammar_read_contract_sx, &
         fortfront_grammar_symbol_reference, fortfront_grammar_symbol_t, &
         fortfront_grammar_symbol_token, fortfront_grammar_table_t, &
         fortfront_grammar_validate_contract_rule, fortfront_grammar_valid
@@ -44,6 +45,7 @@ module fortfront_grammar_runtime
     integer, parameter, public :: fortfront_grammar_runtime_capacity = &
         fortfront_grammar_frontier_capacity
     integer, parameter, public :: fortfront_grammar_runtime_initialized = 6
+    integer, parameter :: runtime_line_capacity = 262144
 
     type, public :: fortfront_grammar_runtime_t
         private
@@ -53,7 +55,9 @@ module fortfront_grammar_runtime
 
     public :: fortfront_grammar_runtime_finalize
     public :: fortfront_grammar_runtime_initialize
+    public :: fortfront_grammar_runtime_load_file
     public :: fortfront_grammar_runtime_push
+    public :: fortfront_grammar_runtime_status_name
 
     type :: runtime_builder_t
         type(fortfront_grammar_table_t) :: table
@@ -61,6 +65,87 @@ module fortfront_grammar_runtime
     end type runtime_builder_t
 
 contains
+
+    subroutine fortfront_grammar_runtime_load_file(runtime, path, start_lhs, rule_count, &
+            line_count, status, message)
+        type(fortfront_grammar_runtime_t), intent(out) :: runtime
+        character(len=*), intent(in) :: path, start_lhs
+        integer, intent(out) :: rule_count, line_count, status
+        character(len=*), intent(out) :: message
+
+        type(fortfront_grammar_contract_rule_t), allocatable :: rules(:)
+        type(fortfront_grammar_contract_rule_t) :: rule
+        integer :: unit, io_status, parse_status, allocation_status
+        character(len=runtime_line_capacity) :: line
+        character(len=256) :: io_message, parse_message
+
+        runtime = fortfront_grammar_runtime_t()
+        rule_count = 0
+        line_count = 0
+        status = fortfront_grammar_runtime_malformed
+        message = ''
+        open (newunit=unit, file=trim(path), status='old', action='read', iostat=io_status, &
+            iomsg=io_message)
+        if (io_status /= 0) then
+            message = 'grammar-runtime-file-open-failed: '//trim(io_message)
+            return
+        end if
+
+        allocate(rules(0))
+        do
+            read (unit, '(A)', iostat=io_status, iomsg=io_message) line
+            if (io_status == iostat_end) exit
+            if (io_status /= 0) then
+                close (unit)
+                message = 'grammar-runtime-file-read-failed: '//trim(io_message)
+                return
+            end if
+            line_count = line_count + 1
+            call fortfront_grammar_read_contract_sx(trim(line), rule, parse_status, parse_message)
+            if (parse_status /= fortfront_grammar_contract_valid) then
+                close (unit)
+                message = 'grammar-runtime-line-'//trim(integer_text(line_count))// &
+                    '-malformed: '//trim(parse_message)
+                return
+            end if
+            call append_rule(rules, rule, allocation_status)
+            if (allocation_status /= 0) then
+                close (unit)
+                status = fortfront_grammar_runtime_capacity
+                message = 'grammar-runtime-rule-storage-allocation-failed'
+                return
+            end if
+            rule_count = rule_count + 1
+        end do
+        close (unit)
+
+        call fortfront_grammar_runtime_initialize(runtime, rules, rule_count, start_lhs, status, &
+            message)
+    end subroutine fortfront_grammar_runtime_load_file
+
+    pure function fortfront_grammar_runtime_status_name(status) result(name)
+        integer, intent(in) :: status
+        character(len=16) :: name
+
+        select case (status)
+        case (fortfront_grammar_runtime_accepted)
+            name = 'accepted'
+        case (fortfront_grammar_runtime_rejected)
+            name = 'rejected'
+        case (fortfront_grammar_runtime_ambiguous)
+            name = 'ambiguous'
+        case (fortfront_grammar_runtime_unresolved)
+            name = 'unresolved'
+        case (fortfront_grammar_runtime_malformed)
+            name = 'malformed'
+        case (fortfront_grammar_runtime_initialized)
+            name = 'initialized'
+        case (fortfront_grammar_runtime_capacity)
+            name = 'capacity'
+        case default
+            name = 'unknown'
+        end select
+    end function fortfront_grammar_runtime_status_name
 
     subroutine fortfront_grammar_runtime_initialize(runtime, rules, rule_count, start_lhs, &
             status, message)
@@ -196,6 +281,31 @@ contains
         call fortfront_grammar_session_finalize(runtime%session, output, output_count, status, &
             message)
     end subroutine fortfront_grammar_runtime_finalize
+
+    subroutine append_rule(rules, rule, allocation_status)
+        type(fortfront_grammar_contract_rule_t), allocatable, intent(inout) :: rules(:)
+        type(fortfront_grammar_contract_rule_t), intent(in) :: rule
+        integer, intent(out) :: allocation_status
+
+        type(fortfront_grammar_contract_rule_t), allocatable :: replacement(:)
+        integer :: old_count, new_count
+
+        allocation_status = 0
+        old_count = size(rules)
+        new_count = max(1, 2 * old_count)
+        allocate(replacement(new_count), stat=allocation_status)
+        if (allocation_status /= 0) return
+        if (old_count > 0) replacement(1:old_count) = rules
+        replacement(old_count + 1) = rule
+        call move_alloc(replacement, rules)
+    end subroutine append_rule
+
+    function integer_text(value) result(text)
+        integer, intent(in) :: value
+        character(len=32) :: text
+
+        write (text, '(i0)') value
+    end function integer_text
 
     recursive subroutine validate_node_tree(rule, node_index, status, message, seen, visiting)
         type(fortfront_grammar_contract_rule_t), intent(in) :: rule
