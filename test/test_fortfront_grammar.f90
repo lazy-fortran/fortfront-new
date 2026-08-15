@@ -11,11 +11,11 @@ program test_fortfront_grammar
         fortfront_grammar_match_name_mismatch, fortfront_grammar_match_rule, &
         fortfront_grammar_malformed, fortfront_grammar_query_lhs, &
         fortfront_grammar_query_missing, fortfront_grammar_query_table_empty, &
-        fortfront_grammar_rule_capacity, fortfront_grammar_rule_t, &
-        fortfront_grammar_rhs_capacity, fortfront_grammar_symbol_reference, &
+        fortfront_grammar_rule_t, fortfront_grammar_symbol_reference, &
         fortfront_grammar_symbol_t, fortfront_grammar_symbol_token, fortfront_grammar_table_t, &
         fortfront_grammar_valid, fortfront_grammar_validate_rule, &
-        fortfront_grammar_reset
+        fortfront_grammar_reset, fortfront_grammar_reserve_rule_rhs, &
+        fortfront_grammar_reserve_table
     implicit none
 
     type(fortfront_grammar_table_t) :: table, empty_table
@@ -74,12 +74,13 @@ program test_fortfront_grammar
         'duplicate identity was accepted')
 
     call make_rule(rule, 'too-many', 'root', 'child', fortfront_grammar_symbol_reference)
-    rule%rhs_count = fortfront_grammar_rhs_capacity + 1
+    rule%rhs_count = 3
     call fortfront_grammar_add(table, rule, status, message)
-    call require(status == fortfront_grammar_malformed, 'oversized RHS was accepted')
+    call require(status == fortfront_grammar_malformed, 'RHS exceeding storage was accepted')
 
     call test_query_capacity(table)
-    call test_table_capacity()
+    call test_dynamic_storage()
+    call test_failed_reserve_preserves_storage()
     call test_rhs_matching(rule, matched, input)
     call test_candidate_collection(table, input)
     print '(a)', 'fortfront grammar boundary behavioral checks: ok'
@@ -92,6 +93,7 @@ contains
         integer, intent(in) :: symbol_kind
 
         value = fortfront_grammar_rule_t()
+        allocate(value%rhs(2))
         value%identity = identity
         value%lhs = lhs
         value%rhs_count = 1
@@ -131,25 +133,60 @@ contains
             'query capacity changed the valid prefix')
     end subroutine test_query_capacity
 
-    subroutine test_table_capacity()
+    subroutine test_dynamic_storage()
         type(fortfront_grammar_table_t) :: full_table
-        type(fortfront_grammar_rule_t) :: item
-        integer :: i, local_status
+        type(fortfront_grammar_rule_t) :: item, long_rule
+        type(fortfront_grammar_rule_t) :: query_output(40)
+        integer :: i, local_status, local_count
         character(len=256) :: local_message
 
         call fortfront_grammar_reset(full_table)
-        do i = 1, fortfront_grammar_rule_capacity
+        do i = 1, 40
             call make_rule(item, 'ID-'//integer_text(i), 'lhs', 'symbol', &
                 fortfront_grammar_symbol_reference)
             call fortfront_grammar_add(full_table, item, local_status, local_message)
             call require(local_status == fortfront_grammar_valid, &
-                'table capacity fixture could not be filled')
+                'dynamic table fixture could not be filled')
         end do
-        call make_rule(item, 'overflow', 'lhs', 'symbol', fortfront_grammar_symbol_reference)
-        call fortfront_grammar_add(full_table, item, local_status, local_message)
-        call require(local_status == fortfront_grammar_capacity, &
-            'table capacity was not reported')
-    end subroutine test_table_capacity
+        call fortfront_grammar_query_lhs(full_table, 'lhs', query_output, local_count, &
+            local_status, local_message)
+        call require(local_status == fortfront_grammar_valid .and. local_count == 40, &
+            'dynamic table query did not retain all rules')
+
+        call make_rule(long_rule, 'LONG-RHS', 'long-lhs', 'symbol', &
+            fortfront_grammar_symbol_reference)
+        deallocate(long_rule%rhs)
+        allocate(long_rule%rhs(40))
+        long_rule%rhs_count = 40
+        do i = 1, long_rule%rhs_count
+            long_rule%rhs(i)%name = 'symbol'
+            long_rule%rhs(i)%kind = fortfront_grammar_symbol_reference
+        end do
+        call fortfront_grammar_add(full_table, long_rule, local_status, local_message)
+        call require(local_status == fortfront_grammar_valid, 'dynamic RHS was rejected')
+    end subroutine test_dynamic_storage
+
+    subroutine test_failed_reserve_preserves_storage()
+        type(fortfront_grammar_table_t) :: table
+        type(fortfront_grammar_rule_t) :: rule
+        integer :: local_status
+        character(len=256) :: local_message
+
+        call fortfront_grammar_reset(table)
+        call make_rule(rule, 'PRESERVE', 'root', 'child', fortfront_grammar_symbol_reference)
+        call require_add(table, rule)
+        call fortfront_grammar_reserve_table(table, -1, local_status, local_message)
+        call require(local_status == fortfront_grammar_malformed .and. table%count == 1 .and. &
+            trim(table%rules(1)%identity) == 'PRESERVE', &
+            'failed table growth changed the prior table')
+        call fortfront_grammar_reserve_rule_rhs(rule, -1, local_status, local_message)
+        call require(local_status == fortfront_grammar_malformed, &
+            'failed RHS growth returned the wrong status')
+        call require(allocated(rule%rhs), 'failed RHS growth deallocated RHS storage')
+        call require(size(rule%rhs) == 2, 'failed RHS growth changed RHS storage')
+        call require(trim(rule%rhs(1)%name) == 'child', &
+            'failed RHS growth changed the prior rule')
+    end subroutine test_failed_reserve_preserves_storage
 
     subroutine test_rhs_matching(value, result, symbols)
         type(fortfront_grammar_rule_t), intent(out) :: value

@@ -1,7 +1,7 @@
 program test_fortfront_grammar_contract
     use, intrinsic :: iso_fortran_env, only: int64
     use fortfront_grammar, only: fortfront_grammar_add, &
-        fortfront_grammar_collect_matches, fortfront_grammar_contract_capacity, &
+        fortfront_grammar_collect_matches, &
         fortfront_grammar_contract_invalid_kind, fortfront_grammar_contract_invalid_range, &
         fortfront_grammar_contract_malformed, fortfront_grammar_contract_not_accepted, &
         fortfront_grammar_contract_not_projectable, fortfront_grammar_contract_rule_t, &
@@ -91,17 +91,24 @@ program test_fortfront_grammar_contract
         len_trim(stale_projected%identity) == 0, 'disputed rule was accepted or not cleared')
 
     malformed = input
-    malformed%nodes(1)%child_count = 17
+    deallocate(malformed%nodes)
+    allocate(malformed%nodes(129))
+    malformed%nodes = fortfront_grammar_node_t()
+    malformed%nodes(1)%kind = fortfront_grammar_node_sequence
     malformed%nodes(1)%first_child = 2
-    malformed%node_count = 18
-    do count = 2, 18
+    malformed%nodes(1)%child_count = 128
+    malformed%node_count = 129
+    do count = 2, 129
         malformed%nodes(count) = fortfront_grammar_node_t()
-        malformed%nodes(count)%kind = fortfront_grammar_node_reference
+        malformed%nodes(count)%kind = fortfront_grammar_node_token
         malformed%nodes(count)%name = 'leaf'
     end do
+    call fortfront_grammar_validate_contract_rule(malformed, status, message)
+    call require(status == fortfront_grammar_contract_valid, &
+        'contract nodes beyond the former capacity were rejected')
     call fortfront_grammar_project_contract_sequence(malformed, stale_projected, status, message)
-    call require(status == fortfront_grammar_contract_capacity .and. &
-        len_trim(stale_projected%identity) == 0, 'projection capacity was not explicit')
+    call require(status == fortfront_grammar_contract_valid .and. &
+        stale_projected%rhs_count == 128, 'large contract sequence was not projected')
 
     malformed = input
     malformed%nodes(2)%kind = fortfront_grammar_node_sequence
@@ -130,6 +137,7 @@ contains
         rule%lhs = 'root'
         rule%root = 1
         rule%node_count = 3
+        allocate(rule%nodes(3))
         rule%nodes(1)%kind = fortfront_grammar_node_sequence
         rule%nodes(1)%first_child = 2
         rule%nodes(1)%child_count = 2

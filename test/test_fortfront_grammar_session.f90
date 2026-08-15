@@ -145,13 +145,12 @@ contains
         call analyze(table, facts, fact_count)
         call fortfront_grammar_session_initialize(session, table, facts, fact_count, 'S', &
             init_status, message)
-        do i = 1, 16
+        do i = 1, 20
             call fortfront_grammar_session_push(session, 'x', output, output_count, status, &
                 message)
         end do
-        call fortfront_grammar_session_push(session, 'x', output, output_count, status, message)
-        call require(status == fortfront_grammar_session_capacity .and. output_count == 0 .and. &
-            trim(output(1)%identity) == '', 'token capacity or output clearing failed')
+        call require(status == fortfront_grammar_session_rejected .and. output_count == 0 .and. &
+            trim(output(1)%identity) == '', 'dynamic token storage or output clearing failed')
 
         call reset_table(table)
         call add_token_rule(table, 'OUTPUT-A', 'S', 'a')
@@ -187,6 +186,7 @@ contains
 
         rule = fortfront_grammar_rule_t(identity=identity, lhs=lhs, rhs_count=1, &
             provenance=valid_provenance(identity))
+        allocate(rule%rhs(1))
         rule%rhs(1)%name = token
         rule%rhs(1)%kind = fortfront_grammar_symbol_token
         call fortfront_grammar_add(table, rule, status, message)
@@ -202,6 +202,7 @@ contains
 
         rule = fortfront_grammar_rule_t(identity=identity, lhs=lhs, rhs_count=2, &
             provenance=valid_provenance(identity))
+        allocate(rule%rhs(2))
         rule%rhs(1)%name = reference
         rule%rhs(1)%kind = fortfront_grammar_symbol_reference
         rule%rhs(2)%name = token
@@ -219,6 +220,7 @@ contains
 
         rule = fortfront_grammar_rule_t(identity=identity, lhs=lhs, rhs_count=1, &
             provenance=valid_provenance(identity))
+        allocate(rule%rhs(1))
         rule%rhs(1)%name = reference
         rule%rhs(1)%kind = fortfront_grammar_symbol_reference
         call fortfront_grammar_add(table, rule, status, message)

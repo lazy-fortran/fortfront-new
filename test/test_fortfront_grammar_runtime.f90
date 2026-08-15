@@ -18,6 +18,7 @@ program test_fortfront_grammar_runtime
     call test_nested_expression_language()
     call test_ambiguity_and_unresolved()
     call test_malformed_contract_and_token_retry()
+    call test_large_dynamic_grammar()
     print '(a)', 'fortfront grammar runtime behavioral checks: ok'
 
 contains
@@ -120,11 +121,58 @@ contains
             'valid token could not retry after malformed input')
     end subroutine test_malformed_contract_and_token_retry
 
+    subroutine test_large_dynamic_grammar()
+        type(fortfront_grammar_contract_rule_t) :: rules(40), long_rule, single(1)
+        type(fortfront_grammar_runtime_t) :: runtime
+        type(fortfront_grammar_frontier_result_t) :: output(40)
+        integer :: i, status, output_count
+        character(len=256) :: message
+
+        do i = 1, size(rules)
+            call make_leaf_rule(rules(i), 'MANY-'//integer_text(i), 'x', &
+                fortfront_grammar_resolution_resolved)
+        end do
+        call fortfront_grammar_runtime_initialize(runtime, rules, size(rules), 'root', status, &
+            message)
+        call require(status == fortfront_grammar_runtime_initialized, &
+            'runtime rejected more rules than the former fixed table')
+        call fortfront_grammar_runtime_push(runtime, 'x', output, output_count, status, message)
+        call require(status == fortfront_grammar_runtime_ambiguous .and. output_count == 40, &
+            'runtime did not preserve all large-table alternatives')
+
+        call make_long_sequence_rule(long_rule)
+        single(1) = long_rule
+        call fortfront_grammar_runtime_initialize(runtime, single, 1, 'root', status, message)
+        call require(status == fortfront_grammar_runtime_initialized, &
+            'runtime rejected an RHS longer than the former fixed capacity')
+        do i = 1, 40
+            call fortfront_grammar_runtime_push(runtime, 'token', output, output_count, status, &
+                message)
+        end do
+        call require(status == fortfront_grammar_runtime_accepted .and. output_count == 1 .and. &
+            output(1)%consumed == 40, 'runtime did not execute the large RHS')
+    end subroutine test_large_dynamic_grammar
+
+    subroutine make_long_sequence_rule(rule)
+        type(fortfront_grammar_contract_rule_t), intent(out) :: rule
+        integer :: i
+
+        rule = fortfront_grammar_contract_rule_t(identity='LONG-RHS', alternative=1, lhs='root', &
+            root=1, node_count=41, origin=1, resolution=fortfront_grammar_resolution_resolved)
+        allocate(rule%nodes(41))
+        call set_source(rule)
+        call set_node(rule, 1, fortfront_grammar_node_sequence, '-', 1, .false., 2, 40)
+        do i = 2, 41
+            call set_node(rule, i, fortfront_grammar_node_token, 'token', 1, .false., 0, 0)
+        end do
+    end subroutine make_long_sequence_rule
+
     subroutine make_nested_rule(rule)
         type(fortfront_grammar_contract_rule_t), intent(out) :: rule
 
         rule = fortfront_grammar_contract_rule_t(identity='NESTED', alternative=1, lhs='root', &
             root=1, node_count=8, origin=1, resolution=fortfront_grammar_resolution_resolved)
+        allocate(rule%nodes(8))
         call set_source(rule)
         call set_node(rule, 1, fortfront_grammar_node_sequence, '-', 1, .false., 2, 3)
         call set_node(rule, 2, fortfront_grammar_node_optional, '-', 0, .false., 3, 1)
@@ -143,6 +191,7 @@ contains
 
         rule = fortfront_grammar_contract_rule_t(identity=identity, alternative=1, lhs='root', &
             root=1, node_count=1, origin=1, resolution=resolution)
+        allocate(rule%nodes(1))
         call set_source(rule)
         call set_node(rule, 1, fortfront_grammar_node_token, token, 1, .false., 0, 0)
     end subroutine make_leaf_rule
@@ -156,6 +205,13 @@ contains
         rule%source%page = 1_int64
         rule%source%source_hash = 'runtime-witness-hash'
     end subroutine set_source
+
+    function integer_text(value) result(text)
+        integer, intent(in) :: value
+        character(len=8) :: text
+
+        write (text, '(i0)') value
+    end function integer_text
 
     subroutine set_node(rule, index, kind, name, minimum, unbounded, first_child, child_count)
         type(fortfront_grammar_contract_rule_t), intent(inout) :: rule

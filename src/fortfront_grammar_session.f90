@@ -1,9 +1,8 @@
 module fortfront_grammar_session
-    !! Fixed-capacity incremental wrapper around the generic grammar frontier.
+    !! Incremental wrapper around the generic grammar frontier.
     !! Tokens are caller-supplied names; this module performs no tokenization.
 
-    use fortfront_grammar, only: fortfront_grammar_rule_capacity, &
-        fortfront_grammar_table_t
+    use fortfront_grammar, only: fortfront_grammar_table_t
     use fortfront_grammar_analysis, only: fortfront_grammar_analysis_result_t
     use fortfront_grammar_frontier, only: fortfront_grammar_advance_frontier, &
         fortfront_grammar_frontier_accepted, fortfront_grammar_frontier_ambiguous, &
@@ -13,7 +12,6 @@ module fortfront_grammar_session
     implicit none
     private
 
-    integer, parameter, public :: fortfront_grammar_session_token_capacity = 16
     integer, parameter, public :: fortfront_grammar_session_accepted = &
         fortfront_grammar_frontier_accepted
     integer, parameter, public :: fortfront_grammar_session_rejected = &
@@ -32,10 +30,10 @@ module fortfront_grammar_session
     type, public :: fortfront_grammar_session_t
         private
         type(fortfront_grammar_table_t) :: table
-        type(fortfront_grammar_analysis_result_t) :: facts(fortfront_grammar_rule_capacity)
+        type(fortfront_grammar_analysis_result_t), allocatable :: facts(:)
         integer :: fact_count = 0
         character(len=128) :: start_lhs = ''
-        character(len=128) :: input(fortfront_grammar_session_token_capacity) = ''
+        character(len=128), allocatable :: input(:)
         integer :: input_count = 0
         logical :: initialized = .false.
         logical :: finalized = .false.
@@ -57,22 +55,24 @@ contains
         integer, intent(out) :: status
         character(len=*), intent(out) :: message
 
-        type(fortfront_grammar_frontier_result_t) :: probe(fortfront_grammar_rule_capacity)
+        type(fortfront_grammar_frontier_result_t), allocatable :: probe(:)
         integer :: probe_count, frontier_status
         character(len=256) :: frontier_message
 
         session = fortfront_grammar_session_t()
         status = fortfront_grammar_session_malformed
         message = ''
-        if (fact_count < 0 .or. fact_count > size(session%facts) .or. &
-            fact_count > size(facts)) then
+        if (fact_count < 0 .or. fact_count > size(facts)) then
             message = 'grammar-session-fact-count-is-out-of-range'
             return
         end if
         session%table = table
-        session%facts(1:fact_count) = facts(1:fact_count)
+        allocate(session%facts(fact_count))
+        if (fact_count > 0) session%facts = facts(1:fact_count)
+        allocate(session%input(0))
         session%fact_count = fact_count
         session%start_lhs = start_lhs
+        allocate(probe(max(1, table%count)))
         call fortfront_grammar_advance_frontier(session%table, session%facts, &
             session%fact_count, session%start_lhs, session%input, 0, probe, probe_count, &
             frontier_status, frontier_message)
@@ -93,9 +93,8 @@ contains
         integer, intent(out) :: output_count, status
         character(len=*), intent(out) :: message
 
-        character(len=128) :: candidate(fortfront_grammar_session_token_capacity)
-        type(fortfront_grammar_frontier_result_t) :: candidate_output(&
-            fortfront_grammar_rule_capacity)
+        character(len=128), allocatable :: candidate(:)
+        type(fortfront_grammar_frontier_result_t), allocatable :: candidate_output(:)
         integer :: candidate_count, frontier_status
         character(len=256) :: frontier_message
 
@@ -112,12 +111,9 @@ contains
             message = 'grammar-session-cannot-push-after-finalization'
             return
         end if
-        if (session%input_count == fortfront_grammar_session_token_capacity) then
-            status = fortfront_grammar_session_capacity
-            message = 'grammar-session-token-capacity-exhausted'
-            return
-        end if
-        candidate = session%input
+        allocate(candidate_output(max(1, session%table%count)))
+        allocate(candidate(session%input_count + 1))
+        if (session%input_count > 0) candidate(1:session%input_count) = session%input
         candidate(session%input_count + 1) = token
         call evaluate(session, candidate, session%input_count + 1, candidate_output, &
             candidate_count, frontier_status, frontier_message)
@@ -139,8 +135,7 @@ contains
         integer, intent(out) :: output_count, status
         character(len=*), intent(out) :: message
 
-        type(fortfront_grammar_frontier_result_t) :: candidate_output(&
-            fortfront_grammar_rule_capacity)
+        type(fortfront_grammar_frontier_result_t), allocatable :: candidate_output(:)
         integer :: candidate_count, frontier_status
         character(len=256) :: frontier_message
 
@@ -157,6 +152,7 @@ contains
             message = 'grammar-session-is-already-finalized'
             return
         end if
+        allocate(candidate_output(max(1, session%table%count)))
         call evaluate(session, session%input, session%input_count, candidate_output, candidate_count, &
             frontier_status, frontier_message)
         session%finalized = .true.

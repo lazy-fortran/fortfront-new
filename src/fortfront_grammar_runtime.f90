@@ -1,5 +1,5 @@
 module fortfront_grammar_runtime
-    !! Bounded executable consumer for standardir-grammar-v0 expressions.
+    !! Executable consumer for standardir-grammar-v0 expressions.
     !!
     !! Contract nodes are lowered to the existing flat grammar table.  The
     !! frontier and session remain the only recognizer; this module supplies
@@ -7,14 +7,12 @@ module fortfront_grammar_runtime
 
     use, intrinsic :: iso_fortran_env, only: int64
     use fortfront_grammar, only: fortfront_grammar_add, fortfront_grammar_capacity, &
-        fortfront_grammar_contract_node_capacity, &
         fortfront_grammar_consume_contract_rule, fortfront_grammar_contract_rule_t, &
         fortfront_grammar_contract_capacity, &
         fortfront_grammar_contract_valid, fortfront_grammar_node_choice, &
         fortfront_grammar_node_optional, fortfront_grammar_node_reference, &
         fortfront_grammar_node_repeat, fortfront_grammar_node_sequence, &
-        fortfront_grammar_node_token, fortfront_grammar_rhs_capacity, &
-        fortfront_grammar_rule_capacity, fortfront_grammar_rule_t, &
+        fortfront_grammar_node_token, fortfront_grammar_rule_t, &
         fortfront_grammar_resolution_resolved, &
         fortfront_grammar_symbol_reference, fortfront_grammar_symbol_t, &
         fortfront_grammar_symbol_token, fortfront_grammar_table_t, &
@@ -75,10 +73,9 @@ contains
 
         type(runtime_builder_t) :: builder
         type(fortfront_grammar_contract_rule_t) :: accepted
-        type(fortfront_grammar_symbol_t) :: alternatives(&
-            fortfront_grammar_rule_capacity, fortfront_grammar_rhs_capacity)
-        integer :: lengths(fortfront_grammar_rule_capacity)
-        type(fortfront_grammar_analysis_result_t) :: facts(fortfront_grammar_rule_capacity)
+        type(fortfront_grammar_symbol_t), allocatable :: alternatives(:, :)
+        integer, allocatable :: lengths(:)
+        type(fortfront_grammar_analysis_result_t), allocatable :: facts(:)
         integer :: alternative_count, i, j, validation_status, analysis_status
         integer :: fact_count, session_status
         logical :: unresolved
@@ -91,12 +88,6 @@ contains
             message = 'grammar-runtime-rule-count-is-out-of-range'
             return
         end if
-        if (rule_count > fortfront_grammar_rule_capacity) then
-            status = fortfront_grammar_runtime_capacity
-            message = 'grammar-runtime-contract-rule-capacity-exhausted'
-            return
-        end if
-
         builder%table = fortfront_grammar_table_t()
         unresolved = .false.
         do i = 1, rule_count
@@ -121,8 +112,6 @@ contains
             end if
             call validate_node_tree(accepted, accepted%root, status, message)
             if (status /= fortfront_grammar_runtime_accepted) return
-            alternatives = fortfront_grammar_symbol_t()
-            lengths = 0
             alternative_count = 0
             call lower_node(builder, accepted, accepted%root, alternatives, lengths, &
                 alternative_count, status, message)
@@ -139,6 +128,7 @@ contains
             message = 'grammar-runtime-produced-no-rules'
             return
         end if
+        allocate(facts(max(1, builder%table%count)))
         call fortfront_grammar_analyze(builder%table, facts, fact_count, analysis_status, &
             analysis_message)
         if (analysis_status == fortfront_grammar_analysis_capacity) then
@@ -214,11 +204,11 @@ contains
         character(len=*), intent(out) :: message
         logical, intent(inout), optional :: seen(:), visiting(:)
 
-        logical :: local_seen(fortfront_grammar_contract_node_capacity)
-        logical :: local_visiting(fortfront_grammar_contract_node_capacity)
+        logical, allocatable :: local_seen(:), local_visiting(:)
         integer :: i, child, child_end
 
         if (.not. present(seen)) then
+            allocate(local_seen(rule%node_count), local_visiting(rule%node_count))
             local_seen = .false.
             local_visiting = .false.
             call validate_node_tree(rule, node_index, status, message, local_seen, &
@@ -321,19 +311,20 @@ contains
         type(runtime_builder_t), intent(inout) :: builder
         type(fortfront_grammar_contract_rule_t), intent(in) :: rule
         integer, intent(in) :: node_index
-        type(fortfront_grammar_symbol_t), intent(out) :: output(:, :)
-        integer, intent(out) :: lengths(:)
+        type(fortfront_grammar_symbol_t), allocatable, intent(out) :: output(:, :)
+        integer, allocatable, intent(out) :: lengths(:)
         integer, intent(out) :: output_count, status
         character(len=*), intent(out) :: message
 
-        type(fortfront_grammar_symbol_t) :: child_output(&
-            fortfront_grammar_rule_capacity, fortfront_grammar_rhs_capacity)
-        type(fortfront_grammar_symbol_t) :: combined(&
-            fortfront_grammar_rule_capacity, fortfront_grammar_rhs_capacity)
-        integer :: child_lengths(fortfront_grammar_rule_capacity)
-        integer :: combined_lengths(fortfront_grammar_rule_capacity)
+        type(fortfront_grammar_symbol_t), allocatable :: child_output(:, :)
+        type(fortfront_grammar_symbol_t), allocatable :: combined(:, :)
+        integer, allocatable :: child_lengths(:), combined_lengths(:)
         integer :: child, child_end, i, j, k, child_count, combined_count
+        integer :: initial_rhs_capacity
 
+        initial_rhs_capacity = max(1, rule%node_count + 1)
+        allocate(output(max(1, rule%node_count), initial_rhs_capacity), &
+            lengths(max(1, rule%node_count)))
         output = fortfront_grammar_symbol_t()
         lengths = 0
         output_count = 0
@@ -356,15 +347,9 @@ contains
                     child_count, status, message)
                 if (status /= fortfront_grammar_runtime_accepted) return
                 do j = 1, child_count
-                    if (output_count == size(lengths)) then
-                        status = fortfront_grammar_runtime_capacity
-                        message = 'grammar-runtime-choice-capacity-exhausted'
-                        return
-                    end if
-                    output_count = output_count + 1
-                    lengths(output_count) = child_lengths(j)
-                    if (lengths(output_count) > 0) output(output_count, 1:lengths(output_count)) = &
-                        child_output(j, 1:lengths(output_count))
+                    call append_alternative(output, lengths, output_count, child_output(j, :), &
+                        child_lengths(j), status, message)
+                    if (status /= fortfront_grammar_runtime_accepted) return
                 end do
                 child_end = subtree_end(rule, child)
                 child = child_end + 1
@@ -377,15 +362,9 @@ contains
                 status, message)
             if (status /= fortfront_grammar_runtime_accepted) return
             do j = 1, child_count
-                if (output_count == size(lengths)) then
-                    status = fortfront_grammar_runtime_capacity
-                    message = 'grammar-runtime-optional-capacity-exhausted'
-                    return
-                end if
-                output_count = output_count + 1
-                lengths(output_count) = child_lengths(j)
-                if (lengths(output_count) > 0) output(output_count, 1:lengths(output_count)) = &
-                    child_output(j, 1:lengths(output_count))
+                call append_alternative(output, lengths, output_count, child_output(j, :), &
+                    child_lengths(j), status, message)
+                if (status /= fortfront_grammar_runtime_accepted) return
             end do
         case (fortfront_grammar_node_sequence)
             output_count = 1
@@ -418,14 +397,14 @@ contains
                 output(1, 1)%name = repeat_name(builder%source_rule_index, node_index)
                 output(1, 1)%kind = fortfront_grammar_symbol_reference
             else
+                deallocate(output, lengths)
+                allocate(output(max(1, child_count), max(1, maxval(child_lengths) + 1)), &
+                    lengths(max(1, child_count)))
+                output = fortfront_grammar_symbol_t()
+                lengths = 0
                 output_count = child_count
                 do k = 1, child_count
                     lengths(k) = child_lengths(k) + 1
-                    if (lengths(k) > fortfront_grammar_rhs_capacity) then
-                        status = fortfront_grammar_runtime_capacity
-                        message = 'grammar-runtime-repeat-RHS-capacity-exhausted'
-                        return
-                    end if
                     if (child_lengths(k) > 0) output(k, 1:child_lengths(k)) = &
                         child_output(k, 1:child_lengths(k))
                     output(k, lengths(k))%name = repeat_name(builder%source_rule_index, &
@@ -444,12 +423,17 @@ contains
             output, output_lengths, output_count, status, message)
         type(fortfront_grammar_symbol_t), intent(in) :: left(:, :), right(:, :)
         integer, intent(in) :: left_lengths(:), left_count, right_lengths(:), right_count
-        type(fortfront_grammar_symbol_t), intent(out) :: output(:, :)
-        integer, intent(out) :: output_lengths(:), output_count, status
+        type(fortfront_grammar_symbol_t), allocatable, intent(out) :: output(:, :)
+        integer, allocatable, intent(out) :: output_lengths(:)
+        integer, intent(out) :: output_count, status
         character(len=*), intent(out) :: message
 
-        integer :: i, j, cursor, result_count
+        integer :: i, j, result_count, rhs_capacity
 
+        rhs_capacity = max(1, max(maxval(left_lengths(1:max(1, left_count))), &
+            maxval(right_lengths(1:max(1, right_count)))))
+        allocate(output(max(1, left_count * right_count), rhs_capacity), &
+            output_lengths(max(1, left_count * right_count)))
         output = fortfront_grammar_symbol_t()
         output_lengths = 0
         status = fortfront_grammar_runtime_accepted
@@ -457,29 +441,81 @@ contains
         result_count = 0
         do i = 1, left_count
             do j = 1, right_count
-                if (result_count == size(output_lengths)) then
-                    status = fortfront_grammar_runtime_capacity
-                    message = 'grammar-runtime-sequence-alternative-capacity-exhausted'
-                    return
-                end if
-                if (left_lengths(i) + right_lengths(j) > fortfront_grammar_rhs_capacity) then
-                    status = fortfront_grammar_runtime_capacity
-                    message = 'grammar-runtime-sequence-RHS-capacity-exhausted'
-                    return
-                end if
-                result_count = result_count + 1
+                call append_alternative(output, output_lengths, result_count, right(j, :), &
+                    right_lengths(j), status, message, left(i, :), left_lengths(i))
+                if (status /= fortfront_grammar_runtime_accepted) return
                 output_lengths(result_count) = left_lengths(i) + right_lengths(j)
-                cursor = 0
-                if (left_lengths(i) > 0) then
-                    output(result_count, 1:left_lengths(i)) = left(i, 1:left_lengths(i))
-                    cursor = left_lengths(i)
-                end if
-                if (right_lengths(j) > 0) output(result_count, cursor + 1: &
-                    cursor + right_lengths(j)) = right(j, 1:right_lengths(j))
             end do
         end do
         output_count = result_count
     end subroutine concatenate
+
+    subroutine append_alternative(output, lengths, output_count, right, right_count, status, &
+            message, left, left_count)
+        type(fortfront_grammar_symbol_t), allocatable, intent(inout) :: output(:, :)
+        integer, allocatable, intent(inout) :: lengths(:)
+        integer, intent(inout) :: output_count
+        type(fortfront_grammar_symbol_t), intent(in) :: right(:)
+        integer, intent(in) :: right_count
+        integer, intent(out) :: status
+        character(len=*), intent(out) :: message
+        type(fortfront_grammar_symbol_t), intent(in), optional :: left(:)
+        integer, intent(in), optional :: left_count
+
+        integer :: local_left_count, required_rhs, cursor
+
+        status = fortfront_grammar_runtime_accepted
+        message = ''
+        local_left_count = 0
+        if (present(left)) local_left_count = left_count
+        required_rhs = local_left_count + right_count
+        call reserve_alternatives(output, lengths, output_count + 1, required_rhs, status, &
+            message)
+        if (status /= fortfront_grammar_runtime_accepted) return
+        output_count = output_count + 1
+        lengths(output_count) = required_rhs
+        cursor = 0
+        if (local_left_count > 0) then
+            output(output_count, 1:local_left_count) = left(1:local_left_count)
+            cursor = local_left_count
+        end if
+        if (right_count > 0) output(output_count, cursor + 1:required_rhs) = &
+            right(1:right_count)
+    end subroutine append_alternative
+
+    subroutine reserve_alternatives(output, lengths, required_count, required_rhs, status, &
+            message)
+        type(fortfront_grammar_symbol_t), allocatable, intent(inout) :: output(:, :)
+        integer, allocatable, intent(inout) :: lengths(:)
+        integer, intent(in) :: required_count, required_rhs
+        integer, intent(out) :: status
+        character(len=*), intent(out) :: message
+
+        type(fortfront_grammar_symbol_t), allocatable :: replacement(:, :)
+        integer, allocatable :: replacement_lengths(:)
+        integer :: alternative_capacity, rhs_capacity, allocation_status
+
+        status = fortfront_grammar_runtime_accepted
+        message = ''
+        alternative_capacity = max(required_count, max(1, 2 * size(lengths)))
+        rhs_capacity = max(required_rhs, max(1, 2 * size(output, 2)))
+        if (required_count <= size(lengths) .and. required_rhs <= size(output, 2)) return
+        allocate(replacement(alternative_capacity, rhs_capacity), &
+            replacement_lengths(alternative_capacity), stat=allocation_status)
+        if (allocation_status /= 0) then
+            status = fortfront_grammar_runtime_capacity
+            message = 'grammar-runtime-alternative-storage-allocation-failed'
+            return
+        end if
+        replacement = fortfront_grammar_symbol_t()
+        replacement_lengths = 0
+        if (size(lengths) > 0) then
+            replacement_lengths(1:size(lengths)) = lengths
+            replacement(:, 1:size(output, 2)) = output
+        end if
+        call move_alloc(replacement, output)
+        call move_alloc(replacement_lengths, lengths)
+    end subroutine reserve_alternatives
 
     subroutine add_repeat_rules(builder, rule, node_index, child, child_lengths, child_count, &
             status, message)
@@ -491,22 +527,19 @@ contains
         integer, intent(out) :: status
         character(len=*), intent(out) :: message
 
-        type(fortfront_grammar_symbol_t) :: sequence(fortfront_grammar_rhs_capacity)
+        type(fortfront_grammar_symbol_t), allocatable :: sequence(:)
         integer :: i, length
         character(len=128) :: lhs
 
         lhs = repeat_name(builder%source_rule_index, node_index)
-        sequence = fortfront_grammar_symbol_t()
+        allocate(sequence(0))
         call add_flat_rule(builder, rule, repeat_identity(builder%source_rule_index, node_index, &
             0), lhs, sequence, 0, status, message)
         if (status /= fortfront_grammar_runtime_accepted) return
         do i = 1, child_count
             length = child_lengths(i) + 1
-            if (length > fortfront_grammar_rhs_capacity) then
-                status = fortfront_grammar_runtime_capacity
-                message = 'grammar-runtime-repeat-rule-RHS-capacity-exhausted'
-                return
-            end if
+            deallocate(sequence)
+            allocate(sequence(length))
             sequence = fortfront_grammar_symbol_t()
             if (child_lengths(i) > 0) sequence(1:child_lengths(i)) = child(i, &
                 1:child_lengths(i))
@@ -541,7 +574,7 @@ contains
         integer, intent(out) :: status
         character(len=*), intent(out) :: message
 
-        type(fortfront_grammar_symbol_t) :: symbols(fortfront_grammar_rhs_capacity)
+        type(fortfront_grammar_symbol_t) :: symbols(1)
         character(len=128) :: missing_name, identity
 
         symbols = fortfront_grammar_symbol_t()
@@ -573,8 +606,7 @@ contains
             message = 'grammar-runtime-generated-name-capacity-exhausted'
             return
         end if
-        if (length < 0 .or. length > fortfront_grammar_rhs_capacity .or. &
-            length > size(symbols)) then
+        if (length < 0 .or. length > size(symbols)) then
             status = fortfront_grammar_runtime_capacity
             message = 'grammar-runtime-generated-RHS-capacity-exhausted'
             return
@@ -583,7 +615,8 @@ contains
         rule%identity = identity
         rule%lhs = lhs
         rule%rhs_count = length
-        if (length > 0) rule%rhs(1:length) = symbols(1:length)
+        allocate(rule%rhs(length))
+        if (length > 0) rule%rhs = symbols(1:length)
         rule%provenance%document = contract_rule%source%document
         rule%provenance%clause = contract_rule%source%clause
         rule%provenance%rule = contract_rule%source%rule

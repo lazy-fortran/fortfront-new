@@ -5,8 +5,6 @@ module fortfront_grammar
     implicit none
     private
 
-    integer, parameter, public :: fortfront_grammar_rule_capacity = 32
-    integer, parameter, public :: fortfront_grammar_rhs_capacity = 16
     integer, parameter, public :: fortfront_grammar_symbol_reference = 1
     integer, parameter, public :: fortfront_grammar_symbol_token = 2
 
@@ -28,7 +26,6 @@ module fortfront_grammar
     integer, parameter, public :: fortfront_grammar_candidate_malformed_table = 15
     integer, parameter, public :: fortfront_grammar_candidate_malformed_input = 16
     integer, parameter, public :: fortfront_grammar_candidate_capacity = 17
-    integer, parameter, public :: fortfront_grammar_contract_node_capacity = 128
     integer, parameter, public :: fortfront_grammar_contract_valid = 0
     integer, parameter, public :: fortfront_grammar_contract_malformed = 18
     integer, parameter, public :: fortfront_grammar_contract_invalid_range = 19
@@ -77,13 +74,13 @@ module fortfront_grammar
         character(len=64) :: identity = ''
         character(len=128) :: lhs = ''
         integer :: rhs_count = 0
-        type(fortfront_grammar_symbol_t) :: rhs(fortfront_grammar_rhs_capacity)
+        type(fortfront_grammar_symbol_t), allocatable :: rhs(:)
         type(fortfront_grammar_provenance_t) :: provenance
     end type fortfront_grammar_rule_t
 
     type, public :: fortfront_grammar_table_t
         integer :: count = 0
-        type(fortfront_grammar_rule_t) :: rules(fortfront_grammar_rule_capacity)
+        type(fortfront_grammar_rule_t), allocatable :: rules(:)
     end type fortfront_grammar_table_t
 
     type, public :: fortfront_grammar_contract_source_t
@@ -109,7 +106,7 @@ module fortfront_grammar
         character(len=128) :: lhs = ''
         integer :: root = 0
         integer :: node_count = 0
-        type(fortfront_grammar_node_t) :: nodes(fortfront_grammar_contract_node_capacity)
+        type(fortfront_grammar_node_t), allocatable :: nodes(:)
         type(fortfront_grammar_contract_source_t) :: source
         integer :: origin = 0
         integer :: resolution = 0
@@ -125,6 +122,9 @@ module fortfront_grammar
     public :: fortfront_grammar_reset
     public :: fortfront_grammar_validate_contract_rule
     public :: fortfront_grammar_validate_rule
+    public :: fortfront_grammar_reserve_contract_nodes
+    public :: fortfront_grammar_reserve_rule_rhs
+    public :: fortfront_grammar_reserve_table
 
 contains
 
@@ -153,10 +153,22 @@ contains
             message = 'grammar-rule-lhs-is-malformed'
             return
         end if
-        if (rule%rhs_count < 0 .or. rule%rhs_count > fortfront_grammar_rhs_capacity) then
+        if (rule%rhs_count < 0) then
             status = fortfront_grammar_malformed
             message = 'grammar-rule-rhs-count-is-out-of-range'
             return
+        end if
+        if (rule%rhs_count > 0 .and. .not. allocated(rule%rhs)) then
+            status = fortfront_grammar_malformed
+            message = 'grammar-rule-rhs-storage-is-unallocated'
+            return
+        end if
+        if (allocated(rule%rhs)) then
+            if (rule%rhs_count > size(rule%rhs)) then
+                status = fortfront_grammar_malformed
+                message = 'grammar-rule-rhs-count-exceeds-storage'
+                return
+            end if
         end if
         do i = 1, rule%rhs_count
             if (.not. valid_atom(rule%rhs(i)%name)) then
@@ -188,9 +200,19 @@ contains
 
         status = fortfront_grammar_malformed
         message = ''
-        if (table%count < 0 .or. table%count > fortfront_grammar_rule_capacity) then
+        if (table%count < 0) then
             message = 'grammar-table-count-is-out-of-range'
             return
+        end if
+        if (table%count > 0 .and. .not. allocated(table%rules)) then
+            message = 'grammar-table-rule-storage-is-unallocated'
+            return
+        end if
+        if (allocated(table%rules)) then
+            if (table%count > size(table%rules)) then
+                message = 'grammar-table-count-exceeds-storage'
+                return
+            end if
         end if
         call fortfront_grammar_validate_rule(rule, rule_status, rule_message)
         if (rule_status /= fortfront_grammar_valid) then
@@ -205,9 +227,8 @@ contains
                 return
             end if
         end do
-        if (table%count == fortfront_grammar_rule_capacity) then
-            status = fortfront_grammar_capacity
-            message = 'grammar-table-capacity-exhausted'
+        call fortfront_grammar_reserve_table(table, table%count + 1, status, message)
+        if (status /= fortfront_grammar_valid) then
             return
         end if
         table%count = table%count + 1
@@ -279,8 +300,7 @@ contains
         integer, intent(out) :: status
         character(len=*), intent(out) :: message
 
-        type(fortfront_grammar_rule_t) :: lhs_rules(fortfront_grammar_rule_capacity)
-        type(fortfront_grammar_rule_t) :: matches(fortfront_grammar_rule_capacity)
+        type(fortfront_grammar_rule_t), allocatable :: lhs_rules(:), matches(:)
         type(fortfront_grammar_rule_t) :: matched_rule
         integer :: i, lhs_count, match_count, query_status, match_status
         character(len=256) :: query_message, match_message
@@ -308,6 +328,8 @@ contains
             end if
         end do
 
+        allocate(lhs_rules(max(1, table%count)))
+        allocate(matches(max(1, table%count)))
         call fortfront_grammar_query_lhs(table, lhs, lhs_rules, lhs_count, query_status, &
             query_message)
         if (query_status == fortfront_grammar_query_table_empty .or. &
@@ -390,10 +412,17 @@ contains
             message = 'contract-rule-node-count-is-negative'
             return
         end if
-        if (rule%node_count > fortfront_grammar_contract_node_capacity) then
+        if (rule%node_count > 0 .and. .not. allocated(rule%nodes)) then
             status = fortfront_grammar_contract_capacity
-            message = 'contract-rule-node-capacity-exhausted'
+            message = 'contract-rule-node-storage-is-unallocated'
             return
+        end if
+        if (allocated(rule%nodes)) then
+            if (rule%node_count > size(rule%nodes)) then
+                status = fortfront_grammar_contract_capacity
+                message = 'contract-rule-node-count-exceeds-storage'
+                return
+            end if
         end if
         if (rule%node_count == 0) then
             status = fortfront_grammar_contract_invalid_range
@@ -769,15 +798,15 @@ contains
         call sx_skip_spaces(input, position)
         do while (position <= len(input))
             if (input(position:position) == ')') exit
-            if (rule%node_count == fortfront_grammar_contract_node_capacity) then
-                status = fortfront_grammar_contract_capacity
-                message = 'standardir-grammar-v0-node-capacity-exhausted'
-                ok = .false.
-                return
-            end if
             call sx_read_node(input, position, node, ok)
             if (.not. ok) then
                 call sx_read_failure(status, message)
+                return
+            end if
+            call fortfront_grammar_reserve_contract_nodes(rule, rule%node_count + 1, status, &
+                message)
+            if (status /= fortfront_grammar_contract_valid) then
+                ok = .false.
                 return
             end if
             rule%node_count = rule%node_count + 1
@@ -956,12 +985,6 @@ contains
             message = 'contract-root-is-not-a-sequence'
             return
         end if
-        if (accepted%nodes(accepted%root)%child_count > fortfront_grammar_rhs_capacity) then
-            status = fortfront_grammar_contract_capacity
-            message = 'contract-sequence-exceeds-RHS-capacity'
-            return
-        end if
-
         projected_identity = projection_identity(accepted%identity, accepted%alternative)
         if (len_trim(projected_identity) > len(output%identity) .or. &
             .not. valid_atom(projected_identity)) then
@@ -972,6 +995,7 @@ contains
         output%identity = projected_identity(1:len(output%identity))
         output%lhs = accepted%lhs
         output%rhs_count = accepted%nodes(accepted%root)%child_count
+        allocate(output%rhs(output%rhs_count))
         do i = 1, output%rhs_count
             node_index = accepted%nodes(accepted%root)%first_child + i - 1
             if (accepted%nodes(node_index)%kind /= fortfront_grammar_node_reference .and. &
@@ -1024,10 +1048,22 @@ contains
             message = 'grammar-query-lhs-is-empty-or-malformed'
             return
         end if
-        if (table%count < 0 .or. table%count > fortfront_grammar_rule_capacity) then
+        if (table%count < 0) then
             status = fortfront_grammar_malformed
             message = 'grammar-table-count-is-out-of-range'
             return
+        end if
+        if (table%count > 0 .and. .not. allocated(table%rules)) then
+            status = fortfront_grammar_malformed
+            message = 'grammar-table-rule-storage-is-unallocated'
+            return
+        end if
+        if (allocated(table%rules)) then
+            if (table%count > size(table%rules)) then
+                status = fortfront_grammar_malformed
+                message = 'grammar-table-count-exceeds-storage'
+                return
+            end if
         end if
         if (table%count == 0) then
             status = fortfront_grammar_query_table_empty
@@ -1062,6 +1098,105 @@ contains
         end do
         status = fortfront_grammar_valid
     end subroutine fortfront_grammar_query_lhs
+
+    subroutine fortfront_grammar_reserve_rule_rhs(rule, required, status, message)
+        type(fortfront_grammar_rule_t), intent(inout) :: rule
+        integer, intent(in) :: required
+        integer, intent(out) :: status
+        character(len=*), intent(out) :: message
+
+        type(fortfront_grammar_symbol_t), allocatable :: replacement(:)
+        integer :: capacity, allocation_status
+
+        status = fortfront_grammar_valid
+        message = ''
+        if (required < 0) then
+            status = fortfront_grammar_malformed
+            message = 'grammar-rule-rhs-required-size-is-negative'
+            return
+        end if
+        if (allocated(rule%rhs)) then
+            if (size(rule%rhs) >= required) return
+            capacity = max(required, max(1, 2 * size(rule%rhs)))
+        else
+            capacity = required
+        end if
+        allocate(replacement(capacity), stat=allocation_status)
+        if (allocation_status /= 0) then
+            status = fortfront_grammar_capacity
+            message = 'grammar-rule-rhs-storage-allocation-failed'
+            return
+        end if
+        replacement = fortfront_grammar_symbol_t()
+        if (allocated(rule%rhs)) replacement(1:size(rule%rhs)) = rule%rhs
+        call move_alloc(replacement, rule%rhs)
+    end subroutine fortfront_grammar_reserve_rule_rhs
+
+    subroutine fortfront_grammar_reserve_table(table, required, status, message)
+        type(fortfront_grammar_table_t), intent(inout) :: table
+        integer, intent(in) :: required
+        integer, intent(out) :: status
+        character(len=*), intent(out) :: message
+
+        type(fortfront_grammar_rule_t), allocatable :: replacement(:)
+        integer :: capacity, allocation_status
+
+        status = fortfront_grammar_valid
+        message = ''
+        if (required < 0) then
+            status = fortfront_grammar_malformed
+            message = 'grammar-table-required-size-is-negative'
+            return
+        end if
+        if (allocated(table%rules)) then
+            if (size(table%rules) >= required) return
+            capacity = max(required, max(1, 2 * size(table%rules)))
+        else
+            capacity = required
+        end if
+        allocate(replacement(capacity), stat=allocation_status)
+        if (allocation_status /= 0) then
+            status = fortfront_grammar_capacity
+            message = 'grammar-table-rule-storage-allocation-failed'
+            return
+        end if
+        replacement = fortfront_grammar_rule_t()
+        if (allocated(table%rules)) replacement(1:size(table%rules)) = table%rules
+        call move_alloc(replacement, table%rules)
+    end subroutine fortfront_grammar_reserve_table
+
+    subroutine fortfront_grammar_reserve_contract_nodes(rule, required, status, message)
+        type(fortfront_grammar_contract_rule_t), intent(inout) :: rule
+        integer, intent(in) :: required
+        integer, intent(out) :: status
+        character(len=*), intent(out) :: message
+
+        type(fortfront_grammar_node_t), allocatable :: replacement(:)
+        integer :: capacity, allocation_status
+
+        status = fortfront_grammar_contract_valid
+        message = ''
+        if (required < 0) then
+            status = fortfront_grammar_contract_invalid_range
+            message = 'contract-node-required-size-is-negative'
+            return
+        end if
+        if (allocated(rule%nodes)) then
+            if (size(rule%nodes) >= required) return
+            capacity = max(required, max(1, 2 * size(rule%nodes)))
+        else
+            capacity = required
+        end if
+        allocate(replacement(capacity), stat=allocation_status)
+        if (allocation_status /= 0) then
+            status = fortfront_grammar_contract_capacity
+            message = 'contract-node-storage-allocation-failed'
+            return
+        end if
+        replacement = fortfront_grammar_node_t()
+        if (allocated(rule%nodes)) replacement(1:size(rule%nodes)) = rule%nodes
+        call move_alloc(replacement, rule%nodes)
+    end subroutine fortfront_grammar_reserve_contract_nodes
 
     logical function valid_contract_node_kind(kind)
         integer, intent(in) :: kind

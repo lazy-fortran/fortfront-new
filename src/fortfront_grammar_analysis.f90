@@ -4,8 +4,7 @@ module fortfront_grammar_analysis
     !! table can represent optional and repeat forms without an operator policy.
     !! Ambiguous means overlapping known first symbols, not full parser ambiguity.
 
-    use fortfront_grammar, only: fortfront_grammar_rhs_capacity, &
-        fortfront_grammar_rule_capacity, fortfront_grammar_symbol_reference, &
+    use fortfront_grammar, only: fortfront_grammar_symbol_reference, &
         fortfront_grammar_symbol_t, fortfront_grammar_symbol_token, &
         fortfront_grammar_table_t
     implicit none
@@ -24,17 +23,13 @@ module fortfront_grammar_analysis
     integer, parameter, public :: fortfront_grammar_analysis_nullable_yes = 1
     integer, parameter, public :: fortfront_grammar_analysis_nullable_unknown = 2
 
-    integer, parameter, public :: fortfront_grammar_analysis_first_capacity = &
-        fortfront_grammar_rule_capacity * fortfront_grammar_rhs_capacity
-
     type, public :: fortfront_grammar_analysis_result_t
         character(len=128) :: lhs = ''
         integer :: nullable_state = fortfront_grammar_analysis_nullable_unknown
         logical :: unresolved = .false.
         logical :: ambiguous = .false.
         integer :: first_count = 0
-        type(fortfront_grammar_symbol_t) :: first(&
-            fortfront_grammar_analysis_first_capacity)
+        type(fortfront_grammar_symbol_t), allocatable :: first(:)
         integer :: status = fortfront_grammar_analysis_valid
     end type fortfront_grammar_analysis_result_t
 
@@ -49,16 +44,16 @@ contains
         integer, intent(out) :: status
         character(len=*), intent(out) :: message
 
-        character(len=128) :: lhs_names(fortfront_grammar_rule_capacity)
-        integer :: rule_lhs(fortfront_grammar_rule_capacity)
-        integer :: nullable_state(fortfront_grammar_rule_capacity)
-        logical :: unresolved(fortfront_grammar_rule_capacity)
+        character(len=128), allocatable :: lhs_names(:)
+        integer, allocatable :: rule_lhs(:), nullable_state(:)
+        logical, allocatable :: unresolved(:)
         logical, allocatable :: first_present(:, :)
         character(len=128), allocatable :: first_names(:, :)
         logical, allocatable :: rule_first_present(:, :)
         character(len=128), allocatable :: rule_first_names(:, :)
         integer :: lhs_count, i, j, rule_status, iteration, max_iterations
         integer :: sequence_state, reference_lhs
+        integer :: total_rhs, first_capacity
         logical :: sequence_unresolved, prefix_maybe_nullable, changed, converged
         logical :: ambiguous, any_unresolved
         character(len=256) :: rule_message
@@ -72,10 +67,15 @@ contains
             message = 'grammar-analysis-table-count-is-negative'
             return
         end if
-        if (table%count > fortfront_grammar_rule_capacity) then
-            status = fortfront_grammar_analysis_capacity
-            message = 'grammar-analysis-table-capacity-is-exceeded'
+        if (table%count > 0 .and. .not. allocated(table%rules)) then
+            message = 'grammar-analysis-table-rule-storage-is-unallocated'
             return
+        end if
+        if (allocated(table%rules)) then
+            if (table%count > size(table%rules)) then
+                message = 'grammar-analysis-table-count-exceeds-storage'
+                return
+            end if
         end if
         if (table%count == 0) then
             status = fortfront_grammar_analysis_empty
@@ -99,9 +99,14 @@ contains
             end do
         end do
 
+        allocate(lhs_names(table%count), rule_lhs(table%count), &
+            nullable_state(table%count), unresolved(table%count))
         lhs_count = 0
         lhs_names = ''
+        rule_lhs = 0
+        total_rhs = 0
         do i = 1, table%count
+            total_rhs = total_rhs + table%rules(i)%rhs_count
             rule_lhs(i) = find_name(lhs_names, lhs_count, table%rules(i)%lhs)
             if (rule_lhs(i) == 0) then
                 lhs_count = lhs_count + 1
@@ -115,15 +120,15 @@ contains
             return
         end if
 
-        allocate(first_present(lhs_count, fortfront_grammar_analysis_first_capacity))
-        allocate(first_names(lhs_count, fortfront_grammar_analysis_first_capacity))
+        first_capacity = max(1, total_rhs)
+        allocate(first_present(lhs_count, first_capacity))
+        allocate(first_names(lhs_count, first_capacity))
         first_present = .false.
         first_names = ''
         nullable_state = fortfront_grammar_analysis_nullable_no
         unresolved = .false.
 
-        max_iterations = fortfront_grammar_rule_capacity * &
-            fortfront_grammar_analysis_first_capacity + fortfront_grammar_rule_capacity + 1
+        max_iterations = max(1, table%count * first_capacity + table%count + 1)
         converged = .false.
         do iteration = 1, max_iterations
             changed = .false.
@@ -199,8 +204,8 @@ contains
             return
         end if
 
-        allocate(rule_first_present(table%count, fortfront_grammar_analysis_first_capacity))
-        allocate(rule_first_names(table%count, fortfront_grammar_analysis_first_capacity))
+        allocate(rule_first_present(table%count, first_capacity))
+        allocate(rule_first_names(table%count, first_capacity))
         rule_first_present = .false.
         rule_first_names = ''
         do i = 1, table%count
@@ -226,6 +231,7 @@ contains
             output(i)%unresolved = unresolved(i)
             output(i)%ambiguous = ambiguous
             output(i)%first_count = count_first(first_present(i, :))
+            allocate(output(i)%first(output(i)%first_count))
             do rule_status = 1, output(i)%first_count
                 output(i)%first(rule_status)%name = first_names(i, rule_status)
                 output(i)%first(rule_status)%kind = fortfront_grammar_symbol_token
@@ -282,10 +288,22 @@ contains
             message = 'grammar-analysis-rule-lhs-is-malformed'
             return
         end if
-        if (rule%rhs_count < 0 .or. rule%rhs_count > fortfront_grammar_rhs_capacity) then
+        if (rule%rhs_count < 0) then
             status = fortfront_grammar_analysis_malformed
             message = 'grammar-analysis-rule-rhs-count-is-out-of-range'
             return
+        end if
+        if (rule%rhs_count > 0 .and. .not. allocated(rule%rhs)) then
+            status = fortfront_grammar_analysis_malformed
+            message = 'grammar-analysis-rule-rhs-storage-is-unallocated'
+            return
+        end if
+        if (allocated(rule%rhs)) then
+            if (rule%rhs_count > size(rule%rhs)) then
+                status = fortfront_grammar_analysis_malformed
+                message = 'grammar-analysis-rule-rhs-count-exceeds-storage'
+                return
+            end if
         end if
         do i = 1, rule%rhs_count
             if (.not. valid_atom(rule%rhs(i)%name)) then

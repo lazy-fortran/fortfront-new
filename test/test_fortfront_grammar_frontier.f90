@@ -282,6 +282,7 @@ contains
         type(fortfront_grammar_table_t), intent(out) :: table
 
         table = fortfront_grammar_table_t()
+        allocate(table%rules(8))
     end subroutine reset_table
 
     subroutine make_empty(rule, identity, lhs)
@@ -318,6 +319,7 @@ contains
         character(len=*), intent(in) :: identity, lhs
 
         rule = fortfront_grammar_rule_t()
+        allocate(rule%rhs(2))
         rule%identity = identity
         rule%lhs = lhs
         rule%provenance%document = 'frontier-witness'

@@ -1,6 +1,6 @@
 program test_fortfront_grammar_analysis
     use, intrinsic :: iso_fortran_env, only: int64
-    use fortfront_grammar, only: fortfront_grammar_add, fortfront_grammar_rule_capacity, &
+    use fortfront_grammar, only: fortfront_grammar_add, &
         fortfront_grammar_rule_t, fortfront_grammar_symbol_reference, &
         fortfront_grammar_symbol_token, fortfront_grammar_table_t, fortfront_grammar_valid
     use fortfront_grammar_analysis, only: fortfront_grammar_analysis_ambiguous, &
@@ -196,7 +196,8 @@ contains
     subroutine test_capacity_and_malformed_controls()
         type(fortfront_grammar_table_t) :: table
         type(fortfront_grammar_analysis_result_t) :: output(4), small_output(1)
-        integer :: output_count, status
+        type(fortfront_grammar_rule_t) :: item
+        integer :: output_count, status, i
         character(len=256) :: message
 
         call fortfront_grammar_reset_local(table)
@@ -208,10 +209,16 @@ contains
         call require(status == fortfront_grammar_analysis_capacity .and. output_count == 0, &
             'analysis output capacity was not reported')
 
-        table%count = fortfront_grammar_rule_capacity + 1
+        call require(allocated(table%rules), 'dynamic table fixture lost its storage')
+        call grow_table_fixture(table, 65)
+        do i = 3, 65
+            call make_one(item, 'CAPACITY-'//integer_text(i), 'A', 'a', &
+                fortfront_grammar_symbol_token)
+            call add_rule(table, item)
+        end do
         call fortfront_grammar_analyze(table, output, output_count, status, message)
-        call require(status == fortfront_grammar_analysis_capacity .and. output_count == 0, &
-            'analysis table capacity was not reported')
+        call require(status == fortfront_grammar_analysis_ambiguous .and. output_count == 2, &
+            'analysis did not accept a table beyond the former rule capacity')
 
         call fortfront_grammar_reset_local(table)
         call make_one(table%rules(1), 'MALFORMED-KIND', 'A', 'a', fortfront_grammar_symbol_token)
@@ -301,6 +308,7 @@ contains
         character(len=*), intent(in) :: identity, lhs
 
         rule = fortfront_grammar_rule_t()
+        allocate(rule%rhs(2))
         rule%identity = identity
         rule%lhs = lhs
         rule%provenance%document = 'analysis-witness'
@@ -328,7 +336,27 @@ contains
         type(fortfront_grammar_table_t), intent(out) :: table
 
         table = fortfront_grammar_table_t()
+        allocate(table%rules(8))
     end subroutine fortfront_grammar_reset_local
+
+    subroutine grow_table_fixture(table, required)
+        type(fortfront_grammar_table_t), intent(inout) :: table
+        integer, intent(in) :: required
+        type(fortfront_grammar_rule_t), allocatable :: rules(:)
+
+        allocate(rules(required))
+        rules = fortfront_grammar_rule_t()
+        rules(1:min(table%count, size(table%rules))) = table%rules(1:min(table%count, &
+            size(table%rules)))
+        call move_alloc(rules, table%rules)
+    end subroutine grow_table_fixture
+
+    function integer_text(value) result(text)
+        integer, intent(in) :: value
+        character(len=8) :: text
+
+        write (text, '(i0)') value
+    end function integer_text
 
     subroutine require(condition, failure)
         logical, intent(in) :: condition

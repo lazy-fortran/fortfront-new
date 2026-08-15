@@ -6,12 +6,11 @@ module fortfront_grammar_frontier
     !! never selects one rule when more than one root rule remains viable.
 
     use fortfront_grammar, only: fortfront_grammar_invalid_provenance, &
-        fortfront_grammar_rule_capacity, fortfront_grammar_rule_t, &
+        fortfront_grammar_rule_t, &
         fortfront_grammar_symbol_token, &
         fortfront_grammar_table_t, fortfront_grammar_validate_rule, &
         fortfront_grammar_provenance_t
     use fortfront_grammar_analysis, only: fortfront_grammar_analysis_ambiguous, &
-        fortfront_grammar_analysis_first_capacity, &
         fortfront_grammar_analysis_nullable_no, &
         fortfront_grammar_analysis_nullable_unknown, &
         fortfront_grammar_analysis_nullable_yes, &
@@ -53,11 +52,11 @@ contains
         integer, intent(out) :: status
         character(len=*), intent(out) :: message
 
-        character(len=128) :: lhs_names(fortfront_grammar_rule_capacity)
-        integer :: rule_lhs(fortfront_grammar_rule_capacity)
+        character(len=128), allocatable :: lhs_names(:)
+        integer, allocatable :: rule_lhs(:)
         logical, allocatable :: complete(:, :, :)
         logical, allocatable :: uncertain(:, :, :)
-        logical :: fact_unresolved(fortfront_grammar_rule_capacity)
+        logical, allocatable :: fact_unresolved(:)
         logical :: changed
         logical, allocatable :: known_frontier(:), unknown_frontier(:)
         logical, allocatable :: next_known(:), next_unknown(:)
@@ -93,12 +92,14 @@ contains
             end if
         end do
 
+        allocate(lhs_names(max(1, table%count)), rule_lhs(max(1, table%count)))
         call validate_table(table, lhs_names, rule_lhs, lhs_count, table_status, message)
         if (table_status /= fortfront_grammar_frontier_accepted) then
             return
         end if
         call validate_facts(lhs_names, lhs_count, facts, fact_count, valid_facts, message)
         if (.not. valid_facts) return
+        allocate(fact_unresolved(max(1, lhs_count)))
 
         if (table%count == 0) then
             status = fortfront_grammar_frontier_rejected
@@ -287,9 +288,19 @@ contains
         lhs_count = 0
         status = fortfront_grammar_frontier_malformed
         message = ''
-        if (table%count < 0 .or. table%count > fortfront_grammar_rule_capacity) then
+        if (table%count < 0) then
             message = 'grammar-frontier-table-count-is-out-of-range'
             return
+        end if
+        if (table%count > 0 .and. .not. allocated(table%rules)) then
+            message = 'grammar-frontier-table-rule-storage-is-unallocated'
+            return
+        end if
+        if (allocated(table%rules)) then
+            if (table%count > size(table%rules)) then
+                message = 'grammar-frontier-table-count-exceeds-storage'
+                return
+            end if
         end if
         do i = 1, table%count
             call fortfront_grammar_validate_rule(table%rules(i), rule_status, rule_message)
@@ -325,11 +336,12 @@ contains
         logical, intent(out) :: valid
         character(len=*), intent(out) :: message
 
-        logical :: found(fortfront_grammar_rule_capacity)
+        logical, allocatable :: found(:)
         integer :: i, j
 
         valid = .false.
         message = ''
+        allocate(found(max(1, lhs_count)))
         found = .false.
         if (fact_count < 0 .or. fact_count > size(facts)) then
             message = 'grammar-frontier-analysis-fact-count-is-out-of-range'
@@ -360,10 +372,19 @@ contains
                 message = 'grammar-frontier-analysis-fact-nullable-state-is-invalid'
                 return
             end if
-            if (facts(i)%first_count < 0 .or. facts(i)%first_count > &
-                fortfront_grammar_analysis_first_capacity) then
+            if (facts(i)%first_count < 0) then
                 message = 'grammar-frontier-analysis-fact-first-count-is-out-of-range'
                 return
+            end if
+            if (facts(i)%first_count > 0 .and. .not. allocated(facts(i)%first)) then
+                message = 'grammar-frontier-analysis-fact-first-storage-is-unallocated'
+                return
+            end if
+            if (allocated(facts(i)%first)) then
+                if (facts(i)%first_count > size(facts(i)%first)) then
+                    message = 'grammar-frontier-analysis-fact-first-count-exceeds-storage'
+                    return
+                end if
             end if
             do j = 1, facts(i)%first_count
                 if (.not. valid_atom(facts(i)%first(j)%name)) then

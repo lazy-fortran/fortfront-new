@@ -1,7 +1,7 @@
 program test_fortfront_grammar_contract_sx
     use, intrinsic :: iso_fortran_env, only: int64
-    use fortfront_grammar, only: fortfront_grammar_contract_capacity, &
-        fortfront_grammar_contract_invalid_provenance, fortfront_grammar_contract_not_accepted, &
+    use fortfront_grammar, only: fortfront_grammar_contract_invalid_provenance, &
+        fortfront_grammar_contract_not_accepted, &
         fortfront_grammar_contract_rule_t, fortfront_grammar_contract_valid, &
         fortfront_grammar_node_choice, fortfront_grammar_node_optional, &
         fortfront_grammar_node_reference, fortfront_grammar_node_repeat, &
@@ -67,10 +67,12 @@ program test_fortfront_grammar_contract_sx
         call append(capacity_fixture, '(grammar-node reference leaf 1 false 0 0) ')
     end do
     call append(capacity_fixture, ')) (source (source-ref (document doc) (clause c) '// &
-        '(rule r) (page 1) (source-hash h))) (origin mechanical) (resolution resolved))')
+        '(rule r) (page 1) '// &
+        '(source-hash 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef))) '// &
+        '(origin mechanical) (resolution resolved))')
     call fortfront_grammar_read_contract_sx(capacity_fixture, stale, status, message)
-    call require(status == fortfront_grammar_contract_capacity .and. len_trim(stale%identity) == 0, &
-        'node capacity was not bounded or output-cleared')
+    call require(status == fortfront_grammar_contract_valid .and. stale%node_count == 130, &
+        'dynamic SX node storage rejected the former capacity frontier')
     print '(a)', 'fortfront grammar contract SX behavioral checks: ok'
 
 contains
