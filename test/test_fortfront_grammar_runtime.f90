@@ -20,6 +20,7 @@ program test_fortfront_grammar_runtime
     call test_malformed_contract_and_token_retry()
     call test_large_dynamic_grammar()
     call test_long_source_names()
+    call test_batch_case_outcomes()
     print '(a)', 'fortfront grammar runtime behavioral checks: ok'
 
 contains
@@ -180,6 +181,75 @@ contains
             output(2)%provenance%rule == identity_b, &
             'long source names changed result names or provenance')
     end subroutine test_long_source_names
+
+    subroutine test_batch_case_outcomes()
+        type(fortfront_grammar_contract_rule_t) :: rules(2)
+        type(fortfront_grammar_runtime_t) :: runtime
+        character(len=8) :: input(1)
+        integer :: status
+        character(len=256) :: message
+
+        call make_leaf_rule(rules(1), 'BATCH-ACCEPT', 'x', fortfront_grammar_resolution_resolved)
+        call fortfront_grammar_runtime_initialize(runtime, rules(1:1), 1, 'root', status, &
+            message)
+        call require(status == fortfront_grammar_runtime_initialized, &
+            'batch outcome witness did not initialize')
+        input = 'x'
+        call require_case_status(runtime, input, fortfront_grammar_runtime_accepted, 1, &
+            'batch accepted case changed outcome')
+        input = 'y'
+        call require_case_status(runtime, input, fortfront_grammar_runtime_rejected, 0, &
+            'batch rejected case changed outcome')
+
+        call make_leaf_rule(rules(1), 'BATCH-AMBIGUOUS-A', 'x', &
+            fortfront_grammar_resolution_resolved)
+        call make_leaf_rule(rules(2), 'BATCH-AMBIGUOUS-B', 'x', &
+            fortfront_grammar_resolution_resolved)
+        call fortfront_grammar_runtime_initialize(runtime, rules, 2, 'root', status, message)
+        call require(status == fortfront_grammar_runtime_initialized, &
+            'batch ambiguous witness did not initialize')
+        input = 'x'
+        call require_case_status(runtime, input, fortfront_grammar_runtime_ambiguous, 2, &
+            'batch ambiguous case changed outcome')
+
+        call make_leaf_rule(rules(1), 'BATCH-UNRESOLVED', 'x', &
+            fortfront_grammar_resolution_unresolved)
+        call fortfront_grammar_runtime_initialize(runtime, rules(1:1), 1, 'root', status, &
+            message)
+        call require(status == fortfront_grammar_runtime_initialized, &
+            'batch unresolved witness did not initialize')
+        input = 'x'
+        call require_case_status(runtime, input, fortfront_grammar_runtime_unresolved, 0, &
+            'batch unresolved case changed outcome')
+
+        input = ' '
+        call require_case_status(runtime, input, fortfront_grammar_runtime_malformed, 0, &
+            'batch malformed case changed outcome')
+    end subroutine test_batch_case_outcomes
+
+    subroutine require_case_status(template, input, expected_status, expected_count, failure)
+        type(fortfront_grammar_runtime_t), intent(in) :: template
+        character(len=*), intent(in) :: input(:)
+        integer, intent(in) :: expected_status, expected_count
+        character(len=*), intent(in) :: failure
+
+        type(fortfront_grammar_runtime_t) :: runtime
+        type(fortfront_grammar_frontier_result_t) :: output(8)
+        character(len=256) :: message
+        integer :: i, output_count, status
+
+        runtime = template
+        do i = 1, size(input)
+            call fortfront_grammar_runtime_push(runtime, input(i), output, output_count, status, &
+                message)
+            if (status == fortfront_grammar_runtime_malformed) exit
+        end do
+        if (status /= fortfront_grammar_runtime_malformed) then
+            call fortfront_grammar_runtime_finalize(runtime, output, output_count, status, &
+                message)
+        end if
+        call require(status == expected_status .and. output_count == expected_count, failure)
+    end subroutine require_case_status
 
     subroutine make_long_named_repeat_rule(rule, identity, lhs)
         type(fortfront_grammar_contract_rule_t), intent(out) :: rule
