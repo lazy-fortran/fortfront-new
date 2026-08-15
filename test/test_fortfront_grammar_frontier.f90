@@ -17,6 +17,8 @@ program test_fortfront_grammar_frontier
     call test_choice_ambiguity_and_determinism()
     call test_nullable_prefix()
     call test_recursion()
+    call test_indirect_left_recursion()
+    call test_unproductive_recursive_cycle()
     call test_unresolved_reference()
     call test_malformed_table_and_input_clear_outputs()
     call test_capacity_and_oracle()
@@ -142,6 +144,54 @@ contains
         call require(trim(output(1)%identity) == 'REC-RX', &
             'recursive result did not preserve the advancing rule')
     end subroutine test_recursion
+
+    subroutine test_indirect_left_recursion()
+        type(fortfront_grammar_table_t) :: table
+        type(fortfront_grammar_analysis_result_t) :: facts(8)
+        type(fortfront_grammar_frontier_result_t) :: output(8)
+        character(len=128) :: input(2)
+        integer :: fact_count, output_count, status
+        character(len=256) :: message
+
+        call reset_table(table)
+        call make_two(table%rules(1), 'INDIRECT-A-BX', 'A', 'B', &
+            fortfront_grammar_symbol_reference, 'x', fortfront_grammar_symbol_token)
+        call add_rule(table, table%rules(1))
+        call make_one(table%rules(2), 'INDIRECT-B-A', 'B', 'A', &
+            fortfront_grammar_symbol_reference)
+        call add_rule(table, table%rules(2))
+        call make_one(table%rules(3), 'INDIRECT-B-Y', 'B', 'y', fortfront_grammar_symbol_token)
+        call add_rule(table, table%rules(3))
+        call analyze(table, facts, fact_count)
+        input = [character(len=128) :: 'y', 'x']
+        call advance(table, facts, fact_count, 'A', input, 2, output, output_count, status, &
+            message)
+        call require(status == fortfront_grammar_frontier_accepted .and. output_count == 1, &
+            'indirect left recursion did not reach the productive alternative')
+        call require(trim(output(1)%identity) == 'INDIRECT-A-BX' .and. output(1)%consumed == 2, &
+            'indirect left recursion changed the accepted root span')
+    end subroutine test_indirect_left_recursion
+
+    subroutine test_unproductive_recursive_cycle()
+        type(fortfront_grammar_table_t) :: table
+        type(fortfront_grammar_analysis_result_t) :: facts(8)
+        type(fortfront_grammar_frontier_result_t) :: output(8)
+        character(len=128) :: input(1)
+        integer :: fact_count, output_count, status
+        character(len=256) :: message
+
+        call reset_table(table)
+        call make_one(table%rules(1), 'CYCLE-A-B', 'A', 'B', fortfront_grammar_symbol_reference)
+        call add_rule(table, table%rules(1))
+        call make_one(table%rules(2), 'CYCLE-B-A', 'B', 'A', fortfront_grammar_symbol_reference)
+        call add_rule(table, table%rules(2))
+        call analyze(table, facts, fact_count)
+        input = 'x'
+        call advance(table, facts, fact_count, 'A', input, 1, output, output_count, status, &
+            message)
+        call require(status == fortfront_grammar_frontier_rejected .and. output_count == 0, &
+            'unproductive recursive cycle was not rejected finitely')
+    end subroutine test_unproductive_recursive_cycle
 
     subroutine test_unresolved_reference()
         type(fortfront_grammar_table_t) :: table

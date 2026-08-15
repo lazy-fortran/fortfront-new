@@ -168,7 +168,13 @@ contains
             else
                 field_end = position + next_tab - 2
             end if
-            if (field_end < position .or. len_trim(line(position:field_end)) == 0) then
+            if (field_end < position) then
+                malformed = .true.
+                runtime_message = 'grammar-runtime-case-line-'//trim(integer_text(line_number))// &
+                    '-has-empty-token'
+                exit
+            end if
+            if (len_trim(line(position:field_end)) == 0) then
                 malformed = .true.
                 runtime_message = 'grammar-runtime-case-line-'//trim(integer_text(line_number))// &
                     '-has-empty-token'

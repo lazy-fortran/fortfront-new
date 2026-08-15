@@ -20,10 +20,14 @@ program test_fortfront_grammar_runtime_file
         "(source-hash hash-b))) (origin mechanical) (resolution resolved))"
     type(fortfront_grammar_runtime_t) :: runtime
     type(fortfront_grammar_frontier_result_t) :: output(4)
+    character(len=245) :: lines(2)
     character(len=256) :: message
     integer :: line_count, output_count, rule_count, status
 
-    call write_file([rule_a, rule_b])
+    lines = ''
+    lines(1) = rule_a
+    lines(2) = rule_b
+    call write_file(lines)
     call fortfront_grammar_runtime_load_file(runtime, path, "root", rule_count, line_count, &
         status, message)
     call require(status == fortfront_grammar_runtime_initialized .and. rule_count == 2 .and. &
@@ -32,7 +36,10 @@ program test_fortfront_grammar_runtime_file
     call require(status == fortfront_grammar_runtime_ambiguous .and. output_count == 2, &
         "multi-rule file did not preserve ambiguity")
 
-    call write_file([rule_a, rule_a])
+    lines = ''
+    lines(1) = rule_a
+    lines(2) = rule_a
+    call write_file(lines)
     call fortfront_grammar_runtime_load_file(runtime, path, "root", rule_count, line_count, &
         status, message)
     call require(status == fortfront_grammar_runtime_initialized .and. rule_count == 2 .and. &
@@ -41,7 +48,10 @@ program test_fortfront_grammar_runtime_file
     call require(status == fortfront_grammar_runtime_accepted .and. output_count == 1, &
         "identical source occurrences were not normalized")
 
-    call write_file([rule_a, "(syntax-rule"])
+    lines = ''
+    lines(1) = rule_a
+    lines(2) = "(syntax-rule"
+    call write_file(lines)
     call fortfront_grammar_runtime_load_file(runtime, path, "root", rule_count, line_count, &
         status, message)
     call require(status == fortfront_grammar_runtime_malformed .and. rule_count == 1 .and. &

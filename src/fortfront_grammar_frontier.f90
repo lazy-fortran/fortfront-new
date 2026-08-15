@@ -5,8 +5,10 @@ module fortfront_grammar_frontier
     !! all finite-input derivations, including epsilon and recursive ones.  It
     !! never selects one rule when more than one root rule remains viable.
 
+    use, intrinsic :: iso_fortran_env, only: int64
     use fortfront_grammar, only: fortfront_grammar_invalid_provenance, &
         fortfront_grammar_rule_t, &
+        fortfront_grammar_symbol_reference, &
         fortfront_grammar_symbol_token, &
         fortfront_grammar_table_t, fortfront_grammar_validate_rule, &
         fortfront_grammar_provenance_t
@@ -35,6 +37,14 @@ module fortfront_grammar_frontier
         integer :: consumed = 0
     end type fortfront_grammar_frontier_result_t
 
+    type :: frontier_chart_state_t
+        integer :: rule_index = 0
+        integer :: dot = 0
+        integer :: start_position = 0
+        integer :: current_position = 0
+        logical :: uncertain = .false.
+    end type frontier_chart_state_t
+
     public :: fortfront_grammar_advance_frontier
 
 contains
@@ -53,19 +63,18 @@ contains
         character(len=*), intent(out) :: message
 
         character(len=128), allocatable :: lhs_names(:)
-        integer, allocatable :: rule_lhs(:)
-        logical, allocatable :: complete(:, :, :)
-        logical, allocatable :: uncertain(:, :, :)
+        integer, allocatable :: rule_lhs(:), rule_next(:), rule_head(:)
         logical, allocatable :: fact_unresolved(:)
-        logical :: changed
-        logical, allocatable :: known_frontier(:), unknown_frontier(:)
-        logical, allocatable :: next_known(:), next_unknown(:)
-        integer :: lhs_count, start_index, position_count, iteration, max_iterations
-        integer :: i, j, k, end_position, reference_index, fact_index
-        integer :: frontier_position
-        integer :: rule_status, known_count
+        logical, allocatable :: state_seen(:, :, :, :, :), known_root(:)
+        type(frontier_chart_state_t), allocatable :: states(:)
+        integer, allocatable :: queue(:), waiting_head(:, :), waiting_next(:)
+        integer, allocatable :: complete_head(:, :), complete_next(:)
+        integer :: lhs_count, start_index, position_count, max_rhs, max_states
+        integer :: i, fact_index, state_count, queue_head
+        integer :: known_count, allocation_status
         integer :: table_status
-        logical :: uncertain_root, valid_facts
+        integer(int64) :: max_states_64, integer_max
+        logical :: uncertain_root, valid_facts, chart_failed
         character(len=256) :: rule_message
 
         output = fortfront_grammar_frontier_result_t()
@@ -114,12 +123,48 @@ contains
         end if
 
         position_count = input_count + 1
-        allocate(complete(lhs_count, position_count, position_count))
-        allocate(uncertain(lhs_count, position_count, position_count))
-        allocate(known_frontier(position_count), unknown_frontier(position_count))
-        allocate(next_known(position_count), next_unknown(position_count))
-        complete = .false.
-        uncertain = .false.
+        max_rhs = 0
+        do i = 1, table%count
+            max_rhs = max(max_rhs, table%rules(i)%rhs_count)
+        end do
+        max_states_64 = int(table%count, int64) * int(max_rhs + 1, int64) * &
+            int(position_count, int64) * int(position_count, int64) * 2_int64
+        integer_max = int(huge(0), int64)
+        if (max_states_64 > integer_max) then
+            status = fortfront_grammar_frontier_capacity
+            message = 'grammar-frontier-chart-capacity-exhausted'
+            return
+        end if
+        max_states = int(max_states_64)
+        ! Each rule has at most max_rhs+1 dot positions, each span has two
+        ! positions, and certainty has two values.  state_seen is this exact
+        ! finite product, so the queue drains after at most max_states items.
+        allocate(rule_next(max(1, table%count)), rule_head(max(1, lhs_count)))
+        rule_next = 0
+        rule_head = 0
+        do i = table%count, 1, -1
+            rule_next(i) = rule_head(rule_lhs(i))
+            rule_head(rule_lhs(i)) = i
+        end do
+        allocate(state_seen(table%count, max_rhs + 1, position_count, position_count, 2), &
+            states(max_states), queue(max_states), waiting_head(lhs_count, position_count), &
+            waiting_next(max_states), complete_head(lhs_count, position_count), &
+            complete_next(max_states), known_root(table%count), stat=allocation_status)
+        if (allocation_status /= 0) then
+            status = fortfront_grammar_frontier_capacity
+            message = 'grammar-frontier-chart-capacity-exhausted'
+            return
+        end if
+        state_seen = .false.
+        waiting_head = 0
+        waiting_next = 0
+        complete_head = 0
+        complete_next = 0
+        known_root = .false.
+        state_count = 0
+        queue_head = 1
+        chart_failed = .false.
+
         do i = 1, lhs_count
             fact_index = find_fact(facts, fact_count, lhs_names(i))
             fact_unresolved(i) = facts(fact_index)%unresolved
@@ -131,99 +176,41 @@ contains
             end if
         end do
 
-        max_iterations = 2 * lhs_count * position_count * position_count + 1
-        do iteration = 1, max_iterations
-            changed = .false.
-            do i = 1, table%count
-                do j = 1, position_count
-                    known_frontier = .false.
-                    unknown_frontier = .false.
-                    known_frontier(j) = .true.
-                    do k = 1, table%rules(i)%rhs_count
-                        next_known = .false.
-                        next_unknown = .false.
-                        if (table%rules(i)%rhs(k)%kind == fortfront_grammar_symbol_token) then
-                            do frontier_position = 1, position_count
-                                if (frontier_position > input_count) cycle
-                                if (known_frontier(frontier_position)) then
-                                    if (trim(input(frontier_position)) == &
-                                        trim(table%rules(i)%rhs(k)%name)) then
-                                        next_known(frontier_position + 1) = .true.
-                                    end if
-                                end if
-                                if (unknown_frontier(frontier_position)) then
-                                    if (trim(input(frontier_position)) == &
-                                        trim(table%rules(i)%rhs(k)%name)) then
-                                        next_unknown(frontier_position + 1) = .true.
-                                    end if
-                                end if
-                            end do
-                        else
-                            reference_index = find_name(lhs_names, lhs_count, &
-                                table%rules(i)%rhs(k)%name)
-                            if (reference_index == 0) then
-                                call mark_unknown_spans(known_frontier, unknown_frontier, &
-                                    next_unknown, position_count)
-                            else if (fact_unresolved(reference_index)) then
-                                call mark_unknown_spans(known_frontier, unknown_frontier, &
-                                    next_unknown, position_count)
-                            else
-                                do frontier_position = 1, position_count
-                                    if (known_frontier(frontier_position)) then
-                                        do end_position = frontier_position, position_count
-                                            if (complete(reference_index, frontier_position, &
-                                                end_position)) then
-                                                next_known(end_position) = .true.
-                                            end if
-                                            if (uncertain(reference_index, frontier_position, &
-                                                end_position)) then
-                                                next_unknown(end_position) = .true.
-                                            end if
-                                        end do
-                                    end if
-                                    if (unknown_frontier(frontier_position)) then
-                                        call mark_unknown_spans_from(frontier_position, &
-                                            next_unknown, position_count)
-                                    end if
-                                end do
-                            end if
-                        end if
-                        known_frontier = next_known
-                        unknown_frontier = next_unknown
-                    end do
-                    do end_position = 1, position_count
-                        if (known_frontier(end_position)) then
-                            if (.not. complete(rule_lhs(i), j, end_position)) then
-                                complete(rule_lhs(i), j, end_position) = .true.
-                                changed = .true.
-                            end if
-                        end if
-                        if (unknown_frontier(end_position)) then
-                            if (.not. uncertain(rule_lhs(i), j, end_position)) then
-                                uncertain(rule_lhs(i), j, end_position) = .true.
-                                changed = .true.
-                            end if
-                        end if
-                    end do
-                end do
-            end do
-            if (.not. changed) exit
+        do i = 1, table%count
+            if (rule_lhs(i) == start_index) then
+                call chart_add_state(i, 0, 1, 1, .false.)
+            end if
         end do
+        do while (queue_head <= state_count)
+            call chart_process_state(queue(queue_head))
+            queue_head = queue_head + 1
+            if (chart_failed) exit
+        end do
+        if (chart_failed) then
+            status = fortfront_grammar_frontier_capacity
+            message = 'grammar-frontier-chart-capacity-exhausted'
+            return
+        end if
 
-        uncertain_root = uncertain(start_index, 1, position_count)
+        uncertain_root = .false.
+        do i = 1, state_count
+            if (states(i)%dot /= table%rules(states(i)%rule_index)%rhs_count) cycle
+            if (states(i)%start_position /= 1 .or. &
+                states(i)%current_position /= position_count) cycle
+            if (rule_lhs(states(i)%rule_index) /= start_index) cycle
+            if (states(i)%uncertain) then
+                uncertain_root = .true.
+            else
+                known_root(states(i)%rule_index) = .true.
+            end if
+        end do
         known_count = 0
         do i = 1, table%count
             if (rule_lhs(i) /= start_index) cycle
-            if (.not. rule_can_start(table%rules(i), facts, fact_count, input, input_count)) then
-                cycle
-            end if
-            if (complete(start_index, 1, position_count)) then
-                if (rule_derives(table%rules(i), complete, lhs_names, lhs_count, input, &
-                    input_count)) then
-                    known_count = known_count + 1
-                    if (known_count <= size(output)) then
-                        call fill_result(output(known_count), table%rules(i), input_count)
-                    end if
+            if (known_root(i)) then
+                known_count = known_count + 1
+                if (known_count <= size(output)) then
+                    call fill_result(output(known_count), table%rules(i), input_count)
                 end if
             end if
         end do
@@ -249,29 +236,118 @@ contains
             status = fortfront_grammar_frontier_ambiguous
             message = 'grammar-frontier-input-is-ambiguous'
         end if
-    end subroutine fortfront_grammar_advance_frontier
 
-    logical function rule_can_start(rule, facts, fact_count, input, input_count)
-        type(fortfront_grammar_rule_t), intent(in) :: rule
-        type(fortfront_grammar_analysis_result_t), intent(in) :: facts(:)
-        integer, intent(in) :: fact_count, input_count
-        character(len=*), intent(in) :: input(:)
+    contains
 
-        integer :: i, fact_index
+        subroutine chart_add_state(rule_index, dot, start_position, current_position, uncertain)
+            integer, intent(in) :: rule_index, dot, start_position, current_position
+            logical, intent(in) :: uncertain
 
-        rule_can_start = .true.
-        if (input_count == 0) return
-        fact_index = find_fact(facts, fact_count, rule%lhs)
-        if (fact_index == 0) return
-        if (facts(fact_index)%first_count == 0) return
-        rule_can_start = .false.
-        do i = 1, facts(fact_index)%first_count
-            if (trim(facts(fact_index)%first(i)%name) == trim(input(1))) then
-                rule_can_start = .true.
+            integer :: certainty_index, reference_index, lhs_index
+            integer :: state_index
+
+            certainty_index = 1
+            if (uncertain) certainty_index = 2
+            if (state_seen(rule_index, dot + 1, start_position, current_position, &
+                certainty_index)) return
+            if (state_count >= max_states) then
+                chart_failed = .true.
                 return
             end if
-        end do
-    end function rule_can_start
+            state_count = state_count + 1
+            state_index = state_count
+            state_seen(rule_index, dot + 1, start_position, current_position, &
+                certainty_index) = .true.
+            states(state_index)%rule_index = rule_index
+            states(state_index)%dot = dot
+            states(state_index)%start_position = start_position
+            states(state_index)%current_position = current_position
+            states(state_index)%uncertain = uncertain
+            queue(state_index) = state_index
+
+            if (dot == table%rules(rule_index)%rhs_count) then
+                lhs_index = rule_lhs(rule_index)
+                complete_next(state_index) = complete_head(lhs_index, start_position)
+                complete_head(lhs_index, start_position) = state_index
+            else if (table%rules(rule_index)%rhs(dot + 1)%kind == &
+                    fortfront_grammar_symbol_reference) then
+                reference_index = find_name(lhs_names, lhs_count, &
+                    table%rules(rule_index)%rhs(dot + 1)%name)
+                if (reference_index /= 0) then
+                    waiting_next(state_index) = waiting_head(reference_index, current_position)
+                    waiting_head(reference_index, current_position) = state_index
+                end if
+            end if
+        end subroutine chart_add_state
+
+        subroutine chart_process_state(state_index)
+            integer, intent(in) :: state_index
+
+            integer :: rule_index, dot, start_position, current_position
+            integer :: lhs_index, reference_index, waiting_index, completion_index
+            integer :: predicted_rule, end_position
+            logical :: next_uncertain
+
+            rule_index = states(state_index)%rule_index
+            dot = states(state_index)%dot
+            start_position = states(state_index)%start_position
+            current_position = states(state_index)%current_position
+            if (dot == table%rules(rule_index)%rhs_count) then
+                lhs_index = rule_lhs(rule_index)
+                waiting_index = waiting_head(lhs_index, start_position)
+                do while (waiting_index /= 0)
+                    next_uncertain = states(waiting_index)%uncertain .or. &
+                        states(state_index)%uncertain
+                    call chart_add_state(states(waiting_index)%rule_index, &
+                        states(waiting_index)%dot + 1, states(waiting_index)%start_position, &
+                        current_position, next_uncertain)
+                    waiting_index = waiting_next(waiting_index)
+                end do
+                return
+            end if
+
+            if (table%rules(rule_index)%rhs(dot + 1)%kind == fortfront_grammar_symbol_token) then
+                if (current_position <= input_count) then
+                    if (trim(input(current_position)) == &
+                        trim(table%rules(rule_index)%rhs(dot + 1)%name)) then
+                        call chart_add_state(rule_index, dot + 1, start_position, &
+                            current_position + 1, states(state_index)%uncertain)
+                    end if
+                end if
+                return
+            end if
+
+            reference_index = find_name(lhs_names, lhs_count, &
+                table%rules(rule_index)%rhs(dot + 1)%name)
+            if (states(state_index)%uncertain .or. reference_index == 0) then
+                do end_position = current_position, position_count
+                    call chart_add_state(rule_index, dot + 1, start_position, end_position, .true.)
+                end do
+            else if (fact_unresolved(reference_index)) then
+                do end_position = current_position, position_count
+                    call chart_add_state(rule_index, dot + 1, start_position, end_position, .true.)
+                end do
+            else
+                predicted_rule = rule_head(reference_index)
+                do while (predicted_rule /= 0)
+                    call chart_add_state(predicted_rule, 0, current_position, current_position, &
+                        .false.)
+                    predicted_rule = rule_next(predicted_rule)
+                end do
+            end if
+            if (reference_index /= 0) then
+                completion_index = complete_head(reference_index, current_position)
+                do while (completion_index /= 0)
+                    next_uncertain = states(state_index)%uncertain .or. &
+                        states(completion_index)%uncertain
+                    call chart_add_state(rule_index, dot + 1, start_position, &
+                        states(completion_index)%current_position, next_uncertain)
+                    completion_index = complete_next(completion_index)
+                end do
+            end if
+        end subroutine chart_process_state
+
+    end subroutine fortfront_grammar_advance_frontier
 
     subroutine validate_table(table, lhs_names, rule_lhs, lhs_count, status, message)
         type(fortfront_grammar_table_t), intent(in) :: table
@@ -406,47 +482,6 @@ contains
         valid = .true.
     end subroutine validate_facts
 
-    logical function rule_derives(rule, complete, lhs_names, lhs_count, input, input_count)
-        type(fortfront_grammar_rule_t), intent(in) :: rule
-        logical, intent(in) :: complete(:, :, :)
-        character(len=*), intent(in) :: lhs_names(:)
-        integer, intent(in) :: lhs_count, input_count
-        character(len=*), intent(in) :: input(:)
-        logical, allocatable :: frontier(:), next_frontier(:)
-        integer :: i, j, reference_index
-
-        rule_derives = .false.
-        allocate(frontier(input_count + 1), next_frontier(input_count + 1))
-        frontier = .false.
-        next_frontier = .false.
-        frontier(1) = .true.
-        do i = 1, rule%rhs_count
-            next_frontier = .false.
-            if (rule%rhs(i)%kind == fortfront_grammar_symbol_token) then
-                do j = 1, input_count
-                    if (frontier(j)) then
-                        if (trim(input(j)) == trim(rule%rhs(i)%name)) then
-                            next_frontier(j + 1) = .true.
-                        end if
-                    end if
-                end do
-            else
-                reference_index = find_name(lhs_names, lhs_count, rule%rhs(i)%name)
-                if (reference_index == 0) then
-                    next_frontier = .false.
-                else
-                    do j = 1, input_count + 1
-                        if (.not. frontier(j)) cycle
-                        call union_spans(complete(reference_index, j, :), next_frontier, &
-                            input_count + 1)
-                    end do
-                end if
-            end if
-            frontier = next_frontier
-        end do
-        rule_derives = frontier(input_count + 1)
-    end function rule_derives
-
     subroutine fill_result(output, rule, input_count)
         type(fortfront_grammar_frontier_result_t), intent(out) :: output
         type(fortfront_grammar_rule_t), intent(in) :: rule
@@ -460,41 +495,6 @@ contains
         output%next_position = input_count + 1
         output%consumed = input_count
     end subroutine fill_result
-
-    subroutine mark_unknown_spans(known, unknown, output, position_count)
-        logical, intent(in) :: known(:), unknown(:)
-        logical, intent(inout) :: output(:)
-        integer, intent(in) :: position_count
-
-        integer :: i
-
-        do i = 1, position_count
-            if (known(i) .or. unknown(i)) call mark_unknown_spans_from(i, output, position_count)
-        end do
-    end subroutine mark_unknown_spans
-
-    subroutine mark_unknown_spans_from(start_position, output, position_count)
-        integer, intent(in) :: start_position, position_count
-        logical, intent(inout) :: output(:)
-
-        integer :: i
-
-        do i = start_position, position_count
-            output(i) = .true.
-        end do
-    end subroutine mark_unknown_spans_from
-
-    subroutine union_spans(source, output, position_count)
-        logical, intent(in) :: source(:)
-        logical, intent(inout) :: output(:)
-        integer, intent(in) :: position_count
-
-        integer :: i
-
-        do i = 1, position_count
-            if (source(i)) output(i) = .true.
-        end do
-    end subroutine union_spans
 
     integer function find_name(names, count, name)
         character(len=*), intent(in) :: names(:), name
