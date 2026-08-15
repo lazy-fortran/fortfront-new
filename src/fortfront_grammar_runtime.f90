@@ -76,6 +76,7 @@ contains
         type(fortfront_grammar_contract_rule_t), allocatable :: rules(:)
         type(fortfront_grammar_contract_rule_t) :: rule
         integer :: unit, io_status, parse_status, allocation_status
+        integer :: expected_line_count
         character(len=runtime_line_capacity) :: line
         character(len=256) :: io_message, parse_message
 
@@ -84,14 +85,23 @@ contains
         line_count = 0
         status = fortfront_grammar_runtime_malformed
         message = ''
+        call count_file_lines(path, expected_line_count, io_status, io_message)
+        if (io_status /= 0) then
+            message = trim(io_message)
+            return
+        end if
+        allocate(rules(expected_line_count), stat=allocation_status)
+        if (allocation_status /= 0) then
+            status = fortfront_grammar_runtime_capacity
+            message = 'grammar-runtime-rule-storage-allocation-failed'
+            return
+        end if
         open (newunit=unit, file=trim(path), status='old', action='read', iostat=io_status, &
             iomsg=io_message)
         if (io_status /= 0) then
             message = 'grammar-runtime-file-open-failed: '//trim(io_message)
             return
         end if
-
-        allocate(rules(0))
         do
             read (unit, '(A)', iostat=io_status, iomsg=io_message) line
             if (io_status == iostat_end) exit
@@ -108,14 +118,14 @@ contains
                     '-malformed: '//trim(parse_message)
                 return
             end if
-            call append_rule(rules, rule, allocation_status)
-            if (allocation_status /= 0) then
+            if (rule_count >= size(rules)) then
                 close (unit)
                 status = fortfront_grammar_runtime_capacity
-                message = 'grammar-runtime-rule-storage-allocation-failed'
+                message = 'grammar-runtime-file-line-count-changed'
                 return
             end if
             rule_count = rule_count + 1
+            rules(rule_count) = rule
         end do
         close (unit)
 
@@ -282,23 +292,38 @@ contains
             message)
     end subroutine fortfront_grammar_runtime_finalize
 
-    subroutine append_rule(rules, rule, allocation_status)
-        type(fortfront_grammar_contract_rule_t), allocatable, intent(inout) :: rules(:)
-        type(fortfront_grammar_contract_rule_t), intent(in) :: rule
-        integer, intent(out) :: allocation_status
+    subroutine count_file_lines(path, line_count, io_status, io_message)
+        character(len=*), intent(in) :: path
+        integer, intent(out) :: line_count, io_status
+        character(len=*), intent(out) :: io_message
 
-        type(fortfront_grammar_contract_rule_t), allocatable :: replacement(:)
-        integer :: old_count, new_count
+        integer :: unit
+        character(len=runtime_line_capacity) :: line
 
-        allocation_status = 0
-        old_count = size(rules)
-        new_count = max(1, 2 * old_count)
-        allocate(replacement(new_count), stat=allocation_status)
-        if (allocation_status /= 0) return
-        if (old_count > 0) replacement(1:old_count) = rules
-        replacement(old_count + 1) = rule
-        call move_alloc(replacement, rules)
-    end subroutine append_rule
+        line_count = 0
+        io_status = 0
+        io_message = ''
+        open (newunit=unit, file=trim(path), status='old', action='read', iostat=io_status, &
+            iomsg=io_message)
+        if (io_status /= 0) then
+            io_message = 'grammar-runtime-file-open-failed: '//trim(io_message)
+            return
+        end if
+        do
+            read (unit, '(A)', iostat=io_status, iomsg=io_message) line
+            if (io_status == iostat_end) then
+                io_status = 0
+                exit
+            end if
+            if (io_status /= 0) then
+                close (unit)
+                io_message = 'grammar-runtime-file-read-failed: '//trim(io_message)
+                return
+            end if
+            line_count = line_count + 1
+        end do
+        close (unit)
+    end subroutine count_file_lines
 
     function integer_text(value) result(text)
         integer, intent(in) :: value
@@ -504,7 +529,7 @@ contains
             if (rule%nodes(node_index)%minimum == 0) then
                 output_count = 1
                 lengths(1) = 1
-                output(1, 1)%name = repeat_name(builder%source_rule_index, node_index)
+                output(1, 1)%name = repeat_name(rule, node_index)
                 output(1, 1)%kind = fortfront_grammar_symbol_reference
             else
                 deallocate(output, lengths)
@@ -517,8 +542,7 @@ contains
                     lengths(k) = child_lengths(k) + 1
                     if (child_lengths(k) > 0) output(k, 1:child_lengths(k)) = &
                         child_output(k, 1:child_lengths(k))
-                    output(k, lengths(k))%name = repeat_name(builder%source_rule_index, &
-                        node_index)
+                    output(k, lengths(k))%name = repeat_name(rule, node_index)
                     output(k, lengths(k))%kind = fortfront_grammar_symbol_reference
                 end do
             end if
@@ -641,10 +665,10 @@ contains
         integer :: i, length
         character(len=128) :: lhs
 
-        lhs = repeat_name(builder%source_rule_index, node_index)
+        lhs = repeat_name(rule, node_index)
         allocate(sequence(0))
-        call add_flat_rule(builder, rule, repeat_identity(builder%source_rule_index, node_index, &
-            0), lhs, sequence, 0, status, message)
+        call add_flat_rule(builder, rule, repeat_identity(rule, node_index, 0), lhs, sequence, &
+            0, status, message)
         if (status /= fortfront_grammar_runtime_accepted) return
         do i = 1, child_count
             length = child_lengths(i) + 1
@@ -655,8 +679,8 @@ contains
                 1:child_lengths(i))
             sequence(length)%name = lhs
             sequence(length)%kind = fortfront_grammar_symbol_reference
-            call add_flat_rule(builder, rule, repeat_identity(builder%source_rule_index, &
-                node_index, i), lhs, sequence, length, status, message)
+            call add_flat_rule(builder, rule, repeat_identity(rule, node_index, i), lhs, &
+                sequence, length, status, message)
             if (status /= fortfront_grammar_runtime_accepted) return
         end do
     end subroutine add_repeat_rules
@@ -707,7 +731,7 @@ contains
         character(len=*), intent(out) :: message
 
         type(fortfront_grammar_rule_t) :: rule
-        integer :: add_status
+        integer :: add_status, i
 
         status = fortfront_grammar_runtime_malformed
         message = ''
@@ -732,6 +756,19 @@ contains
         rule%provenance%rule = contract_rule%source%rule
         rule%provenance%page = int(contract_rule%source%page, int64)
         rule%provenance%source_hash = contract_rule%source%source_hash
+        if (builder%table%count > 0) then
+            do i = 1, builder%table%count
+                if (trim(builder%table%rules(i)%identity) /= trim(rule%identity)) cycle
+                if (same_generated_rule(builder%table%rules(i), rule)) then
+                    status = fortfront_grammar_runtime_accepted
+                    message = 'grammar-runtime-duplicate-source-rule-normalized'
+                else
+                    status = fortfront_grammar_runtime_malformed
+                    message = 'grammar-runtime-conflicting-generated-rule-identity'
+                end if
+                return
+            end do
+        end if
         call fortfront_grammar_add(builder%table, rule, add_status, message)
         if (add_status == fortfront_grammar_valid) then
             status = fortfront_grammar_runtime_accepted
@@ -780,20 +817,41 @@ contains
         value = trim(identity)//':'//trim(label)//trim(number)
     end function identity_with_suffix
 
-    function repeat_name(rule_index, node_index) result(value)
-        integer, intent(in) :: rule_index, node_index
+    function repeat_name(rule, node_index) result(value)
+        type(fortfront_grammar_contract_rule_t), intent(in) :: rule
+        integer, intent(in) :: node_index
         character(len=128) :: value
+        character(len=32) :: alternative
 
-        write (value, '("__runtime_repeat_",i0,"_",i0)') rule_index, node_index
+        write (alternative, '(i0)') rule%alternative
+        value = '__runtime_repeat_'//trim(rule%identity)//'_ALT'//trim(alternative)//'_'// &
+            trim(integer_text(node_index))
     end function repeat_name
 
-    function repeat_identity(rule_index, node_index, alternative) result(value)
-        integer, intent(in) :: rule_index, node_index, alternative
+    function repeat_identity(rule, node_index, alternative) result(value)
+        type(fortfront_grammar_contract_rule_t), intent(in) :: rule
+        integer, intent(in) :: node_index, alternative
         character(len=128) :: value
 
-        value = 'RUNTIME-REPEAT-'//trim(adjustl(repeat_name(rule_index, node_index)))
+        value = 'RUNTIME-REPEAT-'//trim(adjustl(repeat_name(rule, node_index)))
         if (alternative > 0) value = identity_with_suffix(value, 'ALT', alternative)
     end function repeat_identity
+
+    logical function same_generated_rule(left, right)
+        type(fortfront_grammar_rule_t), intent(in) :: left, right
+        integer :: i
+
+        same_generated_rule = trim(left%identity) == trim(right%identity) .and. &
+            trim(left%lhs) == trim(right%lhs) .and. left%rhs_count == right%rhs_count
+        if (.not. same_generated_rule) return
+        do i = 1, left%rhs_count
+            if (left%rhs(i)%kind /= right%rhs(i)%kind .or. &
+                trim(left%rhs(i)%name) /= trim(right%rhs(i)%name)) then
+                same_generated_rule = .false.
+                return
+            end if
+        end do
+    end function same_generated_rule
 
     function unresolved_name(rule_index) result(value)
         integer, intent(in) :: rule_index

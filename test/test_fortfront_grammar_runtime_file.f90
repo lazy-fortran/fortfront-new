@@ -1,6 +1,7 @@
 program test_fortfront_grammar_runtime_file
     use fortfront_grammar_frontier, only: fortfront_grammar_frontier_result_t
-    use fortfront_grammar_runtime, only: fortfront_grammar_runtime_ambiguous, &
+    use fortfront_grammar_runtime, only: fortfront_grammar_runtime_accepted, &
+        fortfront_grammar_runtime_ambiguous, &
         fortfront_grammar_runtime_initialized, &
         fortfront_grammar_runtime_load_file, fortfront_grammar_runtime_malformed, &
         fortfront_grammar_runtime_push, fortfront_grammar_runtime_t
@@ -30,6 +31,15 @@ program test_fortfront_grammar_runtime_file
     call fortfront_grammar_runtime_push(runtime, "x", output, output_count, status, message)
     call require(status == fortfront_grammar_runtime_ambiguous .and. output_count == 2, &
         "multi-rule file did not preserve ambiguity")
+
+    call write_file([rule_a, rule_a])
+    call fortfront_grammar_runtime_load_file(runtime, path, "root", rule_count, line_count, &
+        status, message)
+    call require(status == fortfront_grammar_runtime_initialized .and. rule_count == 2 .and. &
+        line_count == 2, "duplicate source occurrences were not loaded")
+    call fortfront_grammar_runtime_push(runtime, "x", output, output_count, status, message)
+    call require(status == fortfront_grammar_runtime_accepted .and. output_count == 1, &
+        "identical source occurrences were not normalized")
 
     call write_file([rule_a, "(syntax-rule"])
     call fortfront_grammar_runtime_load_file(runtime, path, "root", rule_count, line_count, &
