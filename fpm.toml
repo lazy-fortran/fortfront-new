@@ -147,3 +147,8 @@ main = "test_fortfront_grammar_runtime.f90"
 name = "test_fortfront_grammar_runtime_file"
 source-dir = "test"
 main = "test_fortfront_grammar_runtime_file.f90"
+
+[[test]]
+name = "test_dispatch_l2_frontend_trace"
+source-dir = "test"
+main = "test_dispatch_l2_frontend_trace.f90"
