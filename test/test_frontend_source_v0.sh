@@ -5,8 +5,10 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-positive="$root/../lazy-fortran-new/tests/fixtures/l3-raw-program-v0.f90"
-negative="$root/../lazy-fortran-new/tests/negative/l3-raw-program-v0-mismatched-end.f90"
+positive="$tmp/positive.f90"
+negative="$tmp/negative.f90"
+printf '%s\n' 'program p' 'end program p' >"$positive"
+printf '%s\n' 'program p' 'end program q' >"$negative"
 fo exec fortfront-source-v0 "$positive" "$tmp/positive.sx"
 fo exec fortfront-source-v0 "$positive" "$tmp/positive-repeat.sx"
 fo exec fortfront-source-v0 "$negative" "$tmp/negative.sx"
