@@ -15,6 +15,11 @@ name = "fortfront-grammar-runtime"
 source-dir = "app"
 main = "fortfront_grammar_runtime_cli.f90"
 
+[[executable]]
+name = "fortfront-source-v0"
+source-dir = "app"
+main = "fortfront_source_v0.f90"
+
 [library]
 source-dir = "src"
 
@@ -152,3 +157,8 @@ main = "test_fortfront_grammar_runtime_file.f90"
 name = "test_dispatch_l2_frontend_trace"
 source-dir = "test"
 main = "test_dispatch_l2_frontend_trace.f90"
+
+[[test]]
+name = "test_frontend_source_v0"
+source-dir = "test"
+main = "test_frontend_source_v0.f90"
