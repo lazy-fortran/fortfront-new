@@ -20,6 +20,11 @@ name = "fortfront-source-v0"
 source-dir = "app"
 main = "fortfront_source_v0.f90"
 
+[[executable]]
+name = "fortfront-source-ast-v1"
+source-dir = "app"
+main = "fortfront_source_ast_v1.f90"
+
 [library]
 source-dir = "src"
 
@@ -162,3 +167,8 @@ main = "test_dispatch_l2_frontend_trace.f90"
 name = "test_frontend_source_v0"
 source-dir = "test"
 main = "test_frontend_source_v0.f90"
+
+[[test]]
+name = "test_frontend_typed_declaration_v1"
+source-dir = "test"
+main = "test_frontend_typed_declaration_v1.f90"

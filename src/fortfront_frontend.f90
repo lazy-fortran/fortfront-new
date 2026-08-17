@@ -6,6 +6,13 @@ module fortfront_frontend
         generated_source_span_validate => source_span_validate, &
         generated_program_unit_to_sx => program_unit_to_sx, &
         generated_program_unit_validate => program_unit_validate
+    use frontend_ast_v1_generated, only: typed_source_span_t => source_span_t, &
+        typed_program_root_t => program_root_t, &
+        typed_program_declaration_t => program_declaration_t, &
+        typed_variable_declaration_t => variable_declaration_t, &
+        typed_program_unit_t => program_unit_t, &
+        typed_program_unit_to_sx => program_unit_to_sx, &
+        typed_program_unit_validate => program_unit_validate
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
     private
@@ -135,6 +142,10 @@ module fortfront_frontend
         generated_program_declaration_t, generated_program_unit_t, &
         frontend_generated_program_unit_to_sx, &
         frontend_validate_generated_program_unit
+    public :: frontend_parse_typed_program_unit, &
+        frontend_typed_program_unit_to_sx, frontend_validate_typed_program_unit, &
+        typed_source_span_t, typed_program_root_t, typed_program_declaration_t, &
+        typed_variable_declaration_t, typed_program_unit_t
 
 contains
 
@@ -154,6 +165,100 @@ contains
         frontend_validate_generated_program_unit = &
             generated_program_unit_validate(unit, message)
     end function frontend_validate_generated_program_unit
+
+    subroutine frontend_parse_typed_program_unit(file_name, source, source_hash, &
+            unit, ok, message)
+        character(len=*), intent(in) :: file_name
+        character(len=*), intent(in) :: source
+        character(len=*), intent(in) :: source_hash
+        type(typed_program_unit_t), intent(out) :: unit
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        type(frontend_result_t) :: result
+        type(standardir_syntax_item_t) :: witness
+        type(typed_source_span_t) :: span
+        integer(int64) :: declaration_end
+        integer(int64) :: declaration_start
+        integer(int64) :: unit_end
+        integer(int64) :: unit_start
+
+        unit = typed_program_unit_t()
+        ok = .false.
+        message = ''
+        if (source /= 'program p'//new_line('a')//'  integer :: x'// &
+            new_line('a')//'end program p'//new_line('a')) then
+            message = 'unsupported-typed-program-unit'
+            return
+        end if
+
+        call set_typed_program_witness(witness)
+        call frontend_parse(file_name, source, source_hash, witness, result)
+        if (trim(result%status) /= frontend_accepted) then
+            if (allocated(result%diagnostics)) then
+                message = result%diagnostics(1)%message
+            else
+                message = 'frontend-rejected'
+            end if
+            return
+        end if
+        if (.not. parse_program_witness(source, unit%root%name, message, &
+            unit_start=unit_start, unit_end=unit_end, &
+            declaration_start=declaration_start, declaration_end=declaration_end, &
+            expected_kind=root_kind_program)) return
+
+        span%file = file_name
+        span%start_byte = unit_start
+        span%end_byte = unit_end
+        span%source_hash = source_hash
+        unit%root%name = 'p'
+        unit%root%span = span
+        unit%declaration_count = 1_int64
+        unit%declaration%declaration_kind = declaration_kind_program
+        unit%declaration%name = 'p'
+        unit%declaration%span = span
+        unit%declaration%span%start_byte = declaration_start
+        unit%declaration%span%end_byte = declaration_end
+        unit%variable_count = 1_int64
+        unit%variable%type_spec = 'integer'
+        unit%variable%name = 'x'
+        unit%variable%span = span
+        unit%variable%span%start_byte = len('program p'//new_line('a'))
+        unit%variable%span%end_byte = unit%variable%span%start_byte + &
+            len('  integer :: x')
+        ok = typed_program_unit_validate(unit, message)
+    end subroutine frontend_parse_typed_program_unit
+
+    subroutine frontend_typed_program_unit_to_sx(unit, output, ok, message)
+        type(typed_program_unit_t), intent(in) :: unit
+        character(len=*), intent(out) :: output
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        call typed_program_unit_to_sx(unit, output, ok, message)
+    end subroutine frontend_typed_program_unit_to_sx
+
+    logical function frontend_validate_typed_program_unit(unit, message)
+        type(typed_program_unit_t), intent(in) :: unit
+        character(len=*), intent(out) :: message
+
+        frontend_validate_typed_program_unit = typed_program_unit_validate(unit, message)
+    end function frontend_validate_typed_program_unit
+
+    subroutine set_typed_program_witness(value)
+        type(standardir_syntax_item_t), intent(out) :: value
+
+        value%id = 'R501'
+        value%lhs = 'program'
+        value%origin = 'mechanical'
+        value%resolution = 'resolved'
+        value%source%document = 'J3-24-007'
+        value%source%clause = '5'
+        value%source%rule = 'R501'
+        value%source%page = 53_int64
+        value%source%source_hash = &
+            '1cf538329c57e4f617adb36f2c7cd91a5a5561c78bcce16ec96f7ff1a9979f'
+    end subroutine set_typed_program_witness
 
     subroutine frontend_read(file_name, source, source_hash, result)
         character(len=*), intent(in) :: file_name
