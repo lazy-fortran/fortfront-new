@@ -7,17 +7,26 @@ trap 'rm -rf "$tmp"' EXIT
 
 positive="$tmp/positive.f90"
 negative="$tmp/negative.f90"
+declaration_positive="$tmp/declaration-positive.f90"
 printf '%s\n' 'program p' 'end program p' >"$positive"
 printf '%s\n' 'program p' 'end program q' >"$negative"
+printf '%s\n' 'program p' '  integer :: x' 'end program p' >"$declaration_positive"
 fo exec fortfront-source-v0 "$positive" "$tmp/positive.sx"
 fo exec fortfront-source-v0 "$positive" "$tmp/positive-repeat.sx"
 fo exec fortfront-source-v0 "$negative" "$tmp/negative.sx"
+fo exec fortfront-source-v0 "$declaration_positive" "$tmp/declaration-positive.sx"
 
 test "$(cat "$tmp/positive.sx")" = \
     '(frontend-result (status accepted) (root-kind program) (diagnostic-count 0))'
 test "$(cat "$tmp/negative.sx")" = \
     "(frontend-result (status rejected) (root-kind none) (diagnostic-count 1) (diagnostics (diagnostic (status rejected) (severity error) (message invalid-program) (span (file $negative) (start-byte 0) (end-byte 24) (source-hash l3-raw-program-v0)))))"
 cmp "$tmp/positive.sx" "$tmp/positive-repeat.sx"
+test "$(cat "$tmp/declaration-positive.sx")" = \
+    '(frontend-result (status accepted) (root-kind program) (diagnostic-count 0))'
+printf '%s\n' 'program p' '  integer ::' 'end program p' >"$tmp/missing-entity.f90"
+fo exec fortfront-source-v0 "$tmp/missing-entity.f90" "$tmp/missing-entity.sx"
+test "$(cat "$tmp/missing-entity.sx")" = \
+    "(frontend-result (status rejected) (root-kind none) (diagnostic-count 1) (diagnostics (diagnostic (status rejected) (severity error) (message invalid-program) (span (file $tmp/missing-entity.f90) (start-byte 0) (end-byte 37) (source-hash l3-raw-program-v0)))))"
 if fo exec fortfront-source-v0 "$positive" >/dev/null 2>&1; then
     exit 1
 fi

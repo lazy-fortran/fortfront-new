@@ -8,6 +8,12 @@ program test_frontend_source_v0
     character(len=*), parameter :: source_hash = 'l3-raw-program-v0'
     character(len=*), parameter :: positive = 'program p'//new_line('a')//'end program p'
     character(len=*), parameter :: negative = 'program p'//new_line('a')//'end program q'
+    character(len=*), parameter :: declaration_positive = &
+        'program p'//new_line('a')//'  integer :: x'//new_line('a')// &
+        'end program p'
+    character(len=*), parameter :: declaration_negative = &
+        'program p'//new_line('a')//'  integer ::'//new_line('a')// &
+        'end program p'
     character(len=32768) :: first_sx, second_sx
     character(len=128) :: message
     logical :: ok
@@ -59,6 +65,20 @@ program test_frontend_source_v0
     call frontend_result_to_sx(result, second_sx, ok, message)
     call assert_true(ok, 'second repeat serialization failed')
     call assert_equal(trim(first_sx), trim(second_sx), 'repeat output was nondeterministic')
+
+    call frontend_parse('fixture.f90', declaration_positive, source_hash, witness, result)
+    call assert_equal(trim(result%status), frontend_accepted, &
+        'declaration source rejected')
+    call assert_equal_integer(result%diagnostic_count, 0_int64, &
+        'declaration source produced diagnostics')
+
+    call frontend_parse('fixture.f90', declaration_negative, source_hash, witness, result)
+    call assert_equal(trim(result%status), frontend_rejected, &
+        'missing declaration entity was accepted')
+    call assert_equal_integer(result%diagnostic_count, 1_int64, &
+        'missing declaration entity diagnostic count changed')
+    call assert_diagnostic(result, 'invalid-program', 'fixture.f90', 0_int64, &
+        int(len(declaration_negative), int64))
     write (*, '(a)') 'frontend source-v0 behavioral checks: ok'
 
 contains

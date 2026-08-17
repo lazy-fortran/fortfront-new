@@ -64,6 +64,8 @@ program test_frontend_generated_program_unit
         'Unit')
     call assert_accepted_spans('  program unit_2 '//new_line('a')// &
         ' end program unit_2 ', 'unit_2', 2_int64, 37_int64, 2_int64, 16_int64)
+    call assert_accepted_source('program unit'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'end program unit', 'unit')
 
     syntax_item%lhs = 'module'
     call assert_accepted_module_source('module unit'//new_line('a')//'end', 'unit')
@@ -117,6 +119,10 @@ program test_frontend_generated_program_unit
     call assert_rejected('invalid-terminator.f90', &
         'program unit'//new_line('a')//'end module', 'hash-invalid-terminator', &
         syntax_item, 'invalid-program')
+    call assert_rejected('missing-declaration-entity.f90', &
+        'program unit'//new_line('a')//'  integer ::'//new_line('a')// &
+        'end program unit', 'hash-missing-declaration-entity', syntax_item, &
+        'invalid-program')
 
     syntax_item%lhs = 'module'
     call assert_rejected('module-mismatch.f90', 'module unit'//new_line('a')// &

@@ -2522,6 +2522,9 @@ contains
         integer :: second_line_limit
         integer :: second_line_start
         integer :: second_newline
+        integer :: third_line_end
+        integer :: third_line_start
+        integer :: third_newline
         integer :: terminator_end
         integer :: terminator_keyword_end
         integer :: terminator_keyword_start
@@ -2563,16 +2566,28 @@ contains
         second_line_start = first_newline + 1
         second_line_end = len(source)
         second_newline = 0
+        third_line_start = 0
+        third_line_end = 0
+        third_newline = 0
         if (second_line_start <= len(source)) then
             second_newline = index(source(second_line_start:), new_line('a'))
         end if
         if (second_newline > 0) then
-            if (first_newline + second_newline == len(source)) then
+            if (second_line_start + second_newline - 1 == len(source)) then
                 second_line_end = len(source) - 1
             else
-                message = 'invalid-program'
-                parse_program_witness = .false.
-                return
+                second_line_end = second_line_start + second_newline - 2
+                third_line_start = second_line_start + second_newline
+                third_line_end = len(source)
+                third_newline = index(source(third_line_start:), new_line('a'))
+                if (third_newline > 0) then
+                    if (third_line_start + third_newline - 1 /= len(source)) then
+                        message = 'invalid-program'
+                        parse_program_witness = .false.
+                        return
+                    end if
+                    third_line_end = len(source) - 1
+                end if
             end if
         end if
         second_line_limit = second_line_end
@@ -2665,6 +2680,21 @@ contains
             message = 'invalid-program'
             parse_program_witness = .false.
             return
+        end if
+
+        if (third_line_start > 0) then
+            if (second_line_end - second_line_start + 1 /= len('  integer :: x')) then
+                message = 'invalid-program'
+                parse_program_witness = .false.
+                return
+            end if
+            if (source(second_line_start:second_line_end) /= '  integer :: x') then
+                message = 'invalid-program'
+                parse_program_witness = .false.
+                return
+            end if
+            second_line_first = third_line_start
+            second_line_end = third_line_end
         end if
 
         position = second_line_first
