@@ -40,7 +40,11 @@ module fortfront_program_unit_v2
         print_policy_output_clause, print_policy_statement_page, &
         print_policy_format_page, print_policy_output_page, print_policy_source_hash
     use frontend_print_policy_generated, only: print_policy_generic_source_identity, &
-        print_policy_expression_source_identity
+        print_policy_expression_source_identity, print_policy_expression_operator, &
+        print_policy_expression_left, print_policy_expression_right, &
+        print_policy_expression_2_operator, print_policy_expression_2_left, &
+        print_policy_expression_2_right, print_policy_expression_source, &
+        print_policy_expression_2_source
     implicit none
     private
 
@@ -1409,7 +1413,8 @@ contains
                 if (len_trim(rest) == 0) return
             end if
             parsed_items(item_count) = token
-            if (token == 'x' .or. token == 'x + 1') then
+            if (token == 'x' .or. token == print_policy_expression_source .or. &
+                token == print_policy_expression_2_source) then
                 cycle
             else if (token == '7' .or. token == '8') then
                 cycle
@@ -1428,7 +1433,8 @@ contains
         unit%root = declaration_unit%root
         unit%root%span%file = file_name
         unit%root%span%end_byte = int(len(source), int64) - 1_int64
-        if (any(parsed_items(:item_count) == 'x + 1')) then
+        if (any(parsed_items(:item_count) == print_policy_expression_source) .or. &
+            any(parsed_items(:item_count) == print_policy_expression_2_source)) then
             unit%root%span%source_hash = print_policy_expression_source_identity
         else
             unit%root%span%source_hash = print_policy_generic_source_identity
@@ -1453,13 +1459,28 @@ contains
                 unit%execution_part%print%output_items(item_index)%kind = 'variable'
                 unit%execution_part%print%output_items(item_index)%name = 'x'
                 unit%execution_part%print%output_items(item_index)%rule = 'R901'
-            else if (token == 'x + 1') then
+            else if (token == print_policy_expression_source .or. &
+                    token == print_policy_expression_2_source) then
                 unit%execution_part%print%output_items(item_index)%kind = 'integer-expression'
-                unit%execution_part%print%output_items(item_index)%operator = '+'
-                unit%execution_part%print%output_items(item_index)%left = 'x'
-                unit%execution_part%print%output_items(item_index)%right = '1'
+                if (token == print_policy_expression_source) then
+                    unit%execution_part%print%output_items(item_index)%operator = &
+                        print_policy_expression_operator
+                    unit%execution_part%print%output_items(item_index)%left = &
+                        print_policy_expression_left
+                    unit%execution_part%print%output_items(item_index)%right = &
+                        print_policy_expression_right
+                else
+                    unit%execution_part%print%output_items(item_index)%operator = &
+                        print_policy_expression_2_operator
+                    unit%execution_part%print%output_items(item_index)%left = &
+                        print_policy_expression_2_left
+                    unit%execution_part%print%output_items(item_index)%right = &
+                        print_policy_expression_2_right
+                end if
                 unit%execution_part%print%output_items(item_index)%rule = 'R1217'
             else
+                if (index(token, '+') > 0 .or. index(token, '*') > 0 .or. &
+                    index(token, '/') > 0 .or. index(token, '-') > 0) return
                 read (token, *) unit%execution_part%print%output_items(item_index)%value
                 unit%execution_part%print%output_items(item_index)%kind = 'integer-literal'
                 unit%execution_part%print%output_items(item_index)%rule = 'R1217'

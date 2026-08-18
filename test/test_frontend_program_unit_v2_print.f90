@@ -17,7 +17,9 @@ program test_frontend_program_unit_v2_print
         print_policy_statement_rule, print_policy_format_rule, print_policy_output_rule, &
         print_policy_statement_clause, print_policy_format_clause, print_policy_output_clause, &
         print_policy_statement_page, print_policy_format_page, print_policy_output_page, &
-        print_policy_source_hash
+        print_policy_source_hash, print_policy_expression_kind, &
+        print_policy_expression_operator, print_policy_expression_left, &
+        print_policy_expression_right, print_policy_expression_2_right
     implicit none
 
     character(len=*), parameter :: source = 'program p'//new_line('a')// &
@@ -44,6 +46,22 @@ program test_frontend_program_unit_v2_print
         '  print *, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: generic_item_source = 'program p'//new_line('a')// &
         '  print *, 17, 18, 19'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: generic_variable_expression_item_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  print *, x + x, x + 1'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: generic_variable_expression_wrong_operator = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  print *, x * x'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: generic_variable_expression_wrong_name = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  print *, y + x'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: generic_variable_expression_missing_second = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  print *, x + x,'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: generic_missing_third = 'program p'//new_line('a')// &
         '  print *, 17, 18,'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: generic_wrong_third = 'program p'//new_line('a')// &
@@ -521,6 +539,26 @@ program test_frontend_program_unit_v2_print
     call assert_rejected(generic_missing_third)
     call assert_rejected(generic_wrong_third)
     call assert_rejected(generic_write)
+    call frontend_parse_program_unit_v2('print-generic-expression.f90', &
+        generic_variable_expression_item_source, 'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_count /= 2 .or. &
+        trim(unit%execution_part%print%output_items(1)%kind) /= print_policy_expression_kind .or. &
+        trim(unit%execution_part%print%output_items(1)%operator) /= print_policy_expression_operator .or. &
+        trim(unit%execution_part%print%output_items(1)%left) /= print_policy_expression_left .or. &
+        trim(unit%execution_part%print%output_items(1)%right) /= print_policy_expression_2_right .or. &
+        trim(unit%execution_part%print%output_items(2)%right) /= print_policy_expression_right .or. &
+        trim(unit%root%span%source_hash) /= 'l3-raw-program-generic-print-expression-v0') then
+        error stop 'generic PRINT variable-expression witness was rejected'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(operator +)') == 0 .or. &
+        index(trim(serialized), '(right x)') == 0 .or. &
+        index(trim(serialized), '(source-identity l3-raw-program-generic-print-expression-v0)') == 0) then
+        error stop 'generic PRINT variable-expression serialization changed'
+    end if
+    call assert_rejected(generic_variable_expression_wrong_operator)
+    call assert_rejected(generic_variable_expression_wrong_name)
+    call assert_rejected(generic_variable_expression_missing_second)
     call frontend_parse_program_unit_v2('print-variable.f90', variable_source, 'print-input', &
         unit, ok, message)
     if (.not. ok .or. unit%declaration_count /= 1 .or. unit%variable_count /= 1 .or. &

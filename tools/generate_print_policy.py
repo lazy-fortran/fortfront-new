@@ -23,6 +23,7 @@ SCHEMA = re.compile(
     r"\(output-item (integer-literal) (15) (R\d+)\)\s+"
     r"\(output-item (integer-literal) (16) (R\d+)\)\s+"
     r"\(output-item (integer-expression) (\+) (x) (1) (R\d+)\)\s+"
+    r"\(output-item (integer-expression) (\+) (x) (x) (R\d+)\)\s+"
     r"\(variable-output (variable) (x) (R\d+)\)\s+"
     r"\(variable-value (integer-literal) (17) (R\d+)\)\s+"
     r"\(variable-value (integer-literal) (23) (R\d+)\)\s+"
@@ -80,8 +81,13 @@ def _replace_generated_routes(generated: str) -> str:
         "                if ((trim(item%kind) /= 'variable' .and. trim(item%kind) /= &",
         "                    'integer-literal' .and. trim(item%kind) /= 'integer-expression') .or. &",
         "                    (trim(item%kind) == 'integer-expression' .and. &",
-        "                    (trim(item%operator) /= '+' .or. trim(item%left) /= 'x' .or. &",
-        "                    trim(item%right) /= '1')) .or. (trim(item%kind) == 'variable' .and. &",
+        "                    ((trim(item%operator) /= print_policy_expression_operator .or. &",
+        "                    trim(item%left) /= print_policy_expression_left .or. &",
+        "                    trim(item%right) /= print_policy_expression_right) .and. &",
+        "                    (trim(item%operator) /= print_policy_expression_2_operator .or. &",
+        "                    trim(item%left) /= print_policy_expression_2_left .or. &",
+        "                    trim(item%right) /= print_policy_expression_2_right))) .or. &",
+        "                    (trim(item%kind) == 'variable' .and. &",
         "                    trim(item%name) /= 'x') .or. (trim(item%kind) == 'integer-literal' &",
         "                    .and. item%value < 0_int64) .or. (trim(item%rule) /= 'R901' .and. &",
         "                    trim(item%rule) /= 'R1217') .or. trim(item%clause) /= &",
@@ -408,7 +414,8 @@ def render(source: str) -> str:
         output_9_kind, output_9_value, output_9_rule,
         output_10_kind, output_10_value, output_10_rule,
         expression_kind, expression_operator, expression_left, expression_right,
-        expression_rule,
+        expression_rule, expression_2_kind, expression_2_operator, expression_2_left,
+        expression_2_right, expression_2_rule,
         variable_kind, variable_name, variable_rule, variable_value_kind,
         variable_value, variable_value_rule, variable_value_2_kind,
         variable_value_2, variable_value_2_rule, variable_value_3_kind,
@@ -440,6 +447,15 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_expression_left = '{expression_left}'
     character(len=*), parameter, public :: print_policy_expression_right = '{expression_right}'
     character(len=*), parameter, public :: print_policy_expression_rule = '{expression_rule}'
+    character(len=*), parameter, public :: print_policy_expression_source = &
+        '{expression_left} {expression_operator} {expression_right}'
+    character(len=*), parameter, public :: print_policy_expression_2_kind = '{expression_2_kind}'
+    character(len=*), parameter, public :: print_policy_expression_2_operator = '{expression_2_operator}'
+    character(len=*), parameter, public :: print_policy_expression_2_left = '{expression_2_left}'
+    character(len=*), parameter, public :: print_policy_expression_2_right = '{expression_2_right}'
+    character(len=*), parameter, public :: print_policy_expression_2_rule = '{expression_2_rule}'
+    character(len=*), parameter, public :: print_policy_expression_2_source = &
+        '{expression_2_left} {expression_2_operator} {expression_2_right}'
     character(len=*), parameter, public :: print_policy_variable_output_kind = '{variable_kind}'
     character(len=*), parameter, public :: print_policy_variable_output_name = '{variable_name}'
     character(len=*), parameter, public :: print_policy_variable_output_rule = '{variable_rule}'
