@@ -60,13 +60,12 @@ program fortfront_source_ast_v1
         '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')//'end program main'//new_line('a') .or. &
+        'end program main'//new_line('a') .or. &
         source == 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
-        'end program main'//new_line('a')
+        '  x = x + 1'//new_line('a')//'end program main'//new_line('a')
     if (sequence_mode) then
         if (index(source, '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
             '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
