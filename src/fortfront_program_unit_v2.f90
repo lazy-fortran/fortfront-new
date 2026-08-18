@@ -48,7 +48,9 @@ module fortfront_program_unit_v2
         print_policy_expression_3_left, print_policy_expression_3_right, &
         print_policy_expression_3_source, print_policy_expression_4_operator, &
         print_policy_expression_4_left, print_policy_expression_4_right, &
-        print_policy_expression_4_source
+        print_policy_expression_4_source, print_policy_expression_5_operator, &
+        print_policy_expression_5_left, print_policy_expression_5_right, &
+        print_policy_expression_5_source
     implicit none
     private
 
@@ -1420,7 +1422,8 @@ contains
             if (token == 'x' .or. token == print_policy_expression_source .or. &
                 token == print_policy_expression_2_source .or. &
                 token == print_policy_expression_3_source .or. &
-                token == print_policy_expression_4_source) then
+                token == print_policy_expression_4_source .or. &
+                token == print_policy_expression_5_source) then
                 cycle
             else if (token == '7' .or. token == '8') then
                 cycle
@@ -1442,7 +1445,8 @@ contains
         if (any(parsed_items(:item_count) == print_policy_expression_source) .or. &
             any(parsed_items(:item_count) == print_policy_expression_2_source) .or. &
             any(parsed_items(:item_count) == print_policy_expression_3_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_4_source)) then
+            any(parsed_items(:item_count) == print_policy_expression_4_source) .or. &
+            any(parsed_items(:item_count) == print_policy_expression_5_source)) then
             unit%root%span%source_hash = print_policy_expression_source_identity
         else
             unit%root%span%source_hash = print_policy_generic_source_identity
@@ -1470,7 +1474,8 @@ contains
             else if (token == print_policy_expression_source .or. &
                     token == print_policy_expression_2_source .or. &
                     token == print_policy_expression_3_source .or. &
-                    token == print_policy_expression_4_source) then
+                    token == print_policy_expression_4_source .or. &
+                    token == print_policy_expression_5_source) then
                 unit%execution_part%print%output_items(item_index)%kind = 'integer-expression'
                 if (token == print_policy_expression_source) then
                     unit%execution_part%print%output_items(item_index)%operator = &
@@ -1500,6 +1505,14 @@ contains
                         print_policy_expression_4_left
                     unit%execution_part%print%output_items(item_index)%right = &
                         print_policy_expression_4_right
+                    if (token == print_policy_expression_5_source) then
+                        unit%execution_part%print%output_items(item_index)%operator = &
+                            print_policy_expression_5_operator
+                        unit%execution_part%print%output_items(item_index)%left = &
+                            print_policy_expression_5_left
+                        unit%execution_part%print%output_items(item_index)%right = &
+                            print_policy_expression_5_right
+                    end if
                 end if
                 unit%execution_part%print%output_items(item_index)%rule = 'R1217'
             else
