@@ -232,3 +232,8 @@ main = "test_frontend_typed_assignment_sequence_v1.f90"
 name = "test_frontend_program_unit_v2"
 source-dir = "test"
 main = "test_frontend_program_unit_v2.f90"
+
+[[test]]
+name = "test_frontend_program_unit_v2_stop"
+source-dir = "test"
+main = "test_frontend_program_unit_v2_stop.f90"

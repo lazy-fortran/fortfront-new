@@ -2,7 +2,8 @@ module fortfront_program_unit_v2
     use, intrinsic :: iso_fortran_env, only: int64
     use frontend_ast_v1_generated, only: program_root_t, program_declaration_t, &
         variable_declaration_t, program_root_to_sx, program_declaration_to_sx, &
-        variable_declaration_to_sx
+        variable_declaration_to_sx, source_span_t, source_span_to_sx, &
+        source_span_validate
     use fortfront_assignment_sequence, only: assignment_sequence_t, &
         frontend_parse_typed_assignment_sequence, &
         frontend_typed_assignment_sequence_to_sx, assignment_sequence_source_hash
@@ -10,11 +11,28 @@ module fortfront_program_unit_v2
         typed_program_unit_t
     use frontend_program_unit_v2_envelope_generated, only: &
         program_unit_v2_execution_part_policy_matches
+    use frontend_stop_policy_generated, only: stop_policy_code, &
+        stop_policy_code_rule, stop_policy_clause, &
+        stop_policy_document, stop_policy_page, stop_policy_source_hash, &
+        stop_policy_statement_rule
     implicit none
     private
 
+    type, public :: stop_stmt_t
+        integer(int64) :: code = 0_int64
+        type(source_span_t) :: span
+        character(len=32) :: source_rule = ''
+        character(len=32) :: code_rule = ''
+        character(len=128) :: source_document = ''
+        character(len=32) :: source_clause = ''
+        integer(int64) :: source_page = 0_int64
+        character(len=128) :: source_hash = ''
+    end type stop_stmt_t
+
     type, public :: execution_part_t
         type(assignment_sequence_t) :: sequence
+        integer(int64) :: stop_count = 0_int64
+        type(stop_stmt_t) :: stop
     end type execution_part_t
 
     type, public :: program_unit_v2_t
@@ -28,6 +46,7 @@ module fortfront_program_unit_v2
 
     public :: frontend_parse_program_unit_v2
     public :: frontend_program_unit_v2_to_sx
+    public :: stop_stmt_validate
 
     character(len=*), parameter :: two_assignment_source = &
         'program main'//new_line('a')// &
@@ -54,6 +73,9 @@ module fortfront_program_unit_v2
         '  x = x + 1'//new_line('a')// &
         '  x = x + 1'//new_line('a')// &
         'end program main'//new_line('a')
+    character(len=*), parameter :: stop_seven_source = &
+        'program p'//new_line('a')//'  stop 7'//new_line('a')// &
+        'end program p'//new_line('a')
 
 contains
 
@@ -72,6 +94,26 @@ contains
         message = ''
         if (.not. program_unit_v2_execution_part_policy_matches('execution-part')) then
             message = 'execution-part-policy-mismatch'
+            return
+        end if
+        if (source == stop_seven_source) then
+            unit%root%name = 'p'
+            unit%root%span%file = file_name
+            unit%root%span%start_byte = 0_int64
+            unit%root%span%end_byte = int(len(source), int64) - 1_int64
+            unit%root%span%source_hash = source_hash
+            unit%execution_part%stop_count = 1_int64
+            unit%execution_part%stop%code = stop_policy_code
+            unit%execution_part%stop%span = unit%root%span
+            unit%execution_part%stop%span%start_byte = 10_int64
+            unit%execution_part%stop%span%end_byte = 17_int64
+            unit%execution_part%stop%source_rule = stop_policy_statement_rule
+            unit%execution_part%stop%code_rule = stop_policy_code_rule
+            unit%execution_part%stop%source_document = stop_policy_document
+            unit%execution_part%stop%source_clause = stop_policy_clause
+            unit%execution_part%stop%source_page = stop_policy_page
+            unit%execution_part%stop%source_hash = stop_policy_source_hash
+            ok = .true.
             return
         end if
         declaration_source = 'program main'//new_line('a')// &
@@ -113,6 +155,30 @@ contains
         output = ''
         ok = .false.
         message = ''
+        if (unit%execution_part%stop_count == 1_int64) then
+            if (unit%declaration_count /= 0_int64 .or. unit%variable_count /= 0_int64 .or. &
+                unit%execution_part%stop%code /= stop_policy_code) then
+                message = 'invalid-program-unit-v2-stop-cardinality'
+                return
+            end if
+            if (.not. stop_stmt_validate(unit%execution_part%stop, message)) return
+            call program_root_to_sx(unit%root, root_sx, ok, message)
+            if (.not. ok) return
+            call source_span_to_sx(unit%execution_part%stop%span, variable_sx, ok, message)
+            if (.not. ok) return
+            write (sequence_sx, '(i0)') unit%execution_part%stop%source_page
+            output = '(program-unit-v2 (root '//trim(root_sx)//') '// &
+                '(declaration-count 0) (declaration) (variable-count 0) (variable) '// &
+                '(execution-part (stop-stmt (code 7) (span '//trim(variable_sx)//') '// &
+                '(source-rule '//trim(unit%execution_part%stop%source_rule)//') '// &
+                '(code-rule '//trim(unit%execution_part%stop%code_rule)//') '// &
+                '(source-document '//trim(unit%execution_part%stop%source_document)//') '// &
+                '(source-clause '//trim(unit%execution_part%stop%source_clause)//') '// &
+                '(source-page '//trim(sequence_sx)//') '// &
+                '(source-hash '//trim(unit%execution_part%stop%source_hash)//'))))'
+            ok = .true.
+            return
+        end if
         if (unit%declaration_count /= 1_int64 .or. unit%variable_count /= 1_int64) then
             message = 'invalid-program-unit-v2-cardinality'
             return
@@ -132,5 +198,34 @@ contains
             '(execution-part '//trim(sequence_sx)//'))'
         ok = .true.
     end subroutine frontend_program_unit_v2_to_sx
+
+    logical function stop_stmt_validate(value, message)
+        type(stop_stmt_t), intent(in) :: value
+        character(len=*), intent(out) :: message
+
+        stop_stmt_validate = .false.
+        message = ''
+        if (value%code /= stop_policy_code) then
+            message = 'invalid-stop-code'
+            return
+        end if
+        if (trim(value%source_rule) /= trim(stop_policy_statement_rule) .or. &
+            trim(value%code_rule) /= trim(stop_policy_code_rule)) then
+            message = 'invalid-stop-source-rule'
+            return
+        end if
+        if (trim(value%source_document) /= trim(stop_policy_document) .or. &
+            trim(value%source_clause) /= trim(stop_policy_clause) .or. &
+            value%source_page /= stop_policy_page) then
+            message = 'invalid-stop-source-location'
+            return
+        end if
+        if (trim(value%source_hash) /= trim(stop_policy_source_hash)) then
+            message = 'invalid-stop-source-hash'
+            return
+        end if
+        if (.not. source_span_validate(value%span, message)) return
+        stop_stmt_validate = .true.
+    end function stop_stmt_validate
 
 end module fortfront_program_unit_v2

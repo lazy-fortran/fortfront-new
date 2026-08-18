@@ -1,0 +1,4 @@
+(schema frontend-stop-policy-v0
+  (statement stop-stmt stop-stmt R1162)
+  (stop-code integer-literal R1164 7)
+  (source J3-24-007 11 214 7371e889f231cfb0316d30365d5083fb5af34cbb6d5f7cb1e01855c73021bfa2))
