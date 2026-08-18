@@ -39,7 +39,8 @@ module fortfront_program_unit_v2
         print_policy_document, print_policy_statement_clause, print_policy_format_clause, &
         print_policy_output_clause, print_policy_statement_page, &
         print_policy_format_page, print_policy_output_page, print_policy_source_hash
-    use frontend_print_policy_generated, only: print_policy_generic_source_identity
+    use frontend_print_policy_generated, only: print_policy_generic_source_identity, &
+        print_policy_expression_source_identity
     implicit none
     private
 
@@ -1408,7 +1409,7 @@ contains
                 if (len_trim(rest) == 0) return
             end if
             parsed_items(item_count) = token
-            if (token == 'x') then
+            if (token == 'x' .or. token == 'x + 1') then
                 cycle
             else if (token == '7' .or. token == '8') then
                 cycle
@@ -1416,7 +1417,7 @@ contains
                 return
             end if
         end do
-        if (item_count /= 3 .and. item_count /= 5) return
+        if (item_count /= 2 .and. item_count /= 3 .and. item_count /= 5) return
 
         declaration_source = 'program main'//new_line('a')// &
             '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
@@ -1427,17 +1428,20 @@ contains
         unit%root = declaration_unit%root
         unit%root%span%file = file_name
         unit%root%span%end_byte = int(len(source), int64) - 1_int64
-        unit%root%span%source_hash = print_policy_generic_source_identity
+        if (any(parsed_items(:item_count) == 'x + 1')) then
+            unit%root%span%source_hash = print_policy_expression_source_identity
+        else
+            unit%root%span%source_hash = print_policy_generic_source_identity
+        end if
         unit%declaration_count = declaration_unit%declaration_count
         unit%declaration = declaration_unit%declaration
-        unit%declaration%span%source_hash = print_policy_generic_source_identity
+        unit%declaration%span%source_hash = unit%root%span%source_hash
         unit%variable_count = declaration_unit%variable_count
         unit%variable = declaration_unit%variable
-        unit%variable%span%source_hash = print_policy_generic_source_identity
+        unit%variable%span%source_hash = unit%root%span%source_hash
         unit%execution_part%sequence%assignment_count = declaration_unit%assignment_count
         unit%execution_part%sequence%assignment(1) = declaration_unit%assignment
-        unit%execution_part%sequence%assignment(1)%span%source_hash = &
-            print_policy_generic_source_identity
+        unit%execution_part%sequence%assignment(1)%span%source_hash = unit%root%span%source_hash
         unit%execution_part%print_count = 1_int64
         unit%execution_part%print%format_kind = print_policy_format_kind
         unit%execution_part%print%format_value = print_policy_format_value
@@ -1449,6 +1453,12 @@ contains
                 unit%execution_part%print%output_items(item_index)%kind = 'variable'
                 unit%execution_part%print%output_items(item_index)%name = 'x'
                 unit%execution_part%print%output_items(item_index)%rule = 'R901'
+            else if (token == 'x + 1') then
+                unit%execution_part%print%output_items(item_index)%kind = 'integer-expression'
+                unit%execution_part%print%output_items(item_index)%operator = '+'
+                unit%execution_part%print%output_items(item_index)%left = 'x'
+                unit%execution_part%print%output_items(item_index)%right = '1'
+                unit%execution_part%print%output_items(item_index)%rule = 'R1217'
             else
                 read (token, *) unit%execution_part%print%output_items(item_index)%value
                 unit%execution_part%print%output_items(item_index)%kind = 'integer-literal'
@@ -1475,7 +1485,7 @@ contains
         unit%execution_part%print%format_page = print_policy_format_page
         unit%execution_part%print%output_page = print_policy_output_page
         unit%execution_part%print%source_hash = print_policy_source_hash
-        unit%execution_part%print%source_identity = print_policy_generic_source_identity
+        unit%execution_part%print%source_identity = unit%root%span%source_hash
         ok = print_stmt_validate(unit%execution_part%print, message)
     end subroutine parse_generic_print_list
 

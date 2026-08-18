@@ -22,6 +22,7 @@ SCHEMA = re.compile(
     r"\(output-item (integer-literal) (14) (R\d+)\)\s+"
     r"\(output-item (integer-literal) (15) (R\d+)\)\s+"
     r"\(output-item (integer-literal) (16) (R\d+)\)\s+"
+    r"\(output-item (integer-expression) (\+) (x) (1) (R\d+)\)\s+"
     r"\(variable-output (variable) (x) (R\d+)\)\s+"
     r"\(variable-value (integer-literal) (17) (R\d+)\)\s+"
     r"\(variable-value (integer-literal) (23) (R\d+)\)\s+"
@@ -41,6 +42,9 @@ def _replace_generated_routes(generated: str) -> str:
         "        character(len=32) :: kind = ''\n"
         "        character(len=32) :: name = ''\n"
         "        integer(int64) :: value = 0_int64\n"
+        "        character(len=32) :: operator = ''\n"
+        "        character(len=32) :: left = ''\n"
+        "        character(len=32) :: right = ''\n"
         "        character(len=32) :: rule = ''\n"
         "        character(len=32) :: clause = ''\n"
         "        integer(int64) :: page = 0_int64\n"
@@ -64,8 +68,9 @@ def _replace_generated_routes(generated: str) -> str:
         "        message = ''",
         "        if (allocated(value%output_items)) then",
         "            if (value%output_count /= int(size(value%output_items), int64) .or. &",
-        "                value%output_count < 1_int64 .or. trim(value%source_identity) /= &",
-        "                trim(print_policy_generic_source_identity)) then",
+        "                value%output_count < 1_int64 .or. &",
+        "                (trim(value%source_identity) /= trim(print_policy_generic_source_identity) .and. &",
+        "                trim(value%source_identity) /= trim(print_policy_expression_source_identity))) then",
         "                message = 'invalid-print-policy-output-list'",
         "                print_stmt_validate = .false.",
         "                return",
@@ -73,7 +78,10 @@ def _replace_generated_routes(generated: str) -> str:
         "            do index = 1, size(value%output_items)",
         "                item = value%output_items(index)",
         "                if ((trim(item%kind) /= 'variable' .and. trim(item%kind) /= &",
-        "                    'integer-literal') .or. (trim(item%kind) == 'variable' .and. &",
+        "                    'integer-literal' .and. trim(item%kind) /= 'integer-expression') .or. &",
+        "                    (trim(item%kind) == 'integer-expression' .and. &",
+        "                    (trim(item%operator) /= '+' .or. trim(item%left) /= 'x' .or. &",
+        "                    trim(item%right) /= '1')) .or. (trim(item%kind) == 'variable' .and. &",
         "                    trim(item%name) /= 'x') .or. (trim(item%kind) == 'integer-literal' &",
         "                    .and. item%value < 0_int64) .or. (trim(item%rule) /= 'R901' .and. &",
         "                    trim(item%rule) /= 'R1217') .or. trim(item%clause) /= &",
@@ -203,6 +211,11 @@ def _replace_generated_routes(generated: str) -> str:
                 if (trim(item%kind) == 'variable') then
                     output = trim(output)//' (output-item (kind variable) (name '// &
                         trim(item%name)//') (rule '//trim(item%rule)//') (clause '// &
+                        trim(item%clause)//') (page '
+                else if (trim(item%kind) == 'integer-expression') then
+                    output = trim(output)//' (output-item (kind integer-expression) (operator '// &
+                        trim(item%operator)//') (left '//trim(item%left)//') (right '// &
+                        trim(item%right)//') (rule '//trim(item%rule)//') (clause '// &
                         trim(item%clause)//') (page '
                 else
                     write (value_s, '(i0)') item%value
@@ -394,6 +407,8 @@ def render(source: str) -> str:
         output_8_kind, output_8_value, output_8_rule,
         output_9_kind, output_9_value, output_9_rule,
         output_10_kind, output_10_value, output_10_rule,
+        expression_kind, expression_operator, expression_left, expression_right,
+        expression_rule,
         variable_kind, variable_name, variable_rule, variable_value_kind,
         variable_value, variable_value_rule, variable_value_2_kind,
         variable_value_2, variable_value_2_rule, variable_value_3_kind,
@@ -420,6 +435,11 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_output_kind = '{output_kind}'
     integer(int64), parameter, public :: print_policy_output_value = {output_value}_int64
     character(len=*), parameter, public :: print_policy_output_rule = '{output_rule}'
+    character(len=*), parameter, public :: print_policy_expression_kind = '{expression_kind}'
+    character(len=*), parameter, public :: print_policy_expression_operator = '{expression_operator}'
+    character(len=*), parameter, public :: print_policy_expression_left = '{expression_left}'
+    character(len=*), parameter, public :: print_policy_expression_right = '{expression_right}'
+    character(len=*), parameter, public :: print_policy_expression_rule = '{expression_rule}'
     character(len=*), parameter, public :: print_policy_variable_output_kind = '{variable_kind}'
     character(len=*), parameter, public :: print_policy_variable_output_name = '{variable_name}'
     character(len=*), parameter, public :: print_policy_variable_output_rule = '{variable_rule}'
@@ -479,6 +499,8 @@ module frontend_print_policy_generated
         '{source_hash}'
     character(len=*), parameter, public :: print_policy_generic_source_identity = &
         'l3-raw-program-generic-print-list-v0'
+    character(len=*), parameter, public :: print_policy_expression_source_identity = &
+        'l3-raw-program-generic-print-expression-v0'
 
     type, public :: print_stmt_t
         character(len=32) :: format_kind = ''

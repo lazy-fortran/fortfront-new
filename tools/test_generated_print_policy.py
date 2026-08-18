@@ -29,6 +29,11 @@ def main() -> int:
         "12.6.1", "12.6.2.2", "12.6.3",
         "242_int64", "244_int64", "248_int64",
         "print_policy_variable_value_6 = 9_int64",
+        "print_policy_expression_kind = 'integer-expression'",
+        "print_policy_expression_operator = '+'",
+        "print_policy_expression_left = 'x'",
+        "print_policy_expression_right = '1'",
+        "l3-raw-program-generic-print-expression-v0",
         "value%output_count > 100_int64",
     ):
         if required not in generated:

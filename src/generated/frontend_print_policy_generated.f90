@@ -14,6 +14,11 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_output_kind = 'integer-literal'
     integer(int64), parameter, public :: print_policy_output_value = 7_int64
     character(len=*), parameter, public :: print_policy_output_rule = 'R1217'
+    character(len=*), parameter, public :: print_policy_expression_kind = 'integer-expression'
+    character(len=*), parameter, public :: print_policy_expression_operator = '+'
+    character(len=*), parameter, public :: print_policy_expression_left = 'x'
+    character(len=*), parameter, public :: print_policy_expression_right = '1'
+    character(len=*), parameter, public :: print_policy_expression_rule = 'R1217'
     character(len=*), parameter, public :: print_policy_variable_output_kind = 'variable'
     character(len=*), parameter, public :: print_policy_variable_output_name = 'x'
     character(len=*), parameter, public :: print_policy_variable_output_rule = 'R901'
@@ -73,11 +78,16 @@ module frontend_print_policy_generated
         '7371e889f231cfb0316d30365d5083fb5af34cbb6d5f7cb1e01855c73021bfa2'
     character(len=*), parameter, public :: print_policy_generic_source_identity = &
         'l3-raw-program-generic-print-list-v0'
+    character(len=*), parameter, public :: print_policy_expression_source_identity = &
+        'l3-raw-program-generic-print-expression-v0'
 
     type, public :: print_output_item_t
         character(len=32) :: kind = ''
         character(len=32) :: name = ''
         integer(int64) :: value = 0_int64
+        character(len=32) :: operator = ''
+        character(len=32) :: left = ''
+        character(len=32) :: right = ''
         character(len=32) :: rule = ''
         character(len=32) :: clause = ''
         integer(int64) :: page = 0_int64
@@ -175,8 +185,9 @@ contains
         message = ''
         if (allocated(value%output_items)) then
             if (value%output_count /= int(size(value%output_items), int64) .or. &
-                value%output_count < 1_int64 .or. trim(value%source_identity) /= &
-                trim(print_policy_generic_source_identity)) then
+                value%output_count < 1_int64 .or. &
+                (trim(value%source_identity) /= trim(print_policy_generic_source_identity) .and. &
+                trim(value%source_identity) /= trim(print_policy_expression_source_identity))) then
                 message = 'invalid-print-policy-output-list'
                 print_stmt_validate = .false.
                 return
@@ -184,7 +195,10 @@ contains
             do index = 1, size(value%output_items)
                 item = value%output_items(index)
                 if ((trim(item%kind) /= 'variable' .and. trim(item%kind) /= &
-                    'integer-literal') .or. (trim(item%kind) == 'variable' .and. &
+                    'integer-literal' .and. trim(item%kind) /= 'integer-expression') .or. &
+                    (trim(item%kind) == 'integer-expression' .and. &
+                    (trim(item%operator) /= '+' .or. trim(item%left) /= 'x' .or. &
+                    trim(item%right) /= '1')) .or. (trim(item%kind) == 'variable' .and. &
                     trim(item%name) /= 'x') .or. (trim(item%kind) == 'integer-literal' &
                     .and. item%value < 0_int64) .or. (trim(item%rule) /= 'R901' .and. &
                     trim(item%rule) /= 'R1217') .or. trim(item%clause) /= &
@@ -308,6 +322,11 @@ contains
                 if (trim(item%kind) == 'variable') then
                     output = trim(output)//' (output-item (kind variable) (name '// &
                         trim(item%name)//') (rule '//trim(item%rule)//') (clause '// &
+                        trim(item%clause)//') (page '
+                else if (trim(item%kind) == 'integer-expression') then
+                    output = trim(output)//' (output-item (kind integer-expression) (operator '// &
+                        trim(item%operator)//') (left '//trim(item%left)//') (right '// &
+                        trim(item%right)//') (rule '//trim(item%rule)//') (clause '// &
                         trim(item%clause)//') (page '
                 else
                     write (value_s, '(i0)') item%value
