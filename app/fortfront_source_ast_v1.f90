@@ -65,11 +65,31 @@ program fortfront_source_ast_v1
         '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')//'end program main'//new_line('a')
+        '  x = x + 1'//new_line('a')//'end program main'//new_line('a') .or. &
+        source == 'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 7'//new_line('a')//repeat('  x = x + 1'//new_line('a'), 6)// &
+        'end program main'//new_line('a') .or. &
+        source == 'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 7'//new_line('a')//repeat('  x = x + 1'//new_line('a'), 7)// &
+        'end program main'//new_line('a') .or. &
+        source == 'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 7'//new_line('a')//repeat('  x = x + 1'//new_line('a'), 8)// &
+        'end program main'//new_line('a') .or. &
+        source == 'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 7'//new_line('a')//repeat('  x = x + 1'//new_line('a'), 9)// &
+        'end program main'//new_line('a')
     if (sequence_mode) then
-        if (index(source, '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
-            '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
-            '  x = x + 1') > 0) then
+        if (index(source, repeat('  x = x + 1'//new_line('a'), 9)) > 0) then
+            source_hash = 'l3-raw-program-ten-assignment-v1'
+        else if (index(source, repeat('  x = x + 1'//new_line('a'), 8)) > 0) then
+            source_hash = 'l3-raw-program-nine-assignment-v1'
+        else if (index(source, repeat('  x = x + 1'//new_line('a'), 7)) > 0) then
+            source_hash = 'l3-raw-program-eight-assignment-v1'
+        else if (index(source, repeat('  x = x + 1'//new_line('a'), 6)) > 0) then
+            source_hash = 'l3-raw-program-seven-assignment-v1'
+        else if (index(source, '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
+                '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
+                '  x = x + 1') > 0) then
             source_hash = 'l3-raw-program-six-assignment-v1'
         else if (index(source, '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
                 '  x = x + 1'//new_line('a')//'  x = x + 1') > 0) then
