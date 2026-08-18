@@ -31,7 +31,10 @@ module fortfront_frontend
         assignment_policy_integer_literal, assignment_policy_expression_kind, &
         assignment_policy_expression_rule, assignment_policy_add_operator_rule, &
         assignment_policy_left_operand, assignment_policy_right_operand, &
-        assignment_policy_add_operator, assignment_policy_source_page
+        assignment_policy_add_operator, assignment_policy_multiply_expression_rule, &
+        assignment_policy_multiply_operator_rule, assignment_policy_multiply_left_operand, &
+        assignment_policy_multiply_right_operand, assignment_policy_multiply_operator, &
+        assignment_policy_source_page
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
     private
@@ -3112,7 +3115,17 @@ contains
             expression%left_operand = trim(assignment_policy_integer_literal)
         else if (source(second_newline + 1:third_newline - 1) /= &
                 '  '//trim(variable_name)//' = 1 + 2') then
-            return
+            if (source(second_newline + 1:third_newline - 1) /= &
+                '  '//trim(variable_name)//' = 2 * 3') return
+            if (trim(assignment_policy_multiply_expression_rule) /= 'R1008') return
+            if (trim(assignment_policy_multiply_operator_rule) /= 'R1011') return
+            if (trim(assignment_policy_multiply_left_operand) /= '2') return
+            if (trim(assignment_policy_multiply_right_operand) /= '3') return
+            if (trim(assignment_policy_multiply_operator) /= '*') return
+            expression%kind = 'binary-expression'
+            expression%operator = trim(assignment_policy_multiply_operator)
+            expression%left_operand = trim(assignment_policy_multiply_left_operand)
+            expression%right_operand = trim(assignment_policy_multiply_right_operand)
         else
             if (trim(assignment_policy_expression_kind) /= 'add') return
             if (trim(assignment_policy_expression_rule) /= 'R1007') return

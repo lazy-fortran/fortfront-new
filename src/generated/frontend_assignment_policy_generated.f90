@@ -12,5 +12,10 @@ module frontend_assignment_policy_generated
     character(len=*), parameter, public :: assignment_policy_left_operand = '1'
     character(len=*), parameter, public :: assignment_policy_right_operand = '2'
     character(len=*), parameter, public :: assignment_policy_add_operator = '+'
+    character(len=*), parameter, public :: assignment_policy_multiply_expression_rule = 'R1008'
+    character(len=*), parameter, public :: assignment_policy_multiply_operator_rule = 'R1011'
+    character(len=*), parameter, public :: assignment_policy_multiply_left_operand = '2'
+    character(len=*), parameter, public :: assignment_policy_multiply_right_operand = '3'
+    character(len=*), parameter, public :: assignment_policy_multiply_operator = '*'
     integer, parameter, public :: assignment_policy_source_page = 155
 end module frontend_assignment_policy_generated
