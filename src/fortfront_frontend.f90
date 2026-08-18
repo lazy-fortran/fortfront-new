@@ -193,6 +193,9 @@ contains
         else if (source == 'program p'//new_line('a')//'  integer :: y'// &
                 new_line('a')//'end program p'//new_line('a')) then
             variable_name = 'y'
+        else if (source == 'program p'//new_line('a')//'  integer :: z'// &
+                new_line('a')//'end program p'//new_line('a')) then
+            variable_name = 'z'
         else
             message = 'unsupported-typed-program-unit'
             return

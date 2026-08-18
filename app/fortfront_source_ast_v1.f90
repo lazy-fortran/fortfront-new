@@ -43,6 +43,9 @@ program fortfront_source_ast_v1
     if (source == 'program p'//new_line('a')//'  integer :: x'// &
         new_line('a')//'end program p'//new_line('a')) then
         source_hash = source_hash_x
+    else if (source == 'program p'//new_line('a')//'  integer :: z'// &
+            new_line('a')//'end program p'//new_line('a')) then
+        source_hash = 'l3-raw-program-variable-name-z-v1'
     else
         source_hash = source_hash_y
     end if
