@@ -1454,6 +1454,10 @@ contains
                 unit%execution_part%print%output_items(item_index)%kind = 'integer-literal'
                 unit%execution_part%print%output_items(item_index)%rule = 'R1217'
             end if
+            unit%execution_part%print%output_items(item_index)%clause = &
+                print_policy_output_clause
+            unit%execution_part%print%output_items(item_index)%page = &
+                print_policy_output_page
         end do
         unit%execution_part%print%span = unit%root%span
         source_start = int(print_start - 1, int64)
@@ -1462,7 +1466,14 @@ contains
         unit%execution_part%print%span%end_byte = source_end
         unit%execution_part%print%statement_rule = print_policy_statement_rule
         unit%execution_part%print%format_rule = print_policy_format_rule
+        unit%execution_part%print%output_rule = print_policy_output_rule
         unit%execution_part%print%source_document = print_policy_document
+        unit%execution_part%print%statement_clause = print_policy_statement_clause
+        unit%execution_part%print%format_clause = print_policy_format_clause
+        unit%execution_part%print%output_clause = print_policy_output_clause
+        unit%execution_part%print%statement_page = print_policy_statement_page
+        unit%execution_part%print%format_page = print_policy_format_page
+        unit%execution_part%print%output_page = print_policy_output_page
         unit%execution_part%print%source_hash = print_policy_source_hash
         unit%execution_part%print%source_identity = print_policy_generic_source_identity
         ok = print_stmt_validate(unit%execution_part%print, message)

@@ -187,7 +187,9 @@ contains
                     'integer-literal') .or. (trim(item%kind) == 'variable' .and. &
                     trim(item%name) /= 'x') .or. (trim(item%kind) == 'integer-literal' &
                     .and. item%value < 0_int64) .or. (trim(item%rule) /= 'R901' .and. &
-                    trim(item%rule) /= 'R1217')) then
+                    trim(item%rule) /= 'R1217') .or. trim(item%clause) /= &
+                    trim(print_policy_output_clause) .or. item%page /= &
+                    print_policy_output_page) then
                     message = 'invalid-print-policy-output-item'
                     print_stmt_validate = .false.
                     return
@@ -195,7 +197,14 @@ contains
             end do
             if (trim(value%statement_rule) /= trim(print_policy_statement_rule) .or. &
                 trim(value%format_rule) /= trim(print_policy_format_rule) .or. &
+                trim(value%output_rule) /= trim(print_policy_output_rule) .or. &
                 trim(value%source_document) /= trim(print_policy_document) .or. &
+                trim(value%statement_clause) /= trim(print_policy_statement_clause) .or. &
+                trim(value%format_clause) /= trim(print_policy_format_clause) .or. &
+                trim(value%output_clause) /= trim(print_policy_output_clause) .or. &
+                value%statement_page /= print_policy_statement_page .or. &
+                value%format_page /= print_policy_format_page .or. &
+                value%output_page /= print_policy_output_page .or. &
                 trim(value%source_hash) /= trim(print_policy_source_hash)) then
                 message = 'invalid-print-policy-source'
                 print_stmt_validate = .false.
@@ -279,9 +288,9 @@ contains
         logical, intent(out) :: ok
         character(len=*), intent(out) :: message
         type(print_output_item_t) :: item
-        character(len=2048) :: span_sx
+        character(len=65536) :: span_sx
         character(len=32) :: index_s, value_s, count_s, page_s
-        character(len=32) :: format_page_s, output_page_s
+        character(len=32) :: format_page_s, output_page_s, item_page_s
         integer :: index
 
         output = ''
@@ -298,16 +307,25 @@ contains
                 item = value%output_items(index)
                 if (trim(item%kind) == 'variable') then
                     output = trim(output)//' (output-item (kind variable) (name '// &
-                        trim(item%name)//') (rule '//trim(item%rule)//')) '
+                        trim(item%name)//') (rule '//trim(item%rule)//') (clause '// &
+                        trim(item%clause)//') (page '
                 else
                     write (value_s, '(i0)') item%value
                     output = trim(output)//' (output-item (kind integer-literal) (value '// &
-                        trim(value_s)//') (rule '//trim(item%rule)//')) '
+                        trim(value_s)//') (rule '//trim(item%rule)//') (clause '// &
+                        trim(item%clause)//') (page '
                 end if
+                write (item_page_s, '(i0)') item%page
+                output = trim(output)//' '//trim(item_page_s)//')) '
             end do
             output = trim(output)//') (span '//trim(span_sx)//') (statement-rule '//trim(value%statement_rule)//') '// &
-                '(format-rule '//trim(value%format_rule)//') (source-document '//trim(value%source_document)//') '// &
-                '(source-hash '//trim(value%source_hash)//') (source-identity '//trim(value%source_identity)//'))'
+                '(format-rule '//trim(value%format_rule)//') (output-rule '//trim(value%output_rule)//') '// &
+                '(source-document '//trim(value%source_document)//') '// &
+                '(statement-clause '//trim(value%statement_clause)//') (format-clause '// &
+                trim(value%format_clause)//') (output-clause '//trim(value%output_clause)//') '// &
+                '(statement-page '//trim(page_s)//') (format-page '//trim(format_page_s)//') '// &
+                '(output-page '//trim(output_page_s)//') (source-hash '//trim(value%source_hash)//') '// &
+                '(source-identity '//trim(value%source_identity)//'))'
             ok = .true.
             return
         end if
