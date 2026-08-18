@@ -97,6 +97,7 @@ module frontend_print_policy_generated
         character(len=32) :: output_3_name = ''
         integer(int64) :: output_3_value = 0_int64
         character(len=32) :: output_4_kind = ''
+        character(len=32) :: output_4_name = ''
         integer(int64) :: output_4_value = 0_int64
         character(len=32) :: output_5_kind = ''
         integer(int64) :: output_5_value = 0_int64
@@ -326,7 +327,7 @@ contains
                 item%page = value%output_3_page
             else if (index == 4) then
                 item%kind = value%output_4_kind
-                item%name = print_policy_variable_output_name
+                item%name = value%output_4_name
                 item%value = value%output_4_value
                 item%rule = value%output_4_rule
                 item%clause = value%output_4_clause

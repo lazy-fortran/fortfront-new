@@ -288,10 +288,11 @@ def _replace_generated_routes(generated: str) -> str:
     for index in range(2, 11):
         if index == 2 or index == 3:
             continue
+        name = f"value%output_{index}_name" if index == 4 else "print_policy_variable_output_name"
         generated = generated.replace(
             f"                item%kind = value%output_{index}_kind\n",
             f"                item%kind = value%output_{index}_kind\n"
-            f"                item%name = print_policy_variable_output_name\n",
+            f"                item%name = {name}\n",
         )
     return generated
 
@@ -409,6 +410,7 @@ module frontend_print_policy_generated
         character(len=32) :: output_3_name = ''
         integer(int64) :: output_3_value = 0_int64
         character(len=32) :: output_4_kind = ''
+        character(len=32) :: output_4_name = ''
         integer(int64) :: output_4_value = 0_int64
         character(len=32) :: output_5_kind = ''
         integer(int64) :: output_5_value = 0_int64

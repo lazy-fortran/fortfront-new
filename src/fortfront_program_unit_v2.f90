@@ -842,7 +842,8 @@ contains
                     unit%execution_part%sequence, ok, message)
             else if (source == print_variable_power_value_source .or. &
                     source == print_variable_power_value_two_item_source .or. &
-                    source == print_variable_power_value_three_item_source) then
+                    source == print_variable_power_value_three_item_source .or. &
+                    source == print_variable_power_value_four_item_source) then
                 call frontend_parse_typed_assignment_sequence(file_name, &
                     assignment_sequence_two_3_power_source, assignment_sequence_source_hash, &
                     unit%execution_part%sequence, ok, message)
@@ -917,6 +918,7 @@ contains
                 unit%execution_part%print%output_3_clause = print_policy_output_clause
                 unit%execution_part%print%output_3_page = print_policy_output_page
                 unit%execution_part%print%output_4_kind = print_policy_variable_output_kind
+                unit%execution_part%print%output_4_name = print_policy_variable_output_name
                 unit%execution_part%print%output_4_value = print_policy_variable_value_6
                 unit%execution_part%print%output_4_rule = print_policy_variable_output_rule
                 unit%execution_part%print%output_4_clause = print_policy_output_clause
