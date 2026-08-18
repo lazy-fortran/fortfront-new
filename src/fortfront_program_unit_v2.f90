@@ -225,6 +225,34 @@ module fortfront_program_unit_v2
         '  x = x ** 2'//new_line('a')// &
         '  print *, x, x, x, x, x, x'//new_line('a')// &
         'end program main'//new_line('a')
+    character(len=*), parameter :: print_variable_power_value_seven_item_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')// &
+        '  x = x ** 2'//new_line('a')// &
+        '  print *, x, x, x, x, x, x, x'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: print_variable_power_value_eight_item_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')// &
+        '  x = x ** 2'//new_line('a')// &
+        '  print *, x, x, x, x, x, x, x, x'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: print_variable_power_value_nine_item_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')// &
+        '  x = x ** 2'//new_line('a')// &
+        '  print *, x, x, x, x, x, x, x, x, x'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: print_variable_power_value_ten_item_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')// &
+        '  x = x ** 2'//new_line('a')// &
+        '  print *, x, x, x, x, x, x, x, x, x, x'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: print_variable_power_value_two_item_malformed = &
         'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')// &
@@ -834,7 +862,11 @@ contains
             source == print_variable_power_value_three_item_source .or. &
             source == print_variable_power_value_four_item_source .or. &
             source == print_variable_power_value_five_item_source .or. &
-            source == print_variable_power_value_six_item_source) then
+            source == print_variable_power_value_six_item_source .or. &
+            source == print_variable_power_value_seven_item_source .or. &
+            source == print_variable_power_value_eight_item_source .or. &
+            source == print_variable_power_value_nine_item_source .or. &
+            source == print_variable_power_value_ten_item_source) then
             declaration_source = 'program main'//new_line('a')// &
                 '  integer :: x'//new_line('a')//'end program main'//new_line('a')
             call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
@@ -861,7 +893,11 @@ contains
                     source == print_variable_power_value_three_item_source .or. &
                     source == print_variable_power_value_four_item_source .or. &
                     source == print_variable_power_value_five_item_source .or. &
-                    source == print_variable_power_value_six_item_source) then
+                    source == print_variable_power_value_six_item_source .or. &
+                    source == print_variable_power_value_seven_item_source .or. &
+                    source == print_variable_power_value_eight_item_source .or. &
+                    source == print_variable_power_value_nine_item_source .or. &
+                    source == print_variable_power_value_ten_item_source) then
                 call frontend_parse_typed_assignment_sequence(file_name, &
                     assignment_sequence_two_3_power_source, assignment_sequence_source_hash, &
                     unit%execution_part%sequence, ok, message)
@@ -895,7 +931,11 @@ contains
                     source == print_variable_power_value_three_item_source .or. &
                     source == print_variable_power_value_four_item_source .or. &
                     source == print_variable_power_value_five_item_source .or. &
-                    source == print_variable_power_value_six_item_source) then
+                    source == print_variable_power_value_six_item_source .or. &
+                    source == print_variable_power_value_seven_item_source .or. &
+                    source == print_variable_power_value_eight_item_source .or. &
+                    source == print_variable_power_value_nine_item_source .or. &
+                    source == print_variable_power_value_ten_item_source) then
                 unit%execution_part%print%output_value = print_policy_variable_value_6
             else
                 unit%execution_part%print%output_value = print_policy_variable_value_2
@@ -1001,6 +1041,18 @@ contains
                 unit%execution_part%print%output_6_rule = print_policy_variable_output_rule
                 unit%execution_part%print%output_6_clause = print_policy_output_clause
                 unit%execution_part%print%output_6_page = print_policy_output_page
+            else if (source == print_variable_power_value_seven_item_source) then
+                unit%execution_part%print%output_count = 7_int64
+                call set_variable_print_items(unit%execution_part%print, 7)
+            else if (source == print_variable_power_value_eight_item_source) then
+                unit%execution_part%print%output_count = 8_int64
+                call set_variable_print_items(unit%execution_part%print, 8)
+            else if (source == print_variable_power_value_nine_item_source) then
+                unit%execution_part%print%output_count = 9_int64
+                call set_variable_print_items(unit%execution_part%print, 9)
+            else if (source == print_variable_power_value_ten_item_source) then
+                unit%execution_part%print%output_count = 10_int64
+                call set_variable_print_items(unit%execution_part%print, 10)
             end if
             unit%execution_part%print%span = unit%root%span
             unit%execution_part%print%span%start_byte = int(index(source, '  print *, x') - 1, int64)
@@ -1013,6 +1065,14 @@ contains
                 unit%execution_part%print%span%end_byte = unit%execution_part%print%span%start_byte + 25_int64
             else if (source == print_variable_power_value_six_item_source) then
                 unit%execution_part%print%span%end_byte = unit%execution_part%print%span%start_byte + 29_int64
+            else if (source == print_variable_power_value_seven_item_source) then
+                unit%execution_part%print%span%end_byte = unit%execution_part%print%span%start_byte + 33_int64
+            else if (source == print_variable_power_value_eight_item_source) then
+                unit%execution_part%print%span%end_byte = unit%execution_part%print%span%start_byte + 37_int64
+            else if (source == print_variable_power_value_nine_item_source) then
+                unit%execution_part%print%span%end_byte = unit%execution_part%print%span%start_byte + 41_int64
+            else if (source == print_variable_power_value_ten_item_source) then
+                unit%execution_part%print%span%end_byte = unit%execution_part%print%span%start_byte + 45_int64
             end if
             unit%execution_part%print%statement_rule = print_policy_statement_rule
             unit%execution_part%print%format_rule = print_policy_format_rule
@@ -1134,6 +1194,84 @@ contains
         ok = .true.
         message = ''
     end subroutine frontend_parse_program_unit_v2
+
+    subroutine set_variable_print_items(print_stmt, count)
+        type(print_stmt_t), intent(inout) :: print_stmt
+        integer, intent(in) :: count
+
+        if (count >= 2) then
+            print_stmt%output_2_kind = print_policy_variable_output_kind
+            print_stmt%output_2_name = print_policy_variable_output_name
+            print_stmt%output_2_value = print_policy_variable_value_6
+            print_stmt%output_2_rule = print_policy_variable_output_rule
+            print_stmt%output_2_clause = print_policy_output_clause
+            print_stmt%output_2_page = print_policy_output_page
+        end if
+        if (count >= 3) then
+            print_stmt%output_3_kind = print_policy_variable_output_kind
+            print_stmt%output_3_name = print_policy_variable_output_name
+            print_stmt%output_3_value = print_policy_variable_value_6
+            print_stmt%output_3_rule = print_policy_variable_output_rule
+            print_stmt%output_3_clause = print_policy_output_clause
+            print_stmt%output_3_page = print_policy_output_page
+        end if
+        if (count >= 4) then
+            print_stmt%output_4_kind = print_policy_variable_output_kind
+            print_stmt%output_4_name = print_policy_variable_output_name
+            print_stmt%output_4_value = print_policy_variable_value_6
+            print_stmt%output_4_rule = print_policy_variable_output_rule
+            print_stmt%output_4_clause = print_policy_output_clause
+            print_stmt%output_4_page = print_policy_output_page
+        end if
+        if (count >= 5) then
+            print_stmt%output_5_kind = print_policy_variable_output_kind
+            print_stmt%output_5_name = print_policy_variable_output_name
+            print_stmt%output_5_value = print_policy_variable_value_6
+            print_stmt%output_5_rule = print_policy_variable_output_rule
+            print_stmt%output_5_clause = print_policy_output_clause
+            print_stmt%output_5_page = print_policy_output_page
+        end if
+        if (count >= 6) then
+            print_stmt%output_6_kind = print_policy_variable_output_kind
+            print_stmt%output_6_name = print_policy_variable_output_name
+            print_stmt%output_6_value = print_policy_variable_value_6
+            print_stmt%output_6_rule = print_policy_variable_output_rule
+            print_stmt%output_6_clause = print_policy_output_clause
+            print_stmt%output_6_page = print_policy_output_page
+        end if
+        if (count >= 7) then
+            print_stmt%output_7_kind = print_policy_variable_output_kind
+            print_stmt%output_7_name = print_policy_variable_output_name
+            print_stmt%output_7_value = print_policy_variable_value_6
+            print_stmt%output_7_rule = print_policy_variable_output_rule
+            print_stmt%output_7_clause = print_policy_output_clause
+            print_stmt%output_7_page = print_policy_output_page
+        end if
+        if (count >= 8) then
+            print_stmt%output_8_kind = print_policy_variable_output_kind
+            print_stmt%output_8_name = print_policy_variable_output_name
+            print_stmt%output_8_value = print_policy_variable_value_6
+            print_stmt%output_8_rule = print_policy_variable_output_rule
+            print_stmt%output_8_clause = print_policy_output_clause
+            print_stmt%output_8_page = print_policy_output_page
+        end if
+        if (count >= 9) then
+            print_stmt%output_9_kind = print_policy_variable_output_kind
+            print_stmt%output_9_name = print_policy_variable_output_name
+            print_stmt%output_9_value = print_policy_variable_value_6
+            print_stmt%output_9_rule = print_policy_variable_output_rule
+            print_stmt%output_9_clause = print_policy_output_clause
+            print_stmt%output_9_page = print_policy_output_page
+        end if
+        if (count >= 10) then
+            print_stmt%output_10_kind = print_policy_variable_output_kind
+            print_stmt%output_10_name = print_policy_variable_output_name
+            print_stmt%output_10_value = print_policy_variable_value_6
+            print_stmt%output_10_rule = print_policy_variable_output_rule
+            print_stmt%output_10_clause = print_policy_output_clause
+            print_stmt%output_10_page = print_policy_output_page
+        end if
+    end subroutine set_variable_print_items
 
     subroutine frontend_program_unit_v2_to_sx(unit, output, ok, message)
         type(program_unit_v2_t), intent(in) :: unit

@@ -81,7 +81,8 @@ def _replace_generated_routes(generated: str) -> str:
         "                end if",
         "            else if (trim(item%kind) == trim(print_policy_variable_output_kind)) then",
         "                if ((index /= 1 .and. index /= 2 .and. index /= 3 .and. &",
-        "                    index /= 4 .and. index /= 5 .and. index /= 6) .or. &",
+        "                    index /= 4 .and. index /= 5 .and. index /= 6 .and. &",
+        "                    index /= 7 .and. index /= 8 .and. index /= 9 .and. index /= 10) .or. &",
         "                    trim(item%name) /= trim(print_policy_variable_output_name) .or. &",
         "                    (item%value /= print_policy_variable_value .and. &",
         "                    item%value /= print_policy_variable_value_2 .and. &",
@@ -236,42 +237,49 @@ def _replace_generated_routes(generated: str) -> str:
                 item%page = value%output_3_page
             else if (index == 4) then
                 item%kind = value%output_4_kind
+                item%name = value%output_4_name
                 item%value = value%output_4_value
                 item%rule = value%output_4_rule
                 item%clause = value%output_4_clause
                 item%page = value%output_4_page
             else if (index == 5) then
                 item%kind = value%output_5_kind
+                item%name = value%output_5_name
                 item%value = value%output_5_value
                 item%rule = value%output_5_rule
                 item%clause = value%output_5_clause
                 item%page = value%output_5_page
             else if (index == 6) then
                 item%kind = value%output_6_kind
+                item%name = value%output_6_name
                 item%value = value%output_6_value
                 item%rule = value%output_6_rule
                 item%clause = value%output_6_clause
                 item%page = value%output_6_page
             else if (index == 7) then
                 item%kind = value%output_7_kind
+                item%name = value%output_7_name
                 item%value = value%output_7_value
                 item%rule = value%output_7_rule
                 item%clause = value%output_7_clause
                 item%page = value%output_7_page
             else if (index == 8) then
                 item%kind = value%output_8_kind
+                item%name = value%output_8_name
                 item%value = value%output_8_value
                 item%rule = value%output_8_rule
                 item%clause = value%output_8_clause
                 item%page = value%output_8_page
             else if (index == 9) then
                 item%kind = value%output_9_kind
+                item%name = value%output_9_name
                 item%value = value%output_9_value
                 item%rule = value%output_9_rule
                 item%clause = value%output_9_clause
                 item%page = value%output_9_page
             else if (index == 10) then
                 item%kind = value%output_10_kind
+                item%name = value%output_10_name
                 item%value = value%output_10_value
                 item%rule = value%output_10_rule
                 item%clause = value%output_10_clause
@@ -285,15 +293,6 @@ def _replace_generated_routes(generated: str) -> str:
         "end module frontend_print_policy_generated\n",
         item_helper + "end module frontend_print_policy_generated\n",
     )
-    for index in range(2, 11):
-        if index == 2 or index == 3:
-            continue
-        name = f"value%output_{index}_name" if index in (4, 5, 6) else "print_policy_variable_output_name"
-        generated = generated.replace(
-            f"                item%kind = value%output_{index}_kind\n",
-            f"                item%kind = value%output_{index}_kind\n"
-            f"                item%name = {name}\n",
-        )
     return generated
 
 
@@ -419,12 +418,16 @@ module frontend_print_policy_generated
         character(len=32) :: output_6_name = ''
         integer(int64) :: output_6_value = 0_int64
         character(len=32) :: output_7_kind = ''
+        character(len=32) :: output_7_name = ''
         integer(int64) :: output_7_value = 0_int64
         character(len=32) :: output_8_kind = ''
+        character(len=32) :: output_8_name = ''
         integer(int64) :: output_8_value = 0_int64
         character(len=32) :: output_9_kind = ''
+        character(len=32) :: output_9_name = ''
         integer(int64) :: output_9_value = 0_int64
         character(len=32) :: output_10_kind = ''
+        character(len=32) :: output_10_name = ''
         integer(int64) :: output_10_value = 0_int64
         type(source_span_t) :: span
         character(len=32) :: statement_rule = ''

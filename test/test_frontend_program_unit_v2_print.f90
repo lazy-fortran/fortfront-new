@@ -131,6 +131,22 @@ program test_frontend_program_unit_v2_print
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
         '  print *, x, x, x, x, x, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_power_value_seven_item_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
+        '  print *, x, x, x, x, x, x, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_power_value_eight_item_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
+        '  print *, x, x, x, x, x, x, x, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_power_value_nine_item_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
+        '  print *, x, x, x, x, x, x, x, x, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_power_value_ten_item_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
+        '  print *, x, x, x, x, x, x, x, x, x, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_power_value_four_item_wrong_fourth = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
@@ -788,6 +804,10 @@ program test_frontend_program_unit_v2_print
         index(trim(serialized), '(source-hash '//trim(print_policy_source_hash)//')') == 0) then
         error stop 'PRINT *, x, x, x, x, x, x stored-variable serialization changed'
     end if
+    call assert_variable_repeat(variable_power_value_seven_item_source, 7)
+    call assert_variable_repeat(variable_power_value_eight_item_source, 8)
+    call assert_variable_repeat(variable_power_value_nine_item_source, 9)
+    call assert_variable_repeat(variable_power_value_ten_item_source, 10)
     write (*, '(a)') 'frontend program-unit-v2 PRINT repeated-item checks: ok'
 
 contains
@@ -799,5 +819,43 @@ contains
             unit, ok, message)
         if (ok) error stop 'PRINT mutation was accepted'
     end subroutine assert_rejected
+
+    subroutine assert_variable_repeat(value, expected_count)
+        character(len=*), intent(in) :: value
+        integer, intent(in) :: expected_count
+        character(len=32) :: index_s
+        character(len=64) :: expected_kind, expected_name, expected_rule
+        integer :: item_index
+
+        call frontend_parse_program_unit_v2('print-variable-repeat.f90', value, &
+            'print-input', unit, ok, message)
+        if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 2 .or. &
+            unit%execution_part%print%output_count /= expected_count .or. &
+            unit%execution_part%print%output_value /= 9 .or. &
+            trim(unit%execution_part%print%source_hash) /= trim(print_policy_source_hash)) then
+            error stop 'PRINT repeated-variable frontend route was rejected'
+        end if
+        call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+        if (.not. ok) error stop 'PRINT repeated-variable serialization failed'
+        write (index_s, '(i0)') expected_count
+        if (index(trim(serialized), '(output-count '//trim(index_s)//')') == 0 .or. &
+            index(trim(serialized), '(source-hash '//trim(print_policy_source_hash)//')') == 0) then
+            error stop 'PRINT repeated-variable count or provenance changed'
+        end if
+        do item_index = 2, expected_count
+            write (index_s, '(i0)') item_index
+            expected_kind = '(output-kind-'//trim(index_s)//' '// &
+                trim(print_policy_variable_output_kind)//')'
+            expected_name = '(output-name-'//trim(index_s)//' '// &
+                trim(print_policy_variable_output_name)//')'
+            expected_rule = '(output-rule-'//trim(index_s)//' '// &
+                trim(print_policy_variable_output_rule)//')'
+            if (index(trim(serialized), trim(expected_kind)) == 0 .or. &
+                index(trim(serialized), trim(expected_name)) == 0 .or. &
+                index(trim(serialized), trim(expected_rule)) == 0) then
+                error stop 'PRINT repeated-variable AST-v2 item witness changed'
+            end if
+        end do
+    end subroutine assert_variable_repeat
 
 end program test_frontend_program_unit_v2_print
