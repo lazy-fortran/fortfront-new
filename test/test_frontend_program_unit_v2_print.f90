@@ -10,6 +10,7 @@ program test_frontend_program_unit_v2_print
         print_policy_output_7_value, print_policy_output_7_rule, &
         print_policy_output_8_value, print_policy_output_8_rule, &
         print_policy_output_9_value, print_policy_output_9_rule, &
+        print_policy_output_10_value, print_policy_output_10_rule, &
         print_policy_statement_rule, print_policy_format_rule, print_policy_output_rule, &
         print_policy_statement_clause, print_policy_format_clause, print_policy_output_clause, &
         print_policy_statement_page, print_policy_format_page, print_policy_output_page, &
@@ -36,6 +37,8 @@ program test_frontend_program_unit_v2_print
         '  print *, 7, 8, 9, 10, 11, 12, 13, 14'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: nine_item_source = 'program p'//new_line('a')// &
         '  print *, 7, 8, 9, 10, 11, 12, 13, 14, 15'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: ten_item_source = 'program p'//new_line('a')// &
+        '  print *, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: missing_second = 'program p'//new_line('a')// &
         '  print *, 7,'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: wrong_second = 'program p'//new_line('a')// &
@@ -84,6 +87,12 @@ program test_frontend_program_unit_v2_print
         '  print *, 7, 8, 9, 10, 11, 12, 13, 14, 16'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: write_nine_items = 'program p'//new_line('a')// &
         '  write *, 7, 8, 9, 10, 11, 12, 13, 14, 15'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: missing_tenth = 'program p'//new_line('a')// &
+        '  print *, 7, 8, 9, 10, 11, 12, 13, 14, 15,'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: wrong_tenth = 'program p'//new_line('a')// &
+        '  print *, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: write_ten_items = 'program p'//new_line('a')// &
+        '  write *, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: write_seven = 'program p'//new_line('a')// &
         '  write *, 7'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: missing_item = 'program p'//new_line('a')// &
@@ -255,7 +264,23 @@ program test_frontend_program_unit_v2_print
     call assert_rejected(missing_ninth)
     call assert_rejected(wrong_ninth)
     call assert_rejected(write_nine_items)
-    write (*, '(a)') 'frontend program-unit-v2 PRINT *, 7[, 8[, 9[, 10[, 11[, 12[, 13[, 14[, 15]]]]]]]] checks: ok'
+    call frontend_parse_program_unit_v2('print-ten.f90', ten_item_source, 'print-input', &
+        unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_count /= 10 .or. &
+        unit%execution_part%print%output_10_value /= print_policy_output_10_value .or. &
+        trim(unit%execution_part%print%output_10_rule) /= print_policy_output_10_rule) then
+        error stop 'bounded PRINT *, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 witness was rejected'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(output-count 10)') == 0 .or. &
+        index(trim(serialized), '(output-value-10 16)') == 0 .or. &
+        index(trim(serialized), '(output-rule-10 R1217)') == 0) then
+        error stop 'PRINT ten-item serialization changed'
+    end if
+    call assert_rejected(missing_tenth)
+    call assert_rejected(wrong_tenth)
+    call assert_rejected(write_ten_items)
+    write (*, '(a)') 'frontend program-unit-v2 PRINT *, 7 through 16 checks: ok'
 
 contains
 
