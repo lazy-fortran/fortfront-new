@@ -1,0 +1,21 @@
+(schema frontend-type-spec-v0
+  (type-spec integer
+    (source-prefix integer)
+    (parser-type integer)
+    (canonical integer)
+    (variable-name any))
+  (type-spec real
+    (source-prefix real)
+    (parser-type real)
+    (canonical real)
+    (variable-name x))
+  (type-spec double-precision
+    (source-prefix double precision)
+    (parser-type double precision)
+    (canonical double-precision)
+    (variable-name x))
+  (type-spec complex
+    (source-prefix complex)
+    (parser-type complex)
+    (canonical complex)
+    (variable-name x)))

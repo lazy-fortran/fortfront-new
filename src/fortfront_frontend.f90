@@ -13,6 +13,8 @@ module fortfront_frontend
         typed_program_unit_t => program_unit_t, &
         typed_program_unit_to_sx => program_unit_to_sx, &
         typed_program_unit_validate => program_unit_validate
+    use frontend_type_specs_generated, only: intrinsic_type_spec_lookup, &
+        intrinsic_type_spec_table, intrinsic_type_spec_variable_allowed
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
     private
@@ -189,14 +191,9 @@ contains
         integer :: second_newline_relative
         integer :: variable_start
         integer :: variable_end
-        character(len=*), parameter :: variable_prefix = '  integer :: '
-        character(len=*), parameter :: real_prefix = '  real :: '
-        character(len=*), parameter :: double_prefix = '  double precision :: '
-        character(len=*), parameter :: complex_prefix = '  complex :: '
         character(len=32) :: expected_variable_type
-        logical :: is_complex
-        logical :: is_real
-        logical :: is_double
+        integer :: type_spec_index
+        integer :: variable_start_relative
 
         unit = typed_program_unit_t()
         ok = .false.
@@ -212,54 +209,14 @@ contains
             return
         end if
         second_newline = first_newline + second_newline_relative
-        is_complex = .false.
-        is_real = .false.
-        is_double = .false.
-        if (second_newline - first_newline - 1 < len(real_prefix)) then
+        if (.not. intrinsic_type_spec_lookup( &
+            source(first_newline + 1:second_newline - 1), type_spec_index, &
+            variable_start_relative)) then
             message = 'unsupported-typed-program-unit'
             return
         end if
-        if (second_newline - first_newline - 1 >= len(double_prefix)) then
-            if (source(first_newline + 1:first_newline + len(double_prefix)) == &
-                double_prefix) is_double = .true.
-        end if
-        if (second_newline - first_newline - 1 >= len(complex_prefix)) then
-            if (source(first_newline + 1:first_newline + len(complex_prefix)) == &
-                complex_prefix) is_complex = .true.
-        end if
-        if (second_newline - first_newline - 1 >= len(real_prefix)) then
-            if (source(first_newline + 1:first_newline + len(real_prefix)) == &
-                real_prefix) is_real = .true.
-        end if
-        if (.not. is_real .and. .not. is_double .and. .not. is_complex) then
-            if (second_newline - first_newline - 1 < len(variable_prefix)) then
-                message = 'unsupported-typed-program-unit'
-                return
-            end if
-            if (source(first_newline + 1:first_newline + len(variable_prefix)) /= &
-                variable_prefix) then
-                message = 'unsupported-typed-program-unit'
-                return
-            end if
-        end if
-        if (is_double) then
-            variable_start = first_newline + len(double_prefix) + 1
-        else if (is_complex) then
-            variable_start = first_newline + len(complex_prefix) + 1
-        else if (is_real) then
-            variable_start = first_newline + len('  real :: ') + 1
-        else
-            variable_start = first_newline + len(variable_prefix) + 1
-        end if
-        if (is_real) then
-            expected_variable_type = 'real'
-        else if (is_double) then
-            expected_variable_type = 'double precision'
-        else if (is_complex) then
-            expected_variable_type = 'complex'
-        else
-            expected_variable_type = 'integer'
-        end if
+        variable_start = first_newline + variable_start_relative
+        expected_variable_type = trim(intrinsic_type_spec_table(type_spec_index)%parser_type)
         variable_end = second_newline - 1
         if (variable_end - variable_start + 1 > len(variable_name)) then
             message = 'unsupported-typed-program-unit'
@@ -270,27 +227,24 @@ contains
             message = 'unsupported-typed-program-unit'
             return
         end if
-        if (is_real .or. is_double .or. is_complex) then
-            if (trim(variable_name) /= 'x') then
-                message = 'unsupported-typed-program-unit'
-                return
-            end if
+        if (.not. intrinsic_type_spec_variable_allowed(type_spec_index, variable_name)) then
+            message = 'unsupported-typed-program-unit'
+            return
         end if
 
         call set_typed_program_witness(witness)
-        if (is_real .or. is_double .or. is_complex) then
+        if (len_trim(intrinsic_type_spec_table(type_spec_index)%variable_name) == 0) then
+            call frontend_parse(file_name, source, source_hash, witness, result, &
+                expected_variable_name=variable_name)
+        else
             if (.not. parse_program_witness(source, program_name, message, &
-                expected_kind=witness%lhs, &
-                expected_variable_name=variable_name, &
+                expected_kind=witness%lhs, expected_variable_name=variable_name, &
                 expected_variable_type=expected_variable_type)) return
             result%status = frontend_accepted
             result%root_kind = lowercase(trim(witness%lhs))
             result%root%kind = result%root_kind
             result%root%name = program_name
             result%diagnostic_count = 0_int64
-        else
-            call frontend_parse(file_name, source, source_hash, witness, result, &
-                expected_variable_name=variable_name)
         end if
         if (trim(result%status) /= frontend_accepted) then
             if (allocated(result%diagnostics)) then
@@ -300,17 +254,17 @@ contains
             end if
             return
         end if
-        if (is_real .or. is_double .or. is_complex) then
+        if (len_trim(intrinsic_type_spec_table(type_spec_index)%variable_name) == 0) then
+            if (.not. parse_program_witness(source, unit%root%name, message, &
+                unit_start=unit_start, unit_end=unit_end, &
+                declaration_start=declaration_start, declaration_end=declaration_end, &
+                expected_kind=root_kind_program, expected_variable_name=variable_name)) return
+        else
             if (.not. parse_program_witness(source, unit%root%name, message, &
                 unit_start=unit_start, unit_end=unit_end, &
                 declaration_start=declaration_start, declaration_end=declaration_end, &
                 expected_kind=root_kind_program, expected_variable_name=variable_name, &
                 expected_variable_type=expected_variable_type)) return
-        else
-            if (.not. parse_program_witness(source, unit%root%name, message, &
-                unit_start=unit_start, unit_end=unit_end, &
-                declaration_start=declaration_start, declaration_end=declaration_end, &
-                expected_kind=root_kind_program, expected_variable_name=variable_name)) return
         end if
 
         program_name = unit%root%name
@@ -328,31 +282,12 @@ contains
         unit%declaration%span%start_byte = declaration_start
         unit%declaration%span%end_byte = declaration_end
         unit%variable_count = 1_int64
-        if (is_real) then
-            unit%variable%type_spec = 'real'
-        else if (is_double) then
-            unit%variable%type_spec = 'double-precision'
-        else if (is_complex) then
-            unit%variable%type_spec = 'complex'
-        else
-            unit%variable%type_spec = 'integer'
-        end if
+        unit%variable%type_spec = trim(intrinsic_type_spec_table(type_spec_index)%canonical)
         unit%variable%name = trim(variable_name)
         unit%variable%span = span
         unit%variable%span%start_byte = int(first_newline, int64)
-        if (is_real) then
-            unit%variable%span%end_byte = unit%variable%span%start_byte + &
-                len('  real :: ') + len_trim(variable_name)
-        else if (is_double) then
-            unit%variable%span%end_byte = unit%variable%span%start_byte + &
-                len(double_prefix) + len_trim(variable_name)
-        else if (is_complex) then
-            unit%variable%span%end_byte = unit%variable%span%start_byte + &
-                len(complex_prefix) + len_trim(variable_name)
-        else
-            unit%variable%span%end_byte = unit%variable%span%start_byte + &
-                len(variable_prefix) + len_trim(variable_name)
-        end if
+        unit%variable%span%end_byte = unit%variable%span%start_byte + &
+            variable_start_relative - 1 + len_trim(variable_name)
         ok = typed_program_unit_validate(unit, message)
     end subroutine frontend_parse_typed_program_unit
 

@@ -192,3 +192,8 @@ main = "test_frontend_typed_variable_name_multichar_v1.f90"
 name = "test_frontend_typed_complex_type_v1"
 source-dir = "test"
 main = "test_frontend_typed_complex_type_v1.f90"
+
+[[test]]
+name = "test_frontend_typed_intrinsic_type_specs_v1"
+source-dir = "test"
+main = "test_frontend_typed_intrinsic_type_specs_v1.f90"
