@@ -31,6 +31,12 @@ module fortfront_assignment_sequence
         '  x = 23'//new_line('a')// &
         '  x = x + 1'//new_line('a')// &
         'end program main'//new_line('a')
+    character(len=*), parameter, public :: assignment_sequence_two_23_multiply_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = 23'//new_line('a')// &
+        '  x = x * 2'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: three_sequence_source = &
         'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')// &
@@ -150,6 +156,7 @@ contains
             return
         end if
         if (source /= two_sequence_source .and. source /= assignment_sequence_two_23_source .and. &
+            source /= assignment_sequence_two_23_multiply_source .and. &
             source /= three_sequence_source .and. &
             source /= four_sequence_source .and. source /= five_sequence_source .and. &
             source /= six_sequence_source .and. source /= seven_sequence_source .and. &
@@ -158,7 +165,8 @@ contains
             message = 'unsupported-assignment-sequence'
             return
         end if
-        if (source == assignment_sequence_two_23_source) then
+        if (source == assignment_sequence_two_23_source .or. &
+            source == assignment_sequence_two_23_multiply_source) then
             call frontend_parse_typed_program_unit(file_name, &
                 'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
                 '  x = 23'//new_line('a')//'end program main'//new_line('a'), &
@@ -170,10 +178,17 @@ contains
                 source_hash, first_unit, ok, message)
         end if
         if (.not. ok) return
-        call frontend_parse_typed_program_unit(file_name, &
-            'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-            '  x = x + 1'//new_line('a')//'end program main'//new_line('a'), &
-            source_hash, second_unit, ok, message)
+        if (source == assignment_sequence_two_23_multiply_source) then
+            call frontend_parse_typed_program_unit(file_name, &
+                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+                '  x = x * 2'//new_line('a')//'end program main'//new_line('a'), &
+                source_hash, second_unit, ok, message)
+        else
+            call frontend_parse_typed_program_unit(file_name, &
+                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+                '  x = x + 1'//new_line('a')//'end program main'//new_line('a'), &
+                source_hash, second_unit, ok, message)
+        end if
         if (.not. ok) return
         if (source == three_sequence_source .or. source == four_sequence_source .or. &
             source == five_sequence_source .or. source == six_sequence_source .or. &
@@ -265,12 +280,17 @@ contains
         end if
         sequence%assignment(1) = first_unit%assignment
         sequence%assignment(2) = second_unit%assignment
-        if (source == assignment_sequence_two_23_source) then
+        if (source == assignment_sequence_two_23_source .or. &
+            source == assignment_sequence_two_23_multiply_source) then
             first_start = index(source, '  x = 23') - 1
         else
             first_start = index(source, '  x = 7') - 1
         end if
-        second_start = index(source, '  x = x + 1') - 1
+        if (source == assignment_sequence_two_23_multiply_source) then
+            second_start = index(source, '  x = x * 2') - 1
+        else
+            second_start = index(source, '  x = x + 1') - 1
+        end if
         sequence%assignment(1)%span%file = file_name
         sequence%assignment(1)%span%source_hash = source_hash
         sequence%assignment(1)%span%start_byte = int(first_start, int64)

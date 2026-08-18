@@ -7,7 +7,7 @@ module fortfront_program_unit_v2
     use fortfront_assignment_sequence, only: assignment_sequence_t, &
         frontend_parse_typed_assignment_sequence, &
         frontend_typed_assignment_sequence_to_sx, assignment_sequence_source_hash, &
-        assignment_sequence_two_23_source
+        assignment_sequence_two_23_source, assignment_sequence_two_23_multiply_source
     use fortfront_frontend, only: frontend_parse_typed_program_unit, &
         typed_program_unit_t
     use frontend_program_unit_v2_envelope_generated, only: &
@@ -150,6 +150,13 @@ module fortfront_program_unit_v2
         '  integer :: x'//new_line('a')// &
         '  x = 23'//new_line('a')// &
         '  x = x + 1'//new_line('a')// &
+        '  print *, x'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: print_variable_multiply_expression_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = 23'//new_line('a')// &
+        '  x = x * 2'//new_line('a')// &
         '  print *, x'//new_line('a')// &
         'end program main'//new_line('a')
 
@@ -730,14 +737,21 @@ contains
             ok = .true.
             return
         end if
-        if (source == print_variable_expression_source) then
+        if (source == print_variable_expression_source .or. &
+            source == print_variable_multiply_expression_source) then
             declaration_source = 'program main'//new_line('a')// &
                 '  integer :: x'//new_line('a')//'end program main'//new_line('a')
             call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
                 assignment_sequence_source_hash, declaration_unit, ok, message)
             if (.not. ok) return
-            call frontend_parse_typed_assignment_sequence(file_name, assignment_sequence_two_23_source, &
-                assignment_sequence_source_hash, unit%execution_part%sequence, ok, message)
+            if (source == print_variable_multiply_expression_source) then
+                call frontend_parse_typed_assignment_sequence(file_name, &
+                    assignment_sequence_two_23_multiply_source, assignment_sequence_source_hash, &
+                    unit%execution_part%sequence, ok, message)
+            else
+                call frontend_parse_typed_assignment_sequence(file_name, assignment_sequence_two_23_source, &
+                    assignment_sequence_source_hash, unit%execution_part%sequence, ok, message)
+            end if
             if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 2_int64) then
                 message = 'print-variable-expression-assignment-rejected'
                 return
