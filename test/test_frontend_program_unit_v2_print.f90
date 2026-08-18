@@ -39,6 +39,14 @@ program test_frontend_program_unit_v2_print
         '  print *, 7, 8, 9, 10, 11, 12, 13, 14, 15'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: ten_item_source = 'program p'//new_line('a')// &
         '  print *, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: generic_item_source = 'program p'//new_line('a')// &
+        '  print *, 17, 18, 19'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: generic_missing_third = 'program p'//new_line('a')// &
+        '  print *, 17, 18,'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: generic_wrong_third = 'program p'//new_line('a')// &
+        '  print *, 17, 18, 20'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: generic_write = 'program p'//new_line('a')// &
+        '  write *, 17, 18, 19'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: missing_second = 'program p'//new_line('a')// &
         '  print *, 7,'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: wrong_second = 'program p'//new_line('a')// &
@@ -280,7 +288,38 @@ program test_frontend_program_unit_v2_print
     call assert_rejected(missing_tenth)
     call assert_rejected(wrong_tenth)
     call assert_rejected(write_ten_items)
-    write (*, '(a)') 'frontend program-unit-v2 PRINT *, 7 through 16 checks: ok'
+    call frontend_parse_program_unit_v2('print-generic.f90', generic_item_source, 'print-input', &
+        unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_count /= 3 .or. &
+        unit%execution_part%print%output_value /= 17 .or. &
+        unit%execution_part%print%output_2_value /= 18 .or. &
+        unit%execution_part%print%output_3_value /= 19 .or. &
+        trim(unit%execution_part%print%output_2_rule) /= print_policy_output_rule .or. &
+        trim(unit%execution_part%print%output_3_rule) /= print_policy_output_rule) then
+        error stop 'generic PRINT *, 17, 18, 19 witness was rejected'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(output-value 17)') == 0 .or. &
+        index(trim(serialized), '(output-value-2 18)') == 0 .or. &
+        index(trim(serialized), '(output-value-3 19)') == 0 .or. &
+        index(trim(serialized), '(output-rule-2 R1217)') == 0 .or. &
+        index(trim(serialized), '(output-rule-3 R1217)') == 0) then
+        error stop 'generic PRINT serialization changed'
+    end if
+    unit%execution_part%print%output_3_value = 20
+    if (print_stmt_validate(unit%execution_part%print, message)) then
+        error stop 'mutated generic PRINT value passed validation'
+    end if
+    call frontend_parse_program_unit_v2('print-generic.f90', generic_item_source, 'print-input', &
+        unit, ok, message)
+    unit%execution_part%print%output_count = 2
+    if (print_stmt_validate(unit%execution_part%print, message)) then
+        error stop 'mutated generic PRINT cardinality passed validation'
+    end if
+    call assert_rejected(generic_missing_third)
+    call assert_rejected(generic_wrong_third)
+    call assert_rejected(generic_write)
+    write (*, '(a)') 'frontend program-unit-v2 PRINT repeated-item checks: ok'
 
 contains
 

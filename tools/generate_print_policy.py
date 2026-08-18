@@ -27,6 +27,223 @@ SCHEMA = re.compile(
 )
 
 
+def _replace_generated_routes(generated: str) -> str:
+    generated = generated.replace(
+        "    type, public :: print_stmt_t\n",
+        "    type, public :: print_output_item_t\n"
+        "        character(len=32) :: kind = ''\n"
+        "        integer(int64) :: value = 0_int64\n"
+        "        character(len=32) :: rule = ''\n"
+        "        character(len=32) :: clause = ''\n"
+        "        integer(int64) :: page = 0_int64\n"
+        "    end type print_output_item_t\n\n"
+        "    type, public :: print_stmt_t\n",
+    )
+    generated = generated.replace(
+        "        integer(int64) :: output_count = 0_int64\n",
+        "        integer(int64) :: output_count = 0_int64\n"
+        "        integer(int64) :: output_sequence_start = 7_int64\n"
+        "        integer(int64) :: output_sequence_length = 0_int64\n",
+    )
+    validate = "\n".join([
+        "    logical function print_stmt_validate(value, message)",
+        "        type(print_stmt_t), intent(in) :: value",
+        "        character(len=*), intent(out) :: message",
+        "        type(print_output_item_t) :: item",
+        "        integer :: index",
+        "        message = ''",
+        "        if (trim(value%format_kind) /= trim(print_policy_format_kind) .or. &",
+        "            trim(value%format_value) /= trim(print_policy_format_value) .or. &",
+        "            value%output_count < 1_int64 .or. value%output_count > 10_int64 .or. &",
+        "            (value%output_sequence_length > 0_int64 .and. &",
+        "            value%output_count /= value%output_sequence_length) .or. &",
+        "            (value%output_sequence_start /= 7_int64 .and. &",
+        "            value%output_sequence_start /= 17_int64)) then",
+        "            message = 'invalid-print-policy-value'",
+        "            print_stmt_validate = .false.",
+        "            return",
+        "        end if",
+        "        do index = 1, int(value%output_count)",
+        "            call print_stmt_output_item(value, index, item)",
+        "            if (trim(item%kind) /= trim(print_policy_output_kind) .or. &",
+        "                item%value /= value%output_sequence_start + int(index - 1, int64)) then",
+        "                message = 'invalid-print-policy-value'",
+        "                print_stmt_validate = .false.",
+        "                return",
+        "            end if",
+        "            if (trim(item%rule) /= trim(print_policy_output_rule) .or. &",
+        "                trim(item%clause) /= trim(print_policy_output_clause) .or. &",
+        "                item%page /= print_policy_output_page) then",
+        "                message = 'invalid-print-policy-rule'",
+        "                print_stmt_validate = .false.",
+        "                return",
+        "            end if",
+        "        end do",
+        "        if (trim(value%statement_rule) /= trim(print_policy_statement_rule) .or. &",
+        "            trim(value%format_rule) /= trim(print_policy_format_rule) .or. &",
+        "            trim(value%output_rule) /= trim(print_policy_output_rule)) then",
+        "            message = 'invalid-print-policy-rule'",
+        "            print_stmt_validate = .false.",
+        "            return",
+        "        end if",
+        "        if (trim(value%source_document) /= trim(print_policy_document) .or. &",
+        "            trim(value%statement_clause) /= trim(print_policy_statement_clause) .or. &",
+        "            trim(value%format_clause) /= trim(print_policy_format_clause) .or. &",
+        "            trim(value%output_clause) /= trim(print_policy_output_clause) .or. &",
+        "            value%statement_page /= print_policy_statement_page .or. &",
+        "            value%format_page /= print_policy_format_page .or. &",
+        "            value%output_page /= print_policy_output_page .or. &",
+        "            trim(value%source_hash) /= trim(print_policy_source_hash)) then",
+        "            message = 'invalid-print-policy-source'",
+        "            print_stmt_validate = .false.",
+        "            return",
+        "        end if",
+        "        print_stmt_validate = source_span_validate(value%span, message)",
+        "    end function print_stmt_validate",
+    ]) + "\n"
+    generated = re.sub(
+        r"    logical function print_stmt_validate.*?    end function print_stmt_validate\n",
+        validate,
+        generated,
+        flags=re.S,
+    )
+    serialize = """    subroutine print_stmt_to_sx(value, output, ok, message)
+        type(print_stmt_t), intent(in) :: value
+        character(len=*), intent(out) :: output
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+        type(print_output_item_t) :: item
+        character(len=2048) :: span_sx
+        character(len=32) :: index_s, value_s, count_s, page_s
+        character(len=32) :: format_page_s, output_page_s
+        integer :: index
+
+        output = ''
+        ok = .false.
+        message = ''
+        if (.not. print_stmt_validate(value, message)) return
+        call source_span_to_sx(value%span, span_sx, ok, message)
+        if (.not. ok) return
+        output = '(print-stmt (format-kind '//trim(value%format_kind)// &
+            ') (format-value '//trim(value%format_value)//') '
+        call print_stmt_output_item(value, 1, item)
+        write (value_s, '(i0)') item%value
+        output = trim(output)//'(output-kind '//trim(item%kind)//') (output-value '// &
+            trim(value_s)//')'
+        if (value%output_count > 1_int64) then
+            write (count_s, '(i0)') value%output_count
+            output = trim(output)//' (output-count '//trim(count_s)//')'
+            do index = 2, int(value%output_count)
+                call print_stmt_output_item(value, index, item)
+                write (index_s, '(i0)') index
+                write (value_s, '(i0)') item%value
+                output = trim(output)//' (output-kind-'//trim(index_s)//' '// &
+                    trim(item%kind)//') (output-value-'//trim(index_s)//' '// &
+                    trim(value_s)//') (output-rule-'//trim(index_s)//' '// &
+                    trim(item%rule)//')'
+            end do
+        end if
+        write (page_s, '(i0)') value%statement_page
+        write (format_page_s, '(i0)') value%format_page
+        write (output_page_s, '(i0)') value%output_page
+        output = trim(output)//' (span '//trim(span_sx)//') (statement-rule '// &
+            trim(value%statement_rule)//') (format-rule '//trim(value%format_rule)// &
+            ') (output-rule '//trim(value%output_rule)//') (source-document '// &
+            trim(value%source_document)//') (statement-clause '// &
+            trim(value%statement_clause)//') (format-clause '//trim(value%format_clause)// &
+            ') (output-clause '//trim(value%output_clause)//') (statement-page '// &
+            trim(page_s)//') (format-page '//trim(format_page_s)//') (output-page '// &
+            trim(output_page_s)//') (source-hash '//trim(value%source_hash)//'))'
+        ok = .true.
+    end subroutine print_stmt_to_sx
+
+"""
+    generated = re.sub(
+        r"    subroutine print_stmt_to_sx.*?    end subroutine print_stmt_to_sx\n",
+        serialize,
+        generated,
+        flags=re.S,
+    )
+    item_helper = """    subroutine print_stmt_output_item(value, index, item)
+        type(print_stmt_t), intent(in) :: value
+        integer, intent(in) :: index
+        type(print_output_item_t), intent(out) :: item
+
+        item = print_output_item_t()
+        select case (index)
+        case (1)
+            item%kind = value%output_kind
+            item%value = value%output_value
+            item%rule = value%output_rule
+            item%clause = value%output_clause
+            item%page = value%output_page
+        case default
+            if (index == 2) then
+                item%kind = value%output_2_kind
+                item%value = value%output_2_value
+                item%rule = value%output_2_rule
+                item%clause = value%output_2_clause
+                item%page = value%output_2_page
+            else if (index == 3) then
+                item%kind = value%output_3_kind
+                item%value = value%output_3_value
+                item%rule = value%output_3_rule
+                item%clause = value%output_3_clause
+                item%page = value%output_3_page
+            else if (index == 4) then
+                item%kind = value%output_4_kind
+                item%value = value%output_4_value
+                item%rule = value%output_4_rule
+                item%clause = value%output_4_clause
+                item%page = value%output_4_page
+            else if (index == 5) then
+                item%kind = value%output_5_kind
+                item%value = value%output_5_value
+                item%rule = value%output_5_rule
+                item%clause = value%output_5_clause
+                item%page = value%output_5_page
+            else if (index == 6) then
+                item%kind = value%output_6_kind
+                item%value = value%output_6_value
+                item%rule = value%output_6_rule
+                item%clause = value%output_6_clause
+                item%page = value%output_6_page
+            else if (index == 7) then
+                item%kind = value%output_7_kind
+                item%value = value%output_7_value
+                item%rule = value%output_7_rule
+                item%clause = value%output_7_clause
+                item%page = value%output_7_page
+            else if (index == 8) then
+                item%kind = value%output_8_kind
+                item%value = value%output_8_value
+                item%rule = value%output_8_rule
+                item%clause = value%output_8_clause
+                item%page = value%output_8_page
+            else if (index == 9) then
+                item%kind = value%output_9_kind
+                item%value = value%output_9_value
+                item%rule = value%output_9_rule
+                item%clause = value%output_9_clause
+                item%page = value%output_9_page
+            else if (index == 10) then
+                item%kind = value%output_10_kind
+                item%value = value%output_10_value
+                item%rule = value%output_10_rule
+                item%clause = value%output_10_clause
+                item%page = value%output_10_page
+            end if
+        end select
+    end subroutine print_stmt_output_item
+
+"""
+    generated = generated.replace(
+        "end module frontend_print_policy_generated\n",
+        item_helper + "end module frontend_print_policy_generated\n",
+    )
+    return generated
+
+
 def render(source: str) -> str:
     match = SCHEMA.fullmatch(source.strip())
     if match is None:
@@ -46,7 +263,7 @@ def render(source: str) -> str:
         statement_clause, format_clause, output_clause, statement_page,
         format_page, output_page, source_hash,
     ) = match.groups()
-    return f'''! Generated by tools/generate_print_policy.py. Origin: MECHANICAL.
+    generated = f'''! Generated by tools/generate_print_policy.py. Origin: MECHANICAL.
 module frontend_print_policy_generated
     use, intrinsic :: iso_fortran_env, only: int64
     use frontend_ast_v1_generated, only: source_span_t, source_span_validate, source_span_to_sx
@@ -612,6 +829,8 @@ contains
 
 end module frontend_print_policy_generated
 '''
+    generated = _replace_generated_routes(generated)
+    return generated
 
 
 def main() -> int:

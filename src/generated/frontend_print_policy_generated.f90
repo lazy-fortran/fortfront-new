@@ -51,12 +51,22 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_source_hash = &
         '7371e889f231cfb0316d30365d5083fb5af34cbb6d5f7cb1e01855c73021bfa2'
 
+    type, public :: print_output_item_t
+        character(len=32) :: kind = ''
+        integer(int64) :: value = 0_int64
+        character(len=32) :: rule = ''
+        character(len=32) :: clause = ''
+        integer(int64) :: page = 0_int64
+    end type print_output_item_t
+
     type, public :: print_stmt_t
         character(len=32) :: format_kind = ''
         character(len=32) :: format_value = ''
         character(len=32) :: output_kind = ''
         integer(int64) :: output_value = 0_int64
         integer(int64) :: output_count = 0_int64
+        integer(int64) :: output_sequence_start = 7_int64
+        integer(int64) :: output_sequence_length = 0_int64
         character(len=32) :: output_2_kind = ''
         integer(int64) :: output_2_value = 0_int64
         character(len=32) :: output_3_kind = ''
@@ -124,161 +134,36 @@ contains
     logical function print_stmt_validate(value, message)
         type(print_stmt_t), intent(in) :: value
         character(len=*), intent(out) :: message
-
+        type(print_output_item_t) :: item
+        integer :: index
         message = ''
         if (trim(value%format_kind) /= trim(print_policy_format_kind) .or. &
             trim(value%format_value) /= trim(print_policy_format_value) .or. &
-            trim(value%output_kind) /= trim(print_policy_output_kind) .or. &
-            value%output_value /= print_policy_output_value) then
+            value%output_count < 1_int64 .or. value%output_count > 10_int64 .or. &
+            (value%output_sequence_length > 0_int64 .and. &
+            value%output_count /= value%output_sequence_length) .or. &
+            (value%output_sequence_start /= 7_int64 .and. &
+            value%output_sequence_start /= 17_int64)) then
             message = 'invalid-print-policy-value'
             print_stmt_validate = .false.
             return
         end if
-        if (value%output_count < 1_int64 .or. value%output_count > 10_int64) then
-            message = 'invalid-print-policy-output-count'
-            print_stmt_validate = .false.
-            return
-        end if
-        if (value%output_count >= 2_int64) then
-            if (trim(value%output_2_kind) /= trim(print_policy_output_2_kind) .or. &
-                value%output_2_value /= print_policy_output_2_value) then
+        do index = 1, int(value%output_count)
+            call print_stmt_output_item(value, index, item)
+            if (trim(item%kind) /= trim(print_policy_output_kind) .or. &
+                item%value /= value%output_sequence_start + int(index - 1, int64)) then
                 message = 'invalid-print-policy-value'
                 print_stmt_validate = .false.
                 return
             end if
-            if (trim(value%output_2_rule) /= trim(print_policy_output_2_rule) .or. &
-                trim(value%output_2_clause) /= trim(print_policy_output_clause) .or. &
-                value%output_2_page /= print_policy_output_page) then
+            if (trim(item%rule) /= trim(print_policy_output_rule) .or. &
+                trim(item%clause) /= trim(print_policy_output_clause) .or. &
+                item%page /= print_policy_output_page) then
                 message = 'invalid-print-policy-rule'
                 print_stmt_validate = .false.
                 return
             end if
-        end if
-        if (value%output_count == 3_int64) then
-            if (trim(value%output_3_kind) /= trim(print_policy_output_3_kind) .or. &
-                value%output_3_value /= print_policy_output_3_value) then
-                message = 'invalid-print-policy-value'
-                print_stmt_validate = .false.
-                return
-            end if
-            if (trim(value%output_3_rule) /= trim(print_policy_output_3_rule) .or. &
-                trim(value%output_3_clause) /= trim(print_policy_output_clause) .or. &
-                value%output_3_page /= print_policy_output_page) then
-                message = 'invalid-print-policy-rule'
-                print_stmt_validate = .false.
-                return
-            end if
-        end if
-        if (value%output_count == 4_int64) then
-            if (trim(value%output_4_kind) /= trim(print_policy_output_4_kind) .or. &
-                value%output_4_value /= print_policy_output_4_value) then
-                message = 'invalid-print-policy-value'
-                print_stmt_validate = .false.
-                return
-            end if
-            if (trim(value%output_4_rule) /= trim(print_policy_output_4_rule) .or. &
-                trim(value%output_4_clause) /= trim(print_policy_output_clause) .or. &
-                value%output_4_page /= print_policy_output_page) then
-                message = 'invalid-print-policy-rule'
-                print_stmt_validate = .false.
-                return
-            end if
-        end if
-        if (value%output_count == 5_int64) then
-            if (trim(value%output_5_kind) /= trim(print_policy_output_5_kind) .or. &
-                value%output_5_value /= print_policy_output_5_value) then
-                message = 'invalid-print-policy-value'
-                print_stmt_validate = .false.
-                return
-            end if
-            if (trim(value%output_5_rule) /= trim(print_policy_output_5_rule) .or. &
-                trim(value%output_5_clause) /= trim(print_policy_output_clause) .or. &
-                value%output_5_page /= print_policy_output_page) then
-                message = 'invalid-print-policy-rule'
-                print_stmt_validate = .false.
-                return
-            end if
-        end if
-        if (value%output_count == 6_int64) then
-            if (trim(value%output_6_kind) /= trim(print_policy_output_6_kind) .or. &
-                value%output_6_value /= print_policy_output_6_value) then
-                message = 'invalid-print-policy-value'
-                print_stmt_validate = .false.
-                return
-            end if
-            if (trim(value%output_6_rule) /= trim(print_policy_output_6_rule) .or. &
-                trim(value%output_6_clause) /= trim(print_policy_output_clause) .or. &
-                value%output_6_page /= print_policy_output_page) then
-                message = 'invalid-print-policy-rule'
-                print_stmt_validate = .false.
-                return
-            end if
-        end if
-        if (value%output_count == 7_int64) then
-            if (trim(value%output_7_kind) /= trim(print_policy_output_7_kind) .or. &
-                value%output_7_value /= print_policy_output_7_value) then
-                message = 'invalid-print-policy-value'
-                print_stmt_validate = .false.
-                return
-            end if
-            if (trim(value%output_7_rule) /= trim(print_policy_output_7_rule) .or. &
-                trim(value%output_7_clause) /= trim(print_policy_output_clause) .or. &
-                value%output_7_page /= print_policy_output_page) then
-                message = 'invalid-print-policy-rule'
-                print_stmt_validate = .false.
-                return
-            end if
-        end if
-        if (value%output_count == 8_int64) then
-            if (trim(value%output_8_kind) /= trim(print_policy_output_8_kind) .or. &
-                value%output_8_value /= print_policy_output_8_value) then
-                message = 'invalid-print-policy-value'
-                print_stmt_validate = .false.
-                return
-            end if
-            if (trim(value%output_8_rule) /= trim(print_policy_output_8_rule) .or. &
-                trim(value%output_8_clause) /= trim(print_policy_output_clause) .or. &
-                value%output_8_page /= print_policy_output_page) then
-                message = 'invalid-print-policy-rule'
-                print_stmt_validate = .false.
-                return
-            end if
-        end if
-        if (value%output_count == 9_int64) then
-            if (trim(value%output_9_kind) /= trim(print_policy_output_9_kind) .or. &
-                value%output_9_value /= print_policy_output_9_value) then
-                message = 'invalid-print-policy-value'
-                print_stmt_validate = .false.
-                return
-            end if
-            if (trim(value%output_9_rule) /= trim(print_policy_output_9_rule) .or. &
-                trim(value%output_9_clause) /= trim(print_policy_output_clause) .or. &
-                value%output_9_page /= print_policy_output_page) then
-                message = 'invalid-print-policy-rule'
-                print_stmt_validate = .false.
-                return
-            end if
-        end if
-        if (value%output_count == 10_int64) then
-            if (trim(value%output_9_kind) /= trim(print_policy_output_9_kind) .or. &
-                value%output_9_value /= print_policy_output_9_value .or. &
-                trim(value%output_10_kind) /= trim(print_policy_output_10_kind) .or. &
-                value%output_10_value /= print_policy_output_10_value) then
-                message = 'invalid-print-policy-value'
-                print_stmt_validate = .false.
-                return
-            end if
-            if (trim(value%output_9_rule) /= trim(print_policy_output_9_rule) .or. &
-                trim(value%output_9_clause) /= trim(print_policy_output_clause) .or. &
-                value%output_9_page /= print_policy_output_page .or. &
-                trim(value%output_10_rule) /= trim(print_policy_output_10_rule) .or. &
-                trim(value%output_10_clause) /= trim(print_policy_output_clause) .or. &
-                value%output_10_page /= print_policy_output_page) then
-                message = 'invalid-print-policy-rule'
-                print_stmt_validate = .false.
-                return
-            end if
-        end if
+        end do
         if (trim(value%statement_rule) /= trim(print_policy_statement_rule) .or. &
             trim(value%format_rule) /= trim(print_policy_format_rule) .or. &
             trim(value%output_rule) /= trim(print_policy_output_rule)) then
@@ -306,15 +191,11 @@ contains
         character(len=*), intent(out) :: output
         logical, intent(out) :: ok
         character(len=*), intent(out) :: message
+        type(print_output_item_t) :: item
         character(len=2048) :: span_sx
-        character(len=32) :: output_value_s, output_2_value_s, output_3_value_s
-        character(len=32) :: output_4_value_s, output_5_value_s, output_6_value_s
-        character(len=32) :: output_7_value_s
-        character(len=32) :: output_8_value_s
-        character(len=32) :: output_9_value_s, output_10_value_s
-        character(len=32) :: output_count_s
-        character(len=32) :: statement_page_s
+        character(len=32) :: index_s, value_s, count_s, page_s
         character(len=32) :: format_page_s, output_page_s
+        integer :: index
 
         output = ''
         ok = .false.
@@ -322,244 +203,110 @@ contains
         if (.not. print_stmt_validate(value, message)) return
         call source_span_to_sx(value%span, span_sx, ok, message)
         if (.not. ok) return
-        write (output_value_s, '(i0)') value%output_value
-        write (output_2_value_s, '(i0)') value%output_2_value
-        write (output_3_value_s, '(i0)') value%output_3_value
-        write (output_4_value_s, '(i0)') value%output_4_value
-        write (output_5_value_s, '(i0)') value%output_5_value
-        write (output_6_value_s, '(i0)') value%output_6_value
-        write (output_7_value_s, '(i0)') value%output_7_value
-        write (output_8_value_s, '(i0)') value%output_8_value
-        write (output_9_value_s, '(i0)') value%output_9_value
-        write (output_10_value_s, '(i0)') value%output_10_value
-        write (output_count_s, '(i0)') value%output_count
-        write (statement_page_s, '(i0)') value%statement_page
+        output = '(print-stmt (format-kind '//trim(value%format_kind)// &
+            ') (format-value '//trim(value%format_value)//') '
+        call print_stmt_output_item(value, 1, item)
+        write (value_s, '(i0)') item%value
+        output = trim(output)//'(output-kind '//trim(item%kind)//') (output-value '// &
+            trim(value_s)//')'
+        if (value%output_count > 1_int64) then
+            write (count_s, '(i0)') value%output_count
+            output = trim(output)//' (output-count '//trim(count_s)//')'
+            do index = 2, int(value%output_count)
+                call print_stmt_output_item(value, index, item)
+                write (index_s, '(i0)') index
+                write (value_s, '(i0)') item%value
+                output = trim(output)//' (output-kind-'//trim(index_s)//' '// &
+                    trim(item%kind)//') (output-value-'//trim(index_s)//' '// &
+                    trim(value_s)//') (output-rule-'//trim(index_s)//' '// &
+                    trim(item%rule)//')'
+            end do
+        end if
+        write (page_s, '(i0)') value%statement_page
         write (format_page_s, '(i0)') value%format_page
         write (output_page_s, '(i0)') value%output_page
-        if (value%output_count == 1_int64) then
-            output = '(print-stmt (format-kind '//trim(value%format_kind)// &
-                ') (format-value '//trim(value%format_value)//') (output-kind '// &
-                trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
-                ') (span '//trim(span_sx)//') (statement-rule '// &
-                trim(value%statement_rule)//') (format-rule '//trim(value%format_rule)// &
-                ') (output-rule '//trim(value%output_rule)//') (source-document '// &
-                trim(value%source_document)//') (statement-clause '// &
-                trim(value%statement_clause)//') (format-clause '//trim(value%format_clause)// &
-                ') (output-clause '//trim(value%output_clause)//') (statement-page '// &
-                trim(statement_page_s)//') (format-page '//trim(format_page_s)// &
-                ') (output-page '//trim(output_page_s)//') (source-hash '// &
-                trim(value%source_hash)//'))'
-        else if (value%output_count == 2_int64) then
-            output = '(print-stmt (format-kind '//trim(value%format_kind)// &
-                ') (format-value '//trim(value%format_value)//') (output-kind '// &
-                trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
-                ') (output-count '//trim(output_count_s)//') (output-kind-2 '// &
-                trim(value%output_2_kind)//') (output-value-2 '// &
-                trim(output_2_value_s)//') (output-rule-2 '//trim(value%output_2_rule)// &
-                ') (span '//trim(span_sx)//') (statement-rule '// &
-                trim(value%statement_rule)//') (format-rule '//trim(value%format_rule)// &
-                ') (output-rule '//trim(value%output_rule)//') (source-document '// &
-                trim(value%source_document)//') (statement-clause '// &
-                trim(value%statement_clause)//') (format-clause '//trim(value%format_clause)// &
-                ') (output-clause '//trim(value%output_clause)//') (statement-page '// &
-                trim(statement_page_s)//') (format-page '//trim(format_page_s)// &
-                ') (output-page '//trim(output_page_s)//') (source-hash '// &
-                trim(value%source_hash)//'))'
-        else if (value%output_count == 3_int64) then
-            output = '(print-stmt (format-kind '//trim(value%format_kind)// &
-                ') (format-value '//trim(value%format_value)//') (output-kind '// &
-                trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
-                ') (output-count '//trim(output_count_s)//') (output-kind-2 '// &
-                trim(value%output_2_kind)//') (output-value-2 '// &
-                trim(output_2_value_s)//') (output-rule-2 '//trim(value%output_2_rule)// &
-                ') (output-kind-3 '//trim(value%output_3_kind)// &
-                ') (output-value-3 '//trim(output_3_value_s)//') (output-rule-3 '// &
-                trim(value%output_3_rule)//') (span '//trim(span_sx)//') '// &
-                '(statement-rule '//trim(value%statement_rule)//') (format-rule '// &
-                trim(value%format_rule)//') (output-rule '//trim(value%output_rule)// &
-                ') (source-document '//trim(value%source_document)//') '// &
-                '(statement-clause '//trim(value%statement_clause)//') '// &
-                '(format-clause '//trim(value%format_clause)//') (output-clause '// &
-                trim(value%output_clause)//') (statement-page '//trim(statement_page_s)// &
-                ') (format-page '//trim(format_page_s)//') (output-page '// &
-                trim(output_page_s)//') (source-hash '//trim(value%source_hash)//'))'
-        else if (value%output_count == 4_int64) then
-            output = '(print-stmt (format-kind '//trim(value%format_kind)// &
-                ') (format-value '//trim(value%format_value)//') (output-kind '// &
-                trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
-                ') (output-count '//trim(output_count_s)//') (output-kind-2 '// &
-                trim(value%output_2_kind)//') (output-value-2 '//trim(output_2_value_s)// &
-                ') (output-rule-2 '//trim(value%output_2_rule)//') (output-kind-3 '// &
-                trim(value%output_3_kind)//') (output-value-3 '//trim(output_3_value_s)// &
-                ') (output-rule-3 '//trim(value%output_3_rule)//') (output-kind-4 '// &
-                trim(value%output_4_kind)//') (output-value-4 '//trim(output_4_value_s)// &
-                ') (output-rule-4 '//trim(value%output_4_rule)//') (span '// &
-                trim(span_sx)//') (statement-rule '//trim(value%statement_rule)// &
-                ') (format-rule '//trim(value%format_rule)//') (output-rule '// &
-                trim(value%output_rule)//') (source-document '//trim(value%source_document)// &
-                ') (statement-clause '//trim(value%statement_clause)//') (format-clause '// &
-                trim(value%format_clause)//') (output-clause '//trim(value%output_clause)// &
-                ') (statement-page '//trim(statement_page_s)//') (format-page '// &
-                trim(format_page_s)//') (output-page '//trim(output_page_s)// &
-                ') (source-hash '//trim(value%source_hash)//'))'
-        else if (value%output_count == 5_int64) then
-            output = '(print-stmt (format-kind '//trim(value%format_kind)// &
-                ') (format-value '//trim(value%format_value)//') (output-kind '// &
-                trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
-                ') (output-count '//trim(output_count_s)//') (output-kind-2 '// &
-                trim(value%output_2_kind)//') (output-value-2 '//trim(output_2_value_s)// &
-                ') (output-rule-2 '//trim(value%output_2_rule)//') (output-kind-3 '// &
-                trim(value%output_3_kind)//') (output-value-3 '//trim(output_3_value_s)// &
-                ') (output-rule-3 '//trim(value%output_3_rule)//') (output-kind-4 '// &
-                trim(value%output_4_kind)//') (output-value-4 '//trim(output_4_value_s)// &
-                ') (output-rule-4 '//trim(value%output_4_rule)//') (output-kind-5 '// &
-                trim(value%output_5_kind)//') (output-value-5 '//trim(output_5_value_s)// &
-                ') (output-rule-5 '//trim(value%output_5_rule)//') (span '// &
-                trim(span_sx)//') (statement-rule '//trim(value%statement_rule)// &
-                ') (format-rule '//trim(value%format_rule)//') (output-rule '// &
-                trim(value%output_rule)//') (source-document '//trim(value%source_document)// &
-                ') (statement-clause '//trim(value%statement_clause)//') (format-clause '// &
-                trim(value%format_clause)//') (output-clause '//trim(value%output_clause)// &
-                ') (statement-page '//trim(statement_page_s)//') (format-page '// &
-                trim(format_page_s)//') (output-page '//trim(output_page_s)// &
-                ') (source-hash '//trim(value%source_hash)//'))'
-        else if (value%output_count == 6_int64) then
-            output = '(print-stmt (format-kind '//trim(value%format_kind)// &
-                ') (format-value '//trim(value%format_value)//') (output-kind '// &
-                trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
-                ') (output-count '//trim(output_count_s)//') (output-kind-2 '// &
-                trim(value%output_2_kind)//') (output-value-2 '//trim(output_2_value_s)// &
-                ') (output-rule-2 '//trim(value%output_2_rule)//') (output-kind-3 '// &
-                trim(value%output_3_kind)//') (output-value-3 '//trim(output_3_value_s)// &
-                ') (output-rule-3 '//trim(value%output_3_rule)//') (output-kind-4 '// &
-                trim(value%output_4_kind)//') (output-value-4 '//trim(output_4_value_s)// &
-                ') (output-rule-4 '//trim(value%output_4_rule)//') (output-kind-5 '// &
-                trim(value%output_5_kind)//') (output-value-5 '//trim(output_5_value_s)// &
-                ') (output-rule-5 '//trim(value%output_5_rule)//') (output-kind-6 '// &
-                trim(value%output_6_kind)//') (output-value-6 '//trim(output_6_value_s)// &
-                ') (output-rule-6 '//trim(value%output_6_rule)//') (span '// &
-                trim(span_sx)//') (statement-rule '//trim(value%statement_rule)// &
-                ') (format-rule '//trim(value%format_rule)//') (output-rule '// &
-                trim(value%output_rule)//') (source-document '//trim(value%source_document)// &
-                ') (statement-clause '//trim(value%statement_clause)//') (format-clause '// &
-                trim(value%format_clause)//') (output-clause '//trim(value%output_clause)// &
-                ') (statement-page '//trim(statement_page_s)//') (format-page '// &
-                trim(format_page_s)//') (output-page '//trim(output_page_s)// &
-                ') (source-hash '//trim(value%source_hash)//'))'
-        else if (value%output_count == 7_int64) then
-            output = '(print-stmt (format-kind '//trim(value%format_kind)// &
-                ') (format-value '//trim(value%format_value)//') (output-kind '// &
-                trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
-                ') (output-count '//trim(output_count_s)//') (output-kind-2 '// &
-                trim(value%output_2_kind)//') (output-value-2 '//trim(output_2_value_s)// &
-                ') (output-rule-2 '//trim(value%output_2_rule)//') (output-kind-3 '// &
-                trim(value%output_3_kind)//') (output-value-3 '//trim(output_3_value_s)// &
-                ') (output-rule-3 '//trim(value%output_3_rule)//') (output-kind-4 '// &
-                trim(value%output_4_kind)//') (output-value-4 '//trim(output_4_value_s)// &
-                ') (output-rule-4 '//trim(value%output_4_rule)//') (output-kind-5 '// &
-                trim(value%output_5_kind)//') (output-value-5 '//trim(output_5_value_s)// &
-                ') (output-rule-5 '//trim(value%output_5_rule)//') (output-kind-6 '// &
-                trim(value%output_6_kind)//') (output-value-6 '//trim(output_6_value_s)// &
-                ') (output-rule-6 '//trim(value%output_6_rule)//') (output-kind-7 '// &
-                trim(value%output_7_kind)//') (output-value-7 '//trim(output_7_value_s)// &
-                ') (output-rule-7 '//trim(value%output_7_rule)//') (span '// &
-                trim(span_sx)//') (statement-rule '//trim(value%statement_rule)// &
-                ') (format-rule '//trim(value%format_rule)//') (output-rule '// &
-                trim(value%output_rule)//') (source-document '//trim(value%source_document)// &
-                ') (statement-clause '//trim(value%statement_clause)//') (format-clause '// &
-                trim(value%format_clause)//') (output-clause '//trim(value%output_clause)// &
-                ') (statement-page '//trim(statement_page_s)//') (format-page '// &
-                trim(format_page_s)//') (output-page '//trim(output_page_s)// &
-                ') (source-hash '//trim(value%source_hash)//'))'
-        else if (value%output_count == 8_int64) then
-            output = '(print-stmt (format-kind '//trim(value%format_kind)// &
-                ') (format-value '//trim(value%format_value)//') (output-kind '// &
-                trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
-                ') (output-count '//trim(output_count_s)//') (output-kind-2 '// &
-                trim(value%output_2_kind)//') (output-value-2 '//trim(output_2_value_s)// &
-                ') (output-rule-2 '//trim(value%output_2_rule)//') (output-kind-3 '// &
-                trim(value%output_3_kind)//') (output-value-3 '//trim(output_3_value_s)// &
-                ') (output-rule-3 '//trim(value%output_3_rule)//') (output-kind-4 '// &
-                trim(value%output_4_kind)//') (output-value-4 '//trim(output_4_value_s)// &
-                ') (output-rule-4 '//trim(value%output_4_rule)//') (output-kind-5 '// &
-                trim(value%output_5_kind)//') (output-value-5 '//trim(output_5_value_s)// &
-                ') (output-rule-5 '//trim(value%output_5_rule)//') (output-kind-6 '// &
-                trim(value%output_6_kind)//') (output-value-6 '//trim(output_6_value_s)// &
-                ') (output-rule-6 '//trim(value%output_6_rule)//') (output-kind-7 '// &
-                trim(value%output_7_kind)//') (output-value-7 '//trim(output_7_value_s)// &
-                ') (output-rule-7 '//trim(value%output_7_rule)//') (output-kind-8 '// &
-                trim(value%output_8_kind)//') (output-value-8 '//trim(output_8_value_s)// &
-                ') (output-rule-8 '//trim(value%output_8_rule)//') (span '// &
-                trim(span_sx)//') (statement-rule '//trim(value%statement_rule)// &
-                ') (format-rule '//trim(value%format_rule)//') (output-rule '// &
-                trim(value%output_rule)//') (source-document '//trim(value%source_document)// &
-                ') (statement-clause '//trim(value%statement_clause)//') (format-clause '// &
-                trim(value%format_clause)//') (output-clause '//trim(value%output_clause)// &
-                ') (statement-page '//trim(statement_page_s)//') (format-page '// &
-                trim(format_page_s)//') (output-page '//trim(output_page_s)// &
-                ') (source-hash '//trim(value%source_hash)//'))'
-        else if (value%output_count == 9_int64) then
-            output = '(print-stmt (format-kind '//trim(value%format_kind)// &
-                ') (format-value '//trim(value%format_value)//') (output-kind '// &
-                trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
-                ') (output-count '//trim(output_count_s)//') (output-kind-2 '// &
-                trim(value%output_2_kind)//') (output-value-2 '//trim(output_2_value_s)// &
-                ') (output-rule-2 '//trim(value%output_2_rule)//') (output-kind-3 '// &
-                trim(value%output_3_kind)//') (output-value-3 '//trim(output_3_value_s)// &
-                ') (output-rule-3 '//trim(value%output_3_rule)//') (output-kind-4 '// &
-                trim(value%output_4_kind)//') (output-value-4 '//trim(output_4_value_s)// &
-                ') (output-rule-4 '//trim(value%output_4_rule)//') (output-kind-5 '// &
-                trim(value%output_5_kind)//') (output-value-5 '//trim(output_5_value_s)// &
-                ') (output-rule-5 '//trim(value%output_5_rule)//') (output-kind-6 '// &
-                trim(value%output_6_kind)//') (output-value-6 '//trim(output_6_value_s)// &
-                ') (output-rule-6 '//trim(value%output_6_rule)//') (output-kind-7 '// &
-                trim(value%output_7_kind)//') (output-value-7 '//trim(output_7_value_s)// &
-                ') (output-rule-7 '//trim(value%output_7_rule)//') (output-kind-8 '// &
-                trim(value%output_8_kind)//') (output-value-8 '//trim(output_8_value_s)// &
-                ') (output-rule-8 '//trim(value%output_8_rule)//') (output-kind-9 '// &
-                trim(value%output_9_kind)//') (output-value-9 '//trim(output_9_value_s)// &
-                ') (output-rule-9 '//trim(value%output_9_rule)//') (span '// &
-                trim(span_sx)//') (statement-rule '//trim(value%statement_rule)// &
-                ') (format-rule '//trim(value%format_rule)//') (output-rule '// &
-                trim(value%output_rule)//') (source-document '//trim(value%source_document)// &
-                ') (statement-clause '//trim(value%statement_clause)//') (format-clause '// &
-                trim(value%format_clause)//') (output-clause '//trim(value%output_clause)// &
-                ') (statement-page '//trim(statement_page_s)//') (format-page '// &
-                trim(format_page_s)//') (output-page '//trim(output_page_s)// &
-                ') (source-hash '//trim(value%source_hash)//'))'
-        else
-            output = '(print-stmt (format-kind '//trim(value%format_kind)// &
-                ') (format-value '//trim(value%format_value)//') (output-kind '// &
-                trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
-                ') (output-count '//trim(output_count_s)//') (output-kind-2 '// &
-                trim(value%output_2_kind)//') (output-value-2 '//trim(output_2_value_s)// &
-                ') (output-rule-2 '//trim(value%output_2_rule)//') (output-kind-3 '// &
-                trim(value%output_3_kind)//') (output-value-3 '//trim(output_3_value_s)// &
-                ') (output-rule-3 '//trim(value%output_3_rule)//') (output-kind-4 '// &
-                trim(value%output_4_kind)//') (output-value-4 '//trim(output_4_value_s)// &
-                ') (output-rule-4 '//trim(value%output_4_rule)//') (output-kind-5 '// &
-                trim(value%output_5_kind)//') (output-value-5 '//trim(output_5_value_s)// &
-                ') (output-rule-5 '//trim(value%output_5_rule)//') (output-kind-6 '// &
-                trim(value%output_6_kind)//') (output-value-6 '//trim(output_6_value_s)// &
-                ') (output-rule-6 '//trim(value%output_6_rule)//') (output-kind-7 '// &
-                trim(value%output_7_kind)//') (output-value-7 '//trim(output_7_value_s)// &
-                ') (output-rule-7 '//trim(value%output_7_rule)//') (output-kind-8 '// &
-                trim(value%output_8_kind)//') (output-value-8 '//trim(output_8_value_s)// &
-                ') (output-rule-8 '//trim(value%output_8_rule)//') (output-kind-9 '// &
-                trim(value%output_9_kind)//') (output-value-9 '//trim(output_9_value_s)// &
-                ') (output-rule-9 '//trim(value%output_9_rule)//') (output-kind-10 '// &
-                trim(value%output_10_kind)//') (output-value-10 '//trim(output_10_value_s)// &
-                ') (output-rule-10 '//trim(value%output_10_rule)//') (span '// &
-                trim(span_sx)//') (statement-rule '//trim(value%statement_rule)// &
-                ') (format-rule '//trim(value%format_rule)//') (output-rule '// &
-                trim(value%output_rule)//') (source-document '//trim(value%source_document)// &
-                ') (statement-clause '//trim(value%statement_clause)//') (format-clause '// &
-                trim(value%format_clause)//') (output-clause '//trim(value%output_clause)// &
-                ') (statement-page '//trim(statement_page_s)//') (format-page '// &
-                trim(format_page_s)//') (output-page '//trim(output_page_s)// &
-                ') (source-hash '//trim(value%source_hash)//'))'
-        end if
+        output = trim(output)//' (span '//trim(span_sx)//') (statement-rule '// &
+            trim(value%statement_rule)//') (format-rule '//trim(value%format_rule)// &
+            ') (output-rule '//trim(value%output_rule)//') (source-document '// &
+            trim(value%source_document)//') (statement-clause '// &
+            trim(value%statement_clause)//') (format-clause '//trim(value%format_clause)// &
+            ') (output-clause '//trim(value%output_clause)//') (statement-page '// &
+            trim(page_s)//') (format-page '//trim(format_page_s)//') (output-page '// &
+            trim(output_page_s)//') (source-hash '//trim(value%source_hash)//'))'
         ok = .true.
     end subroutine print_stmt_to_sx
+
+
+    subroutine print_stmt_output_item(value, index, item)
+        type(print_stmt_t), intent(in) :: value
+        integer, intent(in) :: index
+        type(print_output_item_t), intent(out) :: item
+
+        item = print_output_item_t()
+        select case (index)
+        case (1)
+            item%kind = value%output_kind
+            item%value = value%output_value
+            item%rule = value%output_rule
+            item%clause = value%output_clause
+            item%page = value%output_page
+        case default
+            if (index == 2) then
+                item%kind = value%output_2_kind
+                item%value = value%output_2_value
+                item%rule = value%output_2_rule
+                item%clause = value%output_2_clause
+                item%page = value%output_2_page
+            else if (index == 3) then
+                item%kind = value%output_3_kind
+                item%value = value%output_3_value
+                item%rule = value%output_3_rule
+                item%clause = value%output_3_clause
+                item%page = value%output_3_page
+            else if (index == 4) then
+                item%kind = value%output_4_kind
+                item%value = value%output_4_value
+                item%rule = value%output_4_rule
+                item%clause = value%output_4_clause
+                item%page = value%output_4_page
+            else if (index == 5) then
+                item%kind = value%output_5_kind
+                item%value = value%output_5_value
+                item%rule = value%output_5_rule
+                item%clause = value%output_5_clause
+                item%page = value%output_5_page
+            else if (index == 6) then
+                item%kind = value%output_6_kind
+                item%value = value%output_6_value
+                item%rule = value%output_6_rule
+                item%clause = value%output_6_clause
+                item%page = value%output_6_page
+            else if (index == 7) then
+                item%kind = value%output_7_kind
+                item%value = value%output_7_value
+                item%rule = value%output_7_rule
+                item%clause = value%output_7_clause
+                item%page = value%output_7_page
+            else if (index == 8) then
+                item%kind = value%output_8_kind
+                item%value = value%output_8_value
+                item%rule = value%output_8_rule
+                item%clause = value%output_8_clause
+                item%page = value%output_8_page
+            else if (index == 9) then
+                item%kind = value%output_9_kind
+                item%value = value%output_9_value
+                item%rule = value%output_9_rule
+                item%clause = value%output_9_clause
+                item%page = value%output_9_page
+            else if (index == 10) then
+                item%kind = value%output_10_kind
+                item%value = value%output_10_value
+                item%rule = value%output_10_rule
+                item%clause = value%output_10_clause
+                item%page = value%output_10_page
+            end if
+        end select
+    end subroutine print_stmt_output_item
 
 end module frontend_print_policy_generated
