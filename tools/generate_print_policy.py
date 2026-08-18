@@ -80,7 +80,8 @@ def _replace_generated_routes(generated: str) -> str:
         "                    return",
         "                end if",
         "            else if (trim(item%kind) == trim(print_policy_variable_output_kind)) then",
-        "                if ((index /= 1 .and. index /= 2 .and. index /= 3) .or. &",
+        "                if ((index /= 1 .and. index /= 2 .and. index /= 3 .and. &",
+        "                    index /= 4) .or. &",
         "                    trim(item%name) /= trim(print_policy_variable_output_name) .or. &",
         "                    (item%value /= print_policy_variable_value .and. &",
         "                    item%value /= print_policy_variable_value_2 .and. &",
@@ -290,7 +291,7 @@ def _replace_generated_routes(generated: str) -> str:
         generated = generated.replace(
             f"                item%kind = value%output_{index}_kind\n",
             f"                item%kind = value%output_{index}_kind\n"
-            f"                item%name = ''\n",
+            f"                item%name = print_policy_variable_output_name\n",
         )
     return generated
 

@@ -182,7 +182,8 @@ contains
                     return
                 end if
             else if (trim(item%kind) == trim(print_policy_variable_output_kind)) then
-                if ((index /= 1 .and. index /= 2 .and. index /= 3) .or. &
+                if ((index /= 1 .and. index /= 2 .and. index /= 3 .and. &
+                    index /= 4) .or. &
                     trim(item%name) /= trim(print_policy_variable_output_name) .or. &
                     (item%value /= print_policy_variable_value .and. &
                     item%value /= print_policy_variable_value_2 .and. &
@@ -325,49 +326,49 @@ contains
                 item%page = value%output_3_page
             else if (index == 4) then
                 item%kind = value%output_4_kind
-                item%name = ''
+                item%name = print_policy_variable_output_name
                 item%value = value%output_4_value
                 item%rule = value%output_4_rule
                 item%clause = value%output_4_clause
                 item%page = value%output_4_page
             else if (index == 5) then
                 item%kind = value%output_5_kind
-                item%name = ''
+                item%name = print_policy_variable_output_name
                 item%value = value%output_5_value
                 item%rule = value%output_5_rule
                 item%clause = value%output_5_clause
                 item%page = value%output_5_page
             else if (index == 6) then
                 item%kind = value%output_6_kind
-                item%name = ''
+                item%name = print_policy_variable_output_name
                 item%value = value%output_6_value
                 item%rule = value%output_6_rule
                 item%clause = value%output_6_clause
                 item%page = value%output_6_page
             else if (index == 7) then
                 item%kind = value%output_7_kind
-                item%name = ''
+                item%name = print_policy_variable_output_name
                 item%value = value%output_7_value
                 item%rule = value%output_7_rule
                 item%clause = value%output_7_clause
                 item%page = value%output_7_page
             else if (index == 8) then
                 item%kind = value%output_8_kind
-                item%name = ''
+                item%name = print_policy_variable_output_name
                 item%value = value%output_8_value
                 item%rule = value%output_8_rule
                 item%clause = value%output_8_clause
                 item%page = value%output_8_page
             else if (index == 9) then
                 item%kind = value%output_9_kind
-                item%name = ''
+                item%name = print_policy_variable_output_name
                 item%value = value%output_9_value
                 item%rule = value%output_9_rule
                 item%clause = value%output_9_clause
                 item%page = value%output_9_page
             else if (index == 10) then
                 item%kind = value%output_10_kind
-                item%name = ''
+                item%name = print_policy_variable_output_name
                 item%value = value%output_10_value
                 item%rule = value%output_10_rule
                 item%clause = value%output_10_clause

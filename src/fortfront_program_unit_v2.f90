@@ -204,6 +204,13 @@ module fortfront_program_unit_v2
         '  x = x ** 2'//new_line('a')// &
         '  print *, x, x, x'//new_line('a')// &
         'end program main'//new_line('a')
+    character(len=*), parameter :: print_variable_power_value_four_item_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')// &
+        '  x = x ** 2'//new_line('a')// &
+        '  print *, x, x, x, x'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: print_variable_power_value_two_item_malformed = &
         'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')// &
@@ -810,7 +817,8 @@ contains
             source == print_variable_power_expression_source .or. &
             source == print_variable_power_value_source .or. &
             source == print_variable_power_value_two_item_source .or. &
-            source == print_variable_power_value_three_item_source) then
+            source == print_variable_power_value_three_item_source .or. &
+            source == print_variable_power_value_four_item_source) then
             declaration_source = 'program main'//new_line('a')// &
                 '  integer :: x'//new_line('a')//'end program main'//new_line('a')
             call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
@@ -864,7 +872,9 @@ contains
             else if (source == print_variable_power_expression_source) then
                 unit%execution_part%print%output_value = print_policy_variable_value_5
             else if (source == print_variable_power_value_source .or. &
-                    source == print_variable_power_value_two_item_source) then
+                    source == print_variable_power_value_two_item_source .or. &
+                    source == print_variable_power_value_three_item_source .or. &
+                    source == print_variable_power_value_four_item_source) then
                 unit%execution_part%print%output_value = print_policy_variable_value_6
             else
                 unit%execution_part%print%output_value = print_policy_variable_value_2
@@ -892,12 +902,34 @@ contains
                 unit%execution_part%print%output_3_rule = print_policy_variable_output_rule
                 unit%execution_part%print%output_3_clause = print_policy_output_clause
                 unit%execution_part%print%output_3_page = print_policy_output_page
+            else if (source == print_variable_power_value_four_item_source) then
+                unit%execution_part%print%output_count = 4_int64
+                unit%execution_part%print%output_2_kind = print_policy_variable_output_kind
+                unit%execution_part%print%output_2_name = print_policy_variable_output_name
+                unit%execution_part%print%output_2_value = print_policy_variable_value_6
+                unit%execution_part%print%output_2_rule = print_policy_variable_output_rule
+                unit%execution_part%print%output_2_clause = print_policy_output_clause
+                unit%execution_part%print%output_2_page = print_policy_output_page
+                unit%execution_part%print%output_3_kind = print_policy_variable_output_kind
+                unit%execution_part%print%output_3_name = print_policy_variable_output_name
+                unit%execution_part%print%output_3_value = print_policy_variable_value_6
+                unit%execution_part%print%output_3_rule = print_policy_variable_output_rule
+                unit%execution_part%print%output_3_clause = print_policy_output_clause
+                unit%execution_part%print%output_3_page = print_policy_output_page
+                unit%execution_part%print%output_4_kind = print_policy_variable_output_kind
+                unit%execution_part%print%output_4_value = print_policy_variable_value_6
+                unit%execution_part%print%output_4_rule = print_policy_variable_output_rule
+                unit%execution_part%print%output_4_clause = print_policy_output_clause
+                unit%execution_part%print%output_4_page = print_policy_output_page
             end if
             unit%execution_part%print%span = unit%root%span
             unit%execution_part%print%span%start_byte = int(index(source, '  print *, x') - 1, int64)
             unit%execution_part%print%span%end_byte = &
                 unit%execution_part%print%span%start_byte + merge(17_int64, 11_int64, &
                 source == print_variable_power_value_three_item_source)
+            if (source == print_variable_power_value_four_item_source) then
+                unit%execution_part%print%span%end_byte = unit%execution_part%print%span%start_byte + 21_int64
+            end if
             unit%execution_part%print%statement_rule = print_policy_statement_rule
             unit%execution_part%print%format_rule = print_policy_format_rule
             unit%execution_part%print%output_rule = print_policy_variable_output_rule
