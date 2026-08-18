@@ -52,6 +52,12 @@ program test_frontend_program_unit_v2_print
     character(len=*), parameter :: variable_source = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 17'//new_line('a')// &
         '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_23_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 23'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_24_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 24'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_missing_assignment = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  print *, x'//new_line('a')//'end program main'//new_line('a')
@@ -339,6 +345,7 @@ program test_frontend_program_unit_v2_print
         unit%execution_part%sequence%assignment_count /= 1 .or. &
         trim(unit%execution_part%sequence%assignment(1)%variable) /= 'x' .or. &
         unit%execution_part%sequence%assignment(1)%expression%left_operand /= '17' .or. &
+        unit%execution_part%print%output_value /= 17 .or. &
         trim(unit%execution_part%print%output_kind) /= print_policy_variable_output_kind .or. &
         trim(unit%execution_part%print%output_name) /= print_policy_variable_output_name .or. &
         trim(unit%execution_part%print%output_rule) /= print_policy_variable_output_rule) then
@@ -359,6 +366,20 @@ program test_frontend_program_unit_v2_print
     call assert_rejected(variable_missing_assignment)
     call assert_rejected(variable_wrong_name)
     call assert_rejected(variable_write)
+    call frontend_parse_program_unit_v2('print-variable-23.f90', variable_23_source, &
+        'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%sequence%assignment(1)%expression%left_operand /= '23' .or. &
+        unit%execution_part%print%output_value /= 23 .or. &
+        trim(unit%execution_part%print%output_kind) /= print_policy_variable_output_kind .or. &
+        trim(unit%execution_part%print%output_name) /= print_policy_variable_output_name) then
+        error stop 'PRINT *, x stored-value 23 witness was rejected'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(output-kind variable)') == 0 .or. &
+        index(trim(serialized), '(output-name x)') == 0) then
+        error stop 'PRINT *, x stored-value 23 serialization changed'
+    end if
+    call assert_rejected(variable_24_source)
     write (*, '(a)') 'frontend program-unit-v2 PRINT repeated-item checks: ok'
 
 contains

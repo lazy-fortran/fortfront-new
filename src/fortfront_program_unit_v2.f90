@@ -20,6 +20,7 @@ module fortfront_program_unit_v2
         print_policy_output_kind, print_policy_output_value, &
         print_policy_variable_output_kind, print_policy_variable_output_name, &
         print_policy_variable_output_rule, &
+        print_policy_variable_value, print_policy_variable_value_2, &
         print_policy_output_2_kind, print_policy_output_2_value, &
         print_policy_output_3_kind, print_policy_output_3_value, print_policy_output_3_rule, &
         print_policy_output_4_kind, print_policy_output_4_value, print_policy_output_4_rule, &
@@ -137,6 +138,12 @@ module fortfront_program_unit_v2
         '  x = 17'//new_line('a')// &
         '  print *, x'//new_line('a')// &
         'end program main'//new_line('a')
+    character(len=*), parameter :: print_variable_23_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = 23'//new_line('a')// &
+        '  print *, x'//new_line('a')// &
+        'end program main'//new_line('a')
 
 contains
 
@@ -149,6 +156,8 @@ contains
         type(typed_program_unit_t) :: declaration_unit
         character(len=1024) :: declaration_source
         character(len=128) :: execution_source_hash
+        integer(int64) :: stored_value
+        integer :: stored_value_status
 
         unit = program_unit_v2_t()
         ok = .false.
@@ -713,14 +722,28 @@ contains
             ok = .true.
             return
         end if
-        if (source == print_variable_source) then
-            declaration_source = 'program main'//new_line('a')// &
-                '  integer :: x'//new_line('a')// &
-                '  x = 17'//new_line('a')//'end program main'//new_line('a')
+        if (source == print_variable_source .or. source == print_variable_23_source) then
+            if (source == print_variable_source) then
+                declaration_source = 'program main'//new_line('a')// &
+                    '  integer :: x'//new_line('a')// &
+                    '  x = 17'//new_line('a')//'end program main'//new_line('a')
+            else
+                declaration_source = 'program main'//new_line('a')// &
+                    '  integer :: x'//new_line('a')// &
+                    '  x = 23'//new_line('a')//'end program main'//new_line('a')
+            end if
             call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
                 source_hash, declaration_unit, ok, message)
             if (.not. ok .or. declaration_unit%assignment_count /= 1_int64) then
                 message = 'print-variable-assignment-rejected'
+                return
+            end if
+            read (declaration_unit%assignment%expression%left_operand, *, iostat=stored_value_status) &
+                stored_value
+            if (stored_value_status /= 0 .or. &
+                (stored_value /= print_policy_variable_value .and. &
+                stored_value /= print_policy_variable_value_2)) then
+                message = 'print-variable-value-rejected'
                 return
             end if
             unit%root = declaration_unit%root
@@ -737,6 +760,7 @@ contains
             unit%execution_part%print%format_value = print_policy_format_value
             unit%execution_part%print%output_kind = print_policy_variable_output_kind
             unit%execution_part%print%output_name = print_policy_variable_output_name
+            unit%execution_part%print%output_value = stored_value
             unit%execution_part%print%output_count = 1_int64
             unit%execution_part%print%span = unit%root%span
             unit%execution_part%print%span%start_byte = 34_int64

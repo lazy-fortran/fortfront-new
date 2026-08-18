@@ -23,6 +23,8 @@ SCHEMA = re.compile(
     r"\(output-item (integer-literal) (15) (R\d+)\)\s+"
     r"\(output-item (integer-literal) (16) (R\d+)\)\s+"
     r"\(variable-output (variable) (x) (R\d+)\)\s+"
+    r"\(variable-value (integer-literal) (17) (R\d+)\)\s+"
+    r"\(variable-value (integer-literal) (23) (R\d+)\)\s+"
     r"\(source (J3-24-007) ([^\s()]+) ([^\s()]+) ([^\s()]+) "
     r"(242) (244) (248) ([^\s()]+)\)\)"
 )
@@ -74,7 +76,9 @@ def _replace_generated_routes(generated: str) -> str:
         "                    return",
         "                end if",
         "            else if (trim(item%kind) == trim(print_policy_variable_output_kind)) then",
-        "                if (index /= 1 .or. trim(item%name) /= trim(print_policy_variable_output_name)) then",
+        "                if (index /= 1 .or. trim(item%name) /= trim(print_policy_variable_output_name) .or. &",
+        "                    (item%value /= print_policy_variable_value .and. &",
+        "                    item%value /= print_policy_variable_value_2)) then",
         "                    message = 'invalid-print-policy-value'",
         "                    print_stmt_validate = .false.",
         "                    return",
@@ -286,7 +290,9 @@ def render(source: str) -> str:
         output_8_kind, output_8_value, output_8_rule,
         output_9_kind, output_9_value, output_9_rule,
         output_10_kind, output_10_value, output_10_rule,
-        variable_kind, variable_name, variable_rule, document,
+        variable_kind, variable_name, variable_rule, variable_value_kind,
+        variable_value, variable_value_rule, variable_value_2_kind,
+        variable_value_2, variable_value_2_rule, document,
         statement_clause, format_clause, output_clause, statement_page,
         format_page, output_page, source_hash,
     ) = match.groups()
@@ -309,6 +315,12 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_variable_output_kind = '{variable_kind}'
     character(len=*), parameter, public :: print_policy_variable_output_name = '{variable_name}'
     character(len=*), parameter, public :: print_policy_variable_output_rule = '{variable_rule}'
+    character(len=*), parameter, public :: print_policy_variable_value_kind = '{variable_value_kind}'
+    integer(int64), parameter, public :: print_policy_variable_value = {variable_value}_int64
+    character(len=*), parameter, public :: print_policy_variable_value_rule = '{variable_value_rule}'
+    character(len=*), parameter, public :: print_policy_variable_value_2_kind = '{variable_value_2_kind}'
+    integer(int64), parameter, public :: print_policy_variable_value_2 = {variable_value_2}_int64
+    character(len=*), parameter, public :: print_policy_variable_value_2_rule = '{variable_value_2_rule}'
     character(len=*), parameter, public :: print_policy_output_2_kind = '{output_2_kind}'
     integer(int64), parameter, public :: print_policy_output_2_value = {output_2_value}_int64
     character(len=*), parameter, public :: print_policy_output_2_rule = '{output_2_rule}'
