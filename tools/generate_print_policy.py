@@ -80,7 +80,7 @@ def _replace_generated_routes(generated: str) -> str:
         "                    return",
         "                end if",
         "            else if (trim(item%kind) == trim(print_policy_variable_output_kind)) then",
-        "                if ((index /= 1 .and. index /= 2) .or. &",
+        "                if ((index /= 1 .and. index /= 2 .and. index /= 3) .or. &",
         "                    trim(item%name) /= trim(print_policy_variable_output_name) .or. &",
         "                    (item%value /= print_policy_variable_value .and. &",
         "                    item%value /= print_policy_variable_value_2 .and. &",
@@ -228,6 +228,7 @@ def _replace_generated_routes(generated: str) -> str:
                 item%page = value%output_2_page
             else if (index == 3) then
                 item%kind = value%output_3_kind
+                item%name = value%output_3_name
                 item%value = value%output_3_value
                 item%rule = value%output_3_rule
                 item%clause = value%output_3_clause
@@ -284,7 +285,7 @@ def _replace_generated_routes(generated: str) -> str:
         item_helper + "end module frontend_print_policy_generated\n",
     )
     for index in range(2, 11):
-        if index == 2:
+        if index == 2 or index == 3:
             continue
         generated = generated.replace(
             f"                item%kind = value%output_{index}_kind\n",
@@ -404,6 +405,7 @@ module frontend_print_policy_generated
         character(len=32) :: output_2_name = ''
         integer(int64) :: output_2_value = 0_int64
         character(len=32) :: output_3_kind = ''
+        character(len=32) :: output_3_name = ''
         integer(int64) :: output_3_value = 0_int64
         character(len=32) :: output_4_kind = ''
         integer(int64) :: output_4_value = 0_int64

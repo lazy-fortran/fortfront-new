@@ -115,6 +115,26 @@ program test_frontend_program_unit_v2_print
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
         '  print *, x, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_power_value_three_item_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
+        '  print *, x, x, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_power_value_three_item_wrong_second = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
+        '  print *, x, y, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_power_value_three_item_wrong_third = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
+        '  print *, x, x, y'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_power_value_three_item_write = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
+        '  write *, x, x, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_power_value_three_item_malformed = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
+        '  print *, x, x,'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_power_value_two_item_malformed = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
@@ -652,6 +672,25 @@ program test_frontend_program_unit_v2_print
     call assert_rejected(variable_power_value_two_item_malformed)
     call assert_rejected(variable_power_value_two_item_wrong_second)
     call assert_rejected(variable_power_value_two_item_write)
+    call frontend_parse_program_unit_v2('print-variable-power-value-three-item.f90', &
+        variable_power_value_three_item_source, 'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_count /= 3 .or. &
+        trim(unit%execution_part%print%output_2_name) /= print_policy_variable_output_name .or. &
+        trim(unit%execution_part%print%output_3_name) /= print_policy_variable_output_name .or. &
+        unit%execution_part%print%output_3_value /= 9 .or. &
+        trim(unit%execution_part%print%output_3_rule) /= print_policy_variable_output_rule) then
+        error stop 'PRINT *, x, x, x stored-variable witness was rejected'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(output-count 3)') == 0 .or. &
+        index(trim(serialized), '(output-name-3 x)') == 0 .or. &
+        index(trim(serialized), '(output-rule-3 R901)') == 0) then
+        error stop 'PRINT *, x, x, x stored-variable serialization changed'
+    end if
+    call assert_rejected(variable_power_value_three_item_wrong_second)
+    call assert_rejected(variable_power_value_three_item_wrong_third)
+    call assert_rejected(variable_power_value_three_item_write)
+    call assert_rejected(variable_power_value_three_item_malformed)
     write (*, '(a)') 'frontend program-unit-v2 PRINT repeated-item checks: ok'
 
 contains
