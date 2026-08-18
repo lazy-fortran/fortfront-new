@@ -829,6 +829,9 @@ program test_frontend_program_unit_v2_print
     call assert_variable_repeat_count(61)
     call assert_variable_repeat_count(70)
     call assert_variable_repeat_count(80)
+    call assert_variable_repeat_count(81)
+    call assert_variable_repeat_count(90)
+    call assert_variable_repeat_count(100)
     write (*, '(a)') 'frontend program-unit-v2 PRINT repeated-item checks: ok'
 
 contains
@@ -910,7 +913,7 @@ contains
             repeat('x, ', expected_count)//new_line('a')// &
             'end program main'//new_line('a')
         call assert_rejected(trim(generated_source))
-        if (expected_count < 21 .or. expected_count > 80) then
+        if (expected_count < 21 .or. expected_count > 100) then
             error stop 'invalid focused PRINT count'
         end if
     end subroutine assert_variable_repeat_count

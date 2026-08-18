@@ -349,7 +349,7 @@ contains
         if (line_length < len(marker)) return
         if (mod(line_length - len(marker), len(item)) /= 0) return
         count = 1 + (line_length - len(marker)) / len(item)
-        if (count < 1 .or. count > 80) then
+        if (count < 1 .or. count > 100) then
             count = 0
             return
         end if

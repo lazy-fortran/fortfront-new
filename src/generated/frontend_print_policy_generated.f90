@@ -171,7 +171,7 @@ contains
         message = ''
         if (trim(value%format_kind) /= trim(print_policy_format_kind) .or. &
             trim(value%format_value) /= trim(print_policy_format_value) .or. &
-            value%output_count < 1_int64 .or. value%output_count > 80_int64 .or. &
+            value%output_count < 1_int64 .or. value%output_count > 100_int64 .or. &
             (value%output_sequence_length > 0_int64 .and. &
             value%output_count /= value%output_sequence_length) .or. &
             (value%output_sequence_start /= 7_int64 .and. &
@@ -189,7 +189,7 @@ contains
                     return
                 end if
             else if (trim(item%kind) == trim(print_policy_variable_output_kind)) then
-                if (index < 1 .or. index > 80 .or. &
+                if (index < 1 .or. index > 100 .or. &
                     trim(item%name) /= trim(print_policy_variable_output_name) .or. &
                     (item%value /= print_policy_variable_value .and. &
                     item%value /= print_policy_variable_value_2 .and. &

@@ -29,7 +29,7 @@ def main() -> int:
         "12.6.1", "12.6.2.2", "12.6.3",
         "242_int64", "244_int64", "248_int64",
         "print_policy_variable_value_6 = 9_int64",
-        "value%output_count > 80_int64",
+        "value%output_count > 100_int64",
     ):
         if required not in generated:
             raise AssertionError(f"generated print policy omitted {required!r}")
