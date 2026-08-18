@@ -91,8 +91,9 @@ def parse(text: str) -> list[dict[str, object]]:
                     not re.fullmatch(r"[0-9a-f]{64}", source_hash)):
                 raise SchemaError(f"source-rule in {name} is invalid")
             expected_rule = {"integer": "R705", "real": "R706",
-                             "double-precision": "R707", "logical": "R704"}.get(canonical[0])
-            expected_page = "80" if canonical[0] == "logical" else "67"
+                             "double-precision": "R707", "logical": "R704",
+                             "character": "R704"}.get(canonical[0])
+            expected_page = "80" if canonical[0] in {"logical", "character"} else "67"
             if expected_rule is not None and (rule != expected_rule or page != expected_page):
                 raise SchemaError(f"source-rule in {name} is invalid")
             source_values = (rule, document, clause, page, source_hash)

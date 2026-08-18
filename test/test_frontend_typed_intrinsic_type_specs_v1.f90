@@ -32,6 +32,14 @@ program test_frontend_typed_intrinsic_type_specs_v1
         trim(intrinsic_type_spec_table(spec_index)%source_clause) /= '5' .or. &
         intrinsic_type_spec_table(spec_index)%source_page /= 80) &
         error stop 'generated logical source rule changed'
+    if (.not. intrinsic_type_spec_lookup('  character :: x', spec_index, variable_start)) &
+        error stop 'generated character lookup failed'
+    if (trim(intrinsic_type_spec_table(spec_index)%canonical) /= 'character' .or. &
+        trim(intrinsic_type_spec_table(spec_index)%source_rule) /= 'R704' .or. &
+        trim(intrinsic_type_spec_table(spec_index)%source_document) /= 'J3-24-007' .or. &
+        trim(intrinsic_type_spec_table(spec_index)%source_clause) /= '5' .or. &
+        intrinsic_type_spec_table(spec_index)%source_page /= 80) &
+        error stop 'generated character source rule changed'
     if (.not. intrinsic_type_spec_lookup('  complex :: x', spec_index, variable_start)) &
         error stop 'generated complex lookup failed'
     if (len_trim(intrinsic_type_spec_table(spec_index)%source_rule) /= 0) &
@@ -47,6 +55,8 @@ program test_frontend_typed_intrinsic_type_specs_v1
         'end program p'//new_line('a'), 'complex', 'x')
     call check_type('program p'//new_line('a')//'  logical :: x'//new_line('a')// &
         'end program p'//new_line('a'), 'logical', 'x')
+    call check_type('program p'//new_line('a')//'  character :: x'//new_line('a')// &
+        'end program p'//new_line('a'), 'character', 'x')
 
     call frontend_parse_typed_program_unit('bad.f90', &
         'program p'//new_line('a')//'  real :: y'//new_line('a')// &
@@ -59,6 +69,21 @@ program test_frontend_typed_intrinsic_type_specs_v1
         'end program p'//new_line('a'), 'type-spec-test', unit, ok, message)
     if (ok .or. trim(message) /= 'unsupported-typed-program-unit') &
         error stop 'unsupported intrinsic type was accepted'
+    call frontend_parse_typed_program_unit('bad.f90', &
+        'program p'//new_line('a')//'  character(len=4) :: x'//new_line('a')// &
+        'end program p'//new_line('a'), 'type-spec-test', unit, ok, message)
+    if (ok .or. trim(message) /= 'unsupported-typed-program-unit') &
+        error stop 'character selector was accepted'
+    call frontend_parse_typed_program_unit('bad.f90', &
+        'program p'//new_line('a')//'  character(kind=4) :: x'//new_line('a')// &
+        'end program p'//new_line('a'), 'type-spec-test', unit, ok, message)
+    if (ok .or. trim(message) /= 'unsupported-typed-program-unit') &
+        error stop 'character kind selector was accepted'
+    call frontend_parse_typed_program_unit('bad.f90', &
+        'program p'//new_line('a')//'  character ::'//new_line('a')// &
+        'end program p'//new_line('a'), 'type-spec-test', unit, ok, message)
+    if (ok .or. trim(message) /= 'unsupported-typed-program-unit') &
+        error stop 'malformed character declaration was accepted'
     write (*, '(a)') 'frontend typed intrinsic type-spec checks: ok'
 
 contains

@@ -18,7 +18,7 @@ def main() -> int:
     entries = parse(SCHEMA.read_text(encoding="utf-8"))
     expected_rules = {
         "integer": "R705", "real": "R706", "double-precision": "R707",
-        "logical": "R704",
+        "logical": "R704", "character": "R704",
     }
     for entry in entries:
         name = str(entry["canonical"])
@@ -43,6 +43,15 @@ def main() -> int:
         pass
     else:
         raise AssertionError("mutated logical source rule was accepted")
+    character_mutated = SCHEMA.read_text(encoding="utf-8").replace(
+        "(source-prefix character)\n    (parser-type character)\n    (canonical character)\n    (variable-name x)\n    (source-rule R704 J3-24-007 5 80",
+        "(source-prefix character)\n    (parser-type character)\n    (canonical character)\n    (variable-name x)\n    (source-rule R705 J3-24-007 5 80")
+    try:
+        parse(character_mutated)
+    except SchemaError:
+        pass
+    else:
+        raise AssertionError("mutated character source rule was accepted")
     with tempfile.TemporaryDirectory(prefix="fortfront-type-specs-") as directory:
         output = Path(directory) / "generated"
         subprocess.run(["python3", str(GENERATOR), str(SCHEMA), str(output)],
@@ -51,7 +60,7 @@ def main() -> int:
         if fresh.read_bytes() != EXPECTED.read_bytes():
             raise AssertionError("checked-in type-spec artifact is stale")
         generated = fresh.read_text(encoding="utf-8")
-        for spelling in ("integer", "real", "double precision", "logical", "complex"):
+        for spelling in ("integer", "real", "double precision", "logical", "character", "complex"):
             if f"  {spelling} :: " not in generated:
                 raise AssertionError(f"generated table omitted {spelling!r}")
         if "intrinsic_type_spec_declaration" not in generated:
