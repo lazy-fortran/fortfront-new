@@ -107,6 +107,26 @@ program test_frontend_program_unit_v2_print
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 2'//new_line('a')//'  x = x ** 3'//new_line('a')// &
         '  write *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_power_value_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_power_value_malformed = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  print *, x'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: variable_power_value_wrong_operator = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  x = x * 2'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_power_value_wrong_name = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  y = x ** 2'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_power_value_write = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
+        '  write *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_expression_wrong_assignment = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 23'//new_line('a')//'  x = x * 1'//new_line('a')// &
@@ -572,6 +592,26 @@ program test_frontend_program_unit_v2_print
     call assert_rejected(variable_power_wrong_operator)
     call assert_rejected(variable_power_wrong_name)
     call assert_rejected(variable_power_write)
+    call frontend_parse_program_unit_v2('print-variable-power-value.f90', &
+        variable_power_value_source, 'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 2 .or. &
+        trim(unit%execution_part%sequence%assignment(1)%expression%left_operand) /= '3' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%operator) /= '**' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%right_operand) /= '2' .or. &
+        unit%execution_part%print%output_value /= 9) then
+        error stop 'PRINT *, x after second variable power expression witness was rejected'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(operator **)') == 0 .or. &
+        index(trim(serialized), '(right-operand 2)') == 0 .or. &
+        index(trim(serialized), '(output-name x)') == 0 .or. &
+        index(trim(serialized), '(source-hash '//trim(assignment_sequence_source_hash)//')') == 0) then
+        error stop 'PRINT *, x after second variable power expression serialization changed'
+    end if
+    call assert_rejected(variable_power_value_malformed)
+    call assert_rejected(variable_power_value_wrong_operator)
+    call assert_rejected(variable_power_value_wrong_name)
+    call assert_rejected(variable_power_value_write)
     write (*, '(a)') 'frontend program-unit-v2 PRINT repeated-item checks: ok'
 
 contains

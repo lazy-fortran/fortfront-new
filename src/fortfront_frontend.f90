@@ -3124,11 +3124,16 @@ contains
                 if (trim(assignment_policy_rows(row_index)%expression_kind) /= 'power') cycle
                 if (trim(assignment_policy_rows(row_index)%operator_rule) /= 'R1008') return
                 if (trim(assignment_policy_rows(row_index)%operator) /= '**') return
-                if (source(second_newline + 1:third_newline - 1) /= '  x = x ** 3') cycle
+                if (source(second_newline + 1:third_newline - 1) /= '  x = x ** 3' .and. &
+                    source(second_newline + 1:third_newline - 1) /= '  x = x ** 2') cycle
                 expression%kind = 'binary-expression'
                 expression%operator = trim(assignment_policy_rows(row_index)%operator)
                 expression%left_operand = trim(assignment_policy_variable_name)
-                expression%right_operand = '3'
+                if (source(second_newline + 1:third_newline - 1) == '  x = x ** 3') then
+                    expression%right_operand = '3'
+                else
+                    expression%right_operand = '2'
+                end if
                 program_name = 'main'
                 assignment_start = int(second_newline, int64)
                 assignment_end = int(third_newline - 2, int64)

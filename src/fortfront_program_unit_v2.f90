@@ -9,7 +9,7 @@ module fortfront_program_unit_v2
         frontend_typed_assignment_sequence_to_sx, assignment_sequence_source_hash, &
         assignment_sequence_two_23_source, assignment_sequence_two_23_multiply_source, &
         assignment_sequence_two_23_subtract_source, assignment_sequence_two_24_divide_source, &
-        assignment_sequence_two_2_power_source
+        assignment_sequence_two_2_power_source, assignment_sequence_two_3_power_source
     use fortfront_frontend, only: frontend_parse_typed_program_unit, &
         typed_program_unit_t
     use frontend_program_unit_v2_envelope_generated, only: &
@@ -24,7 +24,7 @@ module fortfront_program_unit_v2
         print_policy_variable_output_kind, print_policy_variable_output_name, &
         print_policy_variable_output_rule, &
         print_policy_variable_value, print_policy_variable_value_2, &
-        print_policy_variable_value_5, &
+        print_policy_variable_value_5, print_policy_variable_value_6, &
         print_policy_output_2_kind, print_policy_output_2_value, &
         print_policy_output_3_kind, print_policy_output_3_value, print_policy_output_3_rule, &
         print_policy_output_4_kind, print_policy_output_4_value, print_policy_output_4_rule, &
@@ -181,6 +181,13 @@ module fortfront_program_unit_v2
         '  integer :: x'//new_line('a')// &
         '  x = 2'//new_line('a')// &
         '  x = x ** 3'//new_line('a')// &
+        '  print *, x'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: print_variable_power_value_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')// &
+        '  x = x ** 2'//new_line('a')// &
         '  print *, x'//new_line('a')// &
         'end program main'//new_line('a')
 
@@ -765,7 +772,8 @@ contains
             source == print_variable_multiply_expression_source .or. &
             source == print_variable_subtract_expression_source .or. &
             source == print_variable_divide_expression_source .or. &
-            source == print_variable_power_expression_source) then
+            source == print_variable_power_expression_source .or. &
+            source == print_variable_power_value_source) then
             declaration_source = 'program main'//new_line('a')// &
                 '  integer :: x'//new_line('a')//'end program main'//new_line('a')
             call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
@@ -786,6 +794,10 @@ contains
             else if (source == print_variable_power_expression_source) then
                 call frontend_parse_typed_assignment_sequence(file_name, &
                     assignment_sequence_two_2_power_source, assignment_sequence_source_hash, &
+                    unit%execution_part%sequence, ok, message)
+            else if (source == print_variable_power_value_source) then
+                call frontend_parse_typed_assignment_sequence(file_name, &
+                    assignment_sequence_two_3_power_source, assignment_sequence_source_hash, &
                     unit%execution_part%sequence, ok, message)
             else
                 call frontend_parse_typed_assignment_sequence(file_name, assignment_sequence_two_23_source, &
@@ -812,6 +824,8 @@ contains
                 unit%execution_part%print%output_value = 12_int64
             else if (source == print_variable_power_expression_source) then
                 unit%execution_part%print%output_value = print_policy_variable_value_5
+            else if (source == print_variable_power_value_source) then
+                unit%execution_part%print%output_value = print_policy_variable_value_6
             else
                 unit%execution_part%print%output_value = print_policy_variable_value_2
             end if
