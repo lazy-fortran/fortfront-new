@@ -190,7 +190,11 @@ contains
         integer :: variable_start
         integer :: variable_end
         character(len=*), parameter :: variable_prefix = '  integer :: '
+        character(len=*), parameter :: real_prefix = '  real :: '
+        character(len=*), parameter :: double_prefix = '  double precision :: '
+        character(len=32) :: expected_variable_type
         logical :: is_real
+        logical :: is_double
 
         unit = typed_program_unit_t()
         ok = .false.
@@ -207,22 +211,43 @@ contains
         end if
         second_newline = first_newline + second_newline_relative
         is_real = .false.
-        if (second_newline - first_newline - 1 <= len('  real :: ')) then
+        is_double = .false.
+        if (second_newline - first_newline - 1 < len(real_prefix)) then
             message = 'unsupported-typed-program-unit'
             return
         end if
-        if (source(first_newline + 1:first_newline + len('  real :: ')) == &
-            '  real :: ') then
-            is_real = .true.
-        else if (source(first_newline + 1:first_newline + len('  integer :: ')) /= &
-                '  integer :: ') then
-            message = 'unsupported-typed-program-unit'
-            return
+        if (second_newline - first_newline - 1 >= len(double_prefix)) then
+            if (source(first_newline + 1:first_newline + len(double_prefix)) == &
+                double_prefix) is_double = .true.
         end if
-        if (is_real) then
+        if (second_newline - first_newline - 1 >= len(real_prefix)) then
+            if (source(first_newline + 1:first_newline + len(real_prefix)) == &
+                real_prefix) is_real = .true.
+        end if
+        if (.not. is_real .and. .not. is_double) then
+            if (second_newline - first_newline - 1 < len(variable_prefix)) then
+                message = 'unsupported-typed-program-unit'
+                return
+            end if
+            if (source(first_newline + 1:first_newline + len(variable_prefix)) /= &
+                variable_prefix) then
+                message = 'unsupported-typed-program-unit'
+                return
+            end if
+        end if
+        if (is_double) then
+            variable_start = first_newline + len(double_prefix) + 1
+        else if (is_real) then
             variable_start = first_newline + len('  real :: ') + 1
         else
             variable_start = first_newline + len(variable_prefix) + 1
+        end if
+        if (is_real) then
+            expected_variable_type = 'real'
+        else if (is_double) then
+            expected_variable_type = 'double precision'
+        else
+            expected_variable_type = 'integer'
         end if
         variable_end = second_newline - 1
         if (variable_end - variable_start + 1 > len(variable_name)) then
@@ -234,7 +259,7 @@ contains
             message = 'unsupported-typed-program-unit'
             return
         end if
-        if (is_real) then
+        if (is_real .or. is_double) then
             if (trim(variable_name) /= 'x') then
                 message = 'unsupported-typed-program-unit'
                 return
@@ -242,11 +267,11 @@ contains
         end if
 
         call set_typed_program_witness(witness)
-        if (is_real) then
+        if (is_real .or. is_double) then
             if (.not. parse_program_witness(source, program_name, message, &
                 expected_kind=witness%lhs, &
                 expected_variable_name=variable_name, &
-                expected_variable_type='real')) return
+                expected_variable_type=expected_variable_type)) return
             result%status = frontend_accepted
             result%root_kind = lowercase(trim(witness%lhs))
             result%root%kind = result%root_kind
@@ -264,12 +289,12 @@ contains
             end if
             return
         end if
-        if (is_real) then
+        if (is_real .or. is_double) then
             if (.not. parse_program_witness(source, unit%root%name, message, &
                 unit_start=unit_start, unit_end=unit_end, &
                 declaration_start=declaration_start, declaration_end=declaration_end, &
                 expected_kind=root_kind_program, expected_variable_name=variable_name, &
-                expected_variable_type='real')) return
+                expected_variable_type=expected_variable_type)) return
         else
             if (.not. parse_program_witness(source, unit%root%name, message, &
                 unit_start=unit_start, unit_end=unit_end, &
@@ -294,6 +319,8 @@ contains
         unit%variable_count = 1_int64
         if (is_real) then
             unit%variable%type_spec = 'real'
+        else if (is_double) then
+            unit%variable%type_spec = 'double-precision'
         else
             unit%variable%type_spec = 'integer'
         end if
@@ -303,6 +330,9 @@ contains
         if (is_real) then
             unit%variable%span%end_byte = unit%variable%span%start_byte + &
                 len('  real :: ') + len_trim(variable_name)
+        else if (is_double) then
+            unit%variable%span%end_byte = unit%variable%span%start_byte + &
+                len(double_prefix) + len_trim(variable_name)
         else
             unit%variable%span%end_byte = unit%variable%span%start_byte + &
                 len(variable_prefix) + len_trim(variable_name)
@@ -2891,6 +2921,16 @@ contains
                     if (trim(lowercase(expected_variable_type)) == 'real') then
                         expected_declaration = &
                             '  real :: '//trim(expected_variable_name)
+                        if (source(second_line_start:second_line_end) /= &
+                            trim(expected_declaration)) then
+                            message = 'invalid-program'
+                            parse_program_witness = .false.
+                            return
+                        end if
+                    else if (trim(lowercase(expected_variable_type)) == &
+                            'double precision') then
+                        expected_declaration = &
+                            '  double precision :: '//trim(expected_variable_name)
                         if (source(second_line_start:second_line_end) /= &
                             trim(expected_declaration)) then
                             message = 'invalid-program'
