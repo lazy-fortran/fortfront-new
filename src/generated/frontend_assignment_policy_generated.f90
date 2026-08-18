@@ -5,6 +5,11 @@ module frontend_assignment_policy_generated
     character(len=*), parameter, public :: assignment_policy_lhs = 'assignment-stmt'
     character(len=*), parameter, public :: assignment_policy_source_rule = 'R1033'
     character(len=*), parameter, public :: assignment_policy_operator = '='
+    character(len=*), parameter, public :: assignment_policy_variable_expression_kind = 'variable'
+    character(len=*), parameter, public :: assignment_policy_variable_expression_rule = 'R902'
+    character(len=*), parameter, public :: assignment_policy_variable_designator_rule = 'R901'
+    character(len=*), parameter, public :: assignment_policy_variable_name_rule = 'R903'
+    character(len=*), parameter, public :: assignment_policy_variable_name = 'x'
     character(len=*), parameter, public :: assignment_policy_integer_literal_rule = &
         'R708'
     integer, parameter, public :: assignment_policy_integer_literal_min = 0
@@ -19,6 +24,8 @@ module frontend_assignment_policy_generated
         character(len=16) :: right_operand
         character(len=8) :: operator
     end type assignment_policy_row_t
+    character(len=*), parameter, public :: assignment_policy_variable_expression_row = &
+        'variable R902 R901 R903'
     type(assignment_policy_row_t), parameter, public :: assignment_policy_rows(5) = [ &
         assignment_policy_row_t('integer-literal', 'R708', '', 'R1033', '', '', '', ''), &
         assignment_policy_row_t('add', 'R1007', 'R1010', 'R1033', '1 + 2', '1', '2', '+'), &

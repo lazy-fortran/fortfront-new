@@ -12,6 +12,7 @@ def main() -> int:
         r"\(schema frontend-assignment-policy-v0\s+"
         r"\(policy assignment-stmt assignment-stmt (R\d+)\)\s+"
         r"\(token assignment (=)\)\s+"
+        r"\(variable-expression (variable) (R\d+) (R\d+) (R\d+)\)\s+"
         r"\(expression integer-literal (R\d+)\)\s+"
         r"\(binary-expression (add) (R\d+) (R\d+) (1) (2) (\+)\)\s+"
         r"\(binary-expression (subtract) (R\d+) (R\d+) (5) (3) (–)\)\s+"
@@ -24,19 +25,19 @@ def main() -> int:
     output = Path(sys.argv[2])
     output.mkdir(parents=True, exist_ok=True)
     rows = [
-        ("integer-literal", match.group(3), "", match.group(1), "", "", "", ""),
-        (match.group(4), match.group(5), match.group(6), match.group(1),
-            f"{match.group(7)} {match.group(9)} {match.group(8)}", match.group(7),
-            match.group(8), match.group(9)),
-        ("subtract", match.group(11), match.group(12), match.group(1),
-            f"{match.group(13)} {match.group(15)} {match.group(14)}", match.group(13),
-            match.group(14), match.group(15)),
-        ("multiply", match.group(17), match.group(18), match.group(1),
-            f"{match.group(19)} {match.group(21)} {match.group(20)}", match.group(19),
-            match.group(20), match.group(21)),
-        ("divide", match.group(23), match.group(24), match.group(1),
-            f"{match.group(25)} {match.group(27)} {match.group(26)}", match.group(25),
-            match.group(26), match.group(27)),
+        ("integer-literal", match.group(7), "", match.group(1), "", "", "", ""),
+        (match.group(8), match.group(9), match.group(10), match.group(1),
+            f"{match.group(11)} {match.group(13)} {match.group(12)}", match.group(11),
+            match.group(12), match.group(13)),
+        ("subtract", match.group(15), match.group(16), match.group(1),
+            f"{match.group(17)} {match.group(19)} {match.group(18)}", match.group(17),
+            match.group(18), match.group(19)),
+        ("multiply", match.group(21), match.group(22), match.group(1),
+            f"{match.group(23)} {match.group(25)} {match.group(24)}", match.group(23),
+            match.group(24), match.group(25)),
+        ("divide", match.group(27), match.group(28), match.group(1),
+            f"{match.group(29)} {match.group(31)} {match.group(30)}", match.group(29),
+            match.group(30), match.group(31)),
     ]
     row_text = "\n".join(
         "        assignment_policy_row_t('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')%s" % (
@@ -52,10 +53,15 @@ def main() -> int:
         "    character(len=*), parameter, public :: assignment_policy_lhs = 'assignment-stmt'\n"
         f"    character(len=*), parameter, public :: assignment_policy_source_rule = '{match.group(1)}'\n"
         "    character(len=*), parameter, public :: assignment_policy_operator = '='\n"
+        f"    character(len=*), parameter, public :: assignment_policy_variable_expression_kind = '{match.group(3)}'\n"
+        f"    character(len=*), parameter, public :: assignment_policy_variable_expression_rule = '{match.group(4)}'\n"
+        f"    character(len=*), parameter, public :: assignment_policy_variable_designator_rule = '{match.group(5)}'\n"
+        f"    character(len=*), parameter, public :: assignment_policy_variable_name_rule = '{match.group(6)}'\n"
+        "    character(len=*), parameter, public :: assignment_policy_variable_name = 'x'\n"
         "    character(len=*), parameter, public :: assignment_policy_integer_literal_rule = &\n"
-        f"        '{match.group(3)}'\n"
-        f"    integer, parameter, public :: assignment_policy_integer_literal_min = {match.group(28)}\n"
-        f"    integer, parameter, public :: assignment_policy_integer_literal_max = {match.group(29)}\n"
+        f"        '{match.group(7)}'\n"
+        f"    integer, parameter, public :: assignment_policy_integer_literal_min = {match.group(32)}\n"
+        f"    integer, parameter, public :: assignment_policy_integer_literal_max = {match.group(33)}\n"
         "    type, public :: assignment_policy_row_t\n"
         "        character(len=16) :: expression_kind\n"
         "        character(len=16) :: expression_rule\n"
@@ -66,6 +72,8 @@ def main() -> int:
         "        character(len=16) :: right_operand\n"
         "        character(len=8) :: operator\n"
         "    end type assignment_policy_row_t\n"
+        "    character(len=*), parameter, public :: assignment_policy_variable_expression_row = &\n"
+        f"        'variable {match.group(4)} {match.group(5)} {match.group(6)}'\n"
         "    type(assignment_policy_row_t), parameter, public :: assignment_policy_rows(5) = [ &\n"
         f"{row_text} &\n"
         "        ]\n"

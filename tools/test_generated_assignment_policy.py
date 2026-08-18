@@ -27,6 +27,8 @@ def main() -> int:
 
     generated = EXPECTED.read_text(encoding="utf-8")
     for required in (
+        "assignment_policy_variable_expression_row =",
+        "'variable R902 R901 R903'",
         "assignment_policy_integer_literal_min = 0",
         "assignment_policy_integer_literal_max = 2047",
     ):

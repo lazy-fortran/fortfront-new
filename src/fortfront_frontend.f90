@@ -28,6 +28,10 @@ module fortfront_frontend
         typed_variable_declaration_cardinality
     use frontend_assignment_policy_generated, only: assignment_policy_lhs, &
         assignment_policy_source_rule, assignment_policy_operator, &
+        assignment_policy_variable_expression_kind, &
+        assignment_policy_variable_expression_rule, &
+        assignment_policy_variable_designator_rule, &
+        assignment_policy_variable_name_rule, assignment_policy_variable_name, &
         assignment_policy_integer_literal_rule, &
         assignment_policy_integer_literal_min, assignment_policy_integer_literal_max, &
         assignment_policy_rows, assignment_policy_row_count, &
@@ -3088,6 +3092,7 @@ contains
         character(len=256) :: expected_assignment
         character(len=256) :: assignment_line
         character(len=16) :: integer_literal
+        character(len=256) :: variable_assignment
 
         program_name = ''
         expression = typed_assignment_expression_t()
@@ -3110,6 +3115,33 @@ contains
         if (trim(assignment_policy_source_rule) /= 'R1033') return
         if (trim(assignment_policy_operator) /= '=') return
         if (trim(assignment_policy_integer_literal_rule) /= 'R708') return
+        if (trim(variable_name) == trim(assignment_policy_variable_name)) then
+            if (trim(assignment_policy_variable_expression_kind) /= 'variable') return
+            if (trim(assignment_policy_variable_expression_rule) /= 'R902') return
+            if (trim(assignment_policy_variable_designator_rule) /= 'R901') return
+            if (trim(assignment_policy_variable_name_rule) /= 'R903') return
+            do row_index = 1, assignment_policy_row_count
+                if (trim(assignment_policy_rows(row_index)%expression_kind) /= 'add') cycle
+                if (trim(assignment_policy_rows(row_index)%expression_rule) /= 'R1007') return
+                if (trim(assignment_policy_rows(row_index)%operator_rule) /= 'R1010') return
+                variable_assignment = '  '//trim(assignment_policy_variable_name)//' = '// &
+                    trim(assignment_policy_variable_name)//' '// &
+                    trim(assignment_policy_rows(row_index)%operator)//' '// &
+                    trim(assignment_policy_rows(row_index)%left_operand)
+                if (source(second_newline + 1:third_newline - 1) /= &
+                    variable_assignment) exit
+                expression%kind = 'binary-expression'
+                expression%operator = trim(assignment_policy_rows(row_index)%operator)
+                expression%left_operand = trim(assignment_policy_variable_name)
+                expression%right_operand = trim(assignment_policy_rows(row_index)%left_operand)
+                program_name = 'main'
+                assignment_start = int(second_newline, int64)
+                assignment_end = int(third_newline - 2, int64)
+                message = ''
+                parse_integer_assignment_witness = .true.
+                return
+            end do
+        end if
         do row_index = 1, assignment_policy_row_count
             assignment_line = source(second_newline + 1:third_newline - 1)
             expected_assignment = '  '//trim(variable_name)//' = '// &

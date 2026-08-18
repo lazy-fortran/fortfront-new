@@ -32,6 +32,21 @@ program test_frontend_typed_assignment_v1
     character(len=*), parameter :: source_add = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 1 + 2'//new_line('a')// &
         'end program main'//new_line('a')
+    character(len=*), parameter :: source_variable_add = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = x + 1'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: source_variable_multiply = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = x * 1'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: source_variable_add_2 = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = x + 2'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: source_malformed_variable = 'program main'//new_line('a')// &
+        '  integer :: xx'//new_line('a')//'  xx = xx + 1'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: source_wrong_variable_rhs = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = y + 1'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: source_subtract = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 5 – 3'//new_line('a')// &
         'end program main'//new_line('a')
@@ -110,6 +125,20 @@ program test_frontend_typed_assignment_v1
         source_literal_2047, source_hash, unit, ok, message)
     if (.not. ok .or. trim(unit%assignment%expression%left_operand) /= '2047') &
         error stop 'maximum decimal integer literal was rejected'
+
+    call frontend_parse_typed_program_unit('assignment-variable-add.f90', &
+        source_variable_add, source_hash, unit, ok, message)
+    if (.not. ok) error stop 'variable add assignment witness was rejected'
+    if (trim(unit%assignment%expression%kind) /= 'binary-expression' .or. &
+        trim(unit%assignment%expression%operator) /= '+' .or. &
+        trim(unit%assignment%expression%left_operand) /= 'x' .or. &
+        trim(unit%assignment%expression%right_operand) /= '1') &
+        error stop 'variable add expression changed'
+    call frontend_typed_program_unit_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(operator +)') == 0 .or. &
+        index(trim(serialized), '(left-operand x)') == 0 .or. &
+        index(trim(serialized), '(right-operand 1)') == 0) &
+        error stop 'variable add AST missing'
 
     call frontend_parse_typed_program_unit('assignment-add.f90', source_add, source_hash, &
         unit, ok, message)
@@ -191,6 +220,10 @@ program test_frontend_typed_assignment_v1
     call check_rejected(source_literal_2048)
     call check_rejected(source_literal_minus_1)
     call check_rejected(source_real_literal)
+    call check_rejected(source_variable_multiply)
+    call check_rejected(source_variable_add_2)
+    call check_rejected(source_malformed_variable)
+    call check_rejected(source_wrong_variable_rhs)
     write (*, '(a)') 'frontend typed assignment v1 checks: ok'
 
 contains
