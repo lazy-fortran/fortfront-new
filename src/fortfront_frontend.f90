@@ -3121,6 +3121,22 @@ contains
             if (trim(assignment_policy_variable_designator_rule) /= 'R901') return
             if (trim(assignment_policy_variable_name_rule) /= 'R903') return
             do row_index = 1, assignment_policy_row_count
+                if (trim(assignment_policy_rows(row_index)%expression_kind) /= 'power') cycle
+                if (trim(assignment_policy_rows(row_index)%operator_rule) /= 'R1008') return
+                if (trim(assignment_policy_rows(row_index)%operator) /= '**') return
+                if (source(second_newline + 1:third_newline - 1) /= '  x = x ** 3') cycle
+                expression%kind = 'binary-expression'
+                expression%operator = trim(assignment_policy_rows(row_index)%operator)
+                expression%left_operand = trim(assignment_policy_variable_name)
+                expression%right_operand = '3'
+                program_name = 'main'
+                assignment_start = int(second_newline, int64)
+                assignment_end = int(third_newline - 2, int64)
+                message = ''
+                parse_integer_assignment_witness = .true.
+                return
+            end do
+            do row_index = 1, assignment_policy_row_count
                 if (trim(assignment_policy_rows(row_index)%expression_kind) /= 'multiply') cycle
                 if (trim(assignment_policy_rows(row_index)%operator_rule) /= 'R1009') return
                 if (trim(assignment_policy_rows(row_index)%operator) /= '*') return

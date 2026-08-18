@@ -74,7 +74,7 @@ program test_frontend_typed_assignment_v1
         '  integer :: x'//new_line('a')//'  x = 5 –'//new_line('a')// &
         'end program main'//new_line('a')
     character(len=*), parameter :: changed_multiply_operator = 'program main'// &
-        new_line('a')//'  integer :: x'//new_line('a')//'  x = 2 ** 3'//new_line('a')// &
+        new_line('a')//'  integer :: x'//new_line('a')//'  x = 2 ** 4'//new_line('a')// &
         'end program main'//new_line('a')
     character(len=*), parameter :: missing_divide_left = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = / 2'//new_line('a')// &

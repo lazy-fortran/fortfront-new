@@ -27,7 +27,8 @@ def main() -> int:
         r"\(sequence (eight-assignment) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt)\)\s+"
         r"\(sequence (nine-assignment) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt)\)\s+"
         r"\(sequence (ten-assignment) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt) (assignment-stmt)\)\s+"
-        r"\(literal-range integer-literal (-?\d+) (-?\d+)\)\)", source
+        r"\(literal-range integer-literal (-?\d+) (-?\d+)\)\s+"
+        r"\(binary-expression (power) (R\d+) (R\d+) (2) (3) (\*\*)\)\)", source
     )
     if match is None:
         raise SystemExit("invalid assignment policy schema")
@@ -47,6 +48,9 @@ def main() -> int:
         ("divide", match.group(27), match.group(28), match.group(1),
             f"{match.group(29)} {match.group(31)} {match.group(30)}", match.group(29),
             match.group(30), match.group(31)),
+        (match.group(97), match.group(98), match.group(99), match.group(1),
+            f"{match.group(100)} {match.group(102)} {match.group(101)}", match.group(100),
+            match.group(101), match.group(102)),
     ]
     row_text = "\n".join(
         "        assignment_policy_row_t('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')%s" % (
@@ -144,10 +148,10 @@ def main() -> int:
         "    end type assignment_policy_row_t\n"
         "    character(len=*), parameter, public :: assignment_policy_variable_expression_row = &\n"
         f"        'variable {match.group(4)} {match.group(5)} {match.group(6)}'\n"
-        "    type(assignment_policy_row_t), parameter, public :: assignment_policy_rows(5) = [ &\n"
+        "    type(assignment_policy_row_t), parameter, public :: assignment_policy_rows(6) = [ &\n"
         f"{row_text} &\n"
         "        ]\n"
-        "    integer, parameter, public :: assignment_policy_row_count = 5\n"
+        "    integer, parameter, public :: assignment_policy_row_count = 6\n"
         "    integer, parameter, public :: assignment_policy_source_page = 155\n"
         "end module frontend_assignment_policy_generated\n",
         encoding="utf-8",
