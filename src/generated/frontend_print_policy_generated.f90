@@ -28,6 +28,13 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_expression_2_rule = 'R1217'
     character(len=*), parameter, public :: print_policy_expression_2_source = &
         'x + x'
+    character(len=*), parameter, public :: print_policy_expression_3_kind = 'integer-expression'
+    character(len=*), parameter, public :: print_policy_expression_3_operator = '*'
+    character(len=*), parameter, public :: print_policy_expression_3_left = 'x'
+    character(len=*), parameter, public :: print_policy_expression_3_right = '2'
+    character(len=*), parameter, public :: print_policy_expression_3_rule = 'R1217'
+    character(len=*), parameter, public :: print_policy_expression_3_source = &
+        'x * 2'
     character(len=*), parameter, public :: print_policy_variable_output_kind = 'variable'
     character(len=*), parameter, public :: print_policy_variable_output_name = 'x'
     character(len=*), parameter, public :: print_policy_variable_output_rule = 'R901'
@@ -211,7 +218,10 @@ contains
                     trim(item%right) /= print_policy_expression_right) .and. &
                     (trim(item%operator) /= print_policy_expression_2_operator .or. &
                     trim(item%left) /= print_policy_expression_2_left .or. &
-                    trim(item%right) /= print_policy_expression_2_right))) .or. &
+                    trim(item%right) /= print_policy_expression_2_right) .and. &
+                    (trim(item%operator) /= print_policy_expression_3_operator .or. &
+                    trim(item%left) /= print_policy_expression_3_left .or. &
+                    trim(item%right) /= print_policy_expression_3_right))) .or. &
                     (trim(item%kind) == 'variable' .and. &
                     trim(item%name) /= 'x') .or. (trim(item%kind) == 'integer-literal' &
                     .and. item%value < 0_int64) .or. (trim(item%rule) /= 'R901' .and. &

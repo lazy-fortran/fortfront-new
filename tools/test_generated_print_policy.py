@@ -35,6 +35,10 @@ def main() -> int:
         "print_policy_expression_right = '1'",
         "print_policy_expression_2_right = 'x'",
         "print_policy_expression_2_source = &",
+        "print_policy_expression_3_operator = '*'",
+        "print_policy_expression_3_left = 'x'",
+        "print_policy_expression_3_right = '2'",
+        "print_policy_expression_3_source = &",
         "l3-raw-program-generic-print-expression-v0",
         "value%output_count > 100_int64",
     ):
