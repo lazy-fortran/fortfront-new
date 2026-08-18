@@ -1427,13 +1427,17 @@ contains
         unit%root = declaration_unit%root
         unit%root%span%file = file_name
         unit%root%span%end_byte = int(len(source), int64) - 1_int64
-        unit%root%span%source_hash = source_hash
+        unit%root%span%source_hash = print_policy_generic_source_identity
         unit%declaration_count = declaration_unit%declaration_count
         unit%declaration = declaration_unit%declaration
+        unit%declaration%span%source_hash = print_policy_generic_source_identity
         unit%variable_count = declaration_unit%variable_count
         unit%variable = declaration_unit%variable
+        unit%variable%span%source_hash = print_policy_generic_source_identity
         unit%execution_part%sequence%assignment_count = declaration_unit%assignment_count
         unit%execution_part%sequence%assignment(1) = declaration_unit%assignment
+        unit%execution_part%sequence%assignment(1)%span%source_hash = &
+            print_policy_generic_source_identity
         unit%execution_part%print_count = 1_int64
         unit%execution_part%print%format_kind = print_policy_format_kind
         unit%execution_part%print%format_value = print_policy_format_value
