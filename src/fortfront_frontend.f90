@@ -264,10 +264,18 @@ contains
             end if
             return
         end if
-        if (.not. parse_program_witness(source, unit%root%name, message, &
-            unit_start=unit_start, unit_end=unit_end, &
-            declaration_start=declaration_start, declaration_end=declaration_end, &
-            expected_kind=root_kind_program, expected_variable_name=variable_name)) return
+        if (is_real) then
+            if (.not. parse_program_witness(source, unit%root%name, message, &
+                unit_start=unit_start, unit_end=unit_end, &
+                declaration_start=declaration_start, declaration_end=declaration_end, &
+                expected_kind=root_kind_program, expected_variable_name=variable_name, &
+                expected_variable_type='real')) return
+        else
+            if (.not. parse_program_witness(source, unit%root%name, message, &
+                unit_start=unit_start, unit_end=unit_end, &
+                declaration_start=declaration_start, declaration_end=declaration_end, &
+                expected_kind=root_kind_program, expected_variable_name=variable_name)) return
+        end if
 
         program_name = unit%root%name
 
