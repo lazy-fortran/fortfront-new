@@ -823,6 +823,9 @@ program test_frontend_program_unit_v2_print
     call assert_variable_repeat_count(21)
     call assert_variable_repeat_count(30)
     call assert_variable_repeat_count(40)
+    call assert_variable_repeat_count(41)
+    call assert_variable_repeat_count(50)
+    call assert_variable_repeat_count(60)
     write (*, '(a)') 'frontend program-unit-v2 PRINT repeated-item checks: ok'
 
 contains
@@ -875,7 +878,7 @@ contains
 
     subroutine assert_variable_repeat_count(expected_count)
         integer, intent(in) :: expected_count
-        character(len=4096) :: generated_source
+        character(len=65536) :: generated_source
 
         generated_source = 'program main'//new_line('a')// &
             '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
@@ -897,7 +900,7 @@ contains
             repeat('x, ', expected_count - 1)//'x'//new_line('a')// &
             'end program main'//new_line('a')
         call assert_rejected(trim(generated_source))
-        if (expected_count < 21 .or. expected_count > 40) then
+        if (expected_count < 21 .or. expected_count > 60) then
             error stop 'invalid focused PRINT count'
         end if
     end subroutine assert_variable_repeat_count
