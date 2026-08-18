@@ -18,6 +18,7 @@ def main() -> int:
     generated = EXPECTED.read_text(encoding="utf-8")
     for required in (
         "R1212", "R1215", "R1217", "print_policy_output_2_value = 8_int64",
+        "print_policy_output_3_value = 9_int64",
         "12.6.1", "12.6.2.2", "12.6.3",
         "242_int64", "244_int64", "248_int64",
     ):

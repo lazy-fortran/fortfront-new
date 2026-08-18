@@ -3,6 +3,7 @@ program test_frontend_program_unit_v2_print
         frontend_program_unit_v2_to_sx, program_unit_v2_t, print_stmt_validate
     use frontend_print_policy_generated, only: print_policy_output_value, &
         print_policy_output_2_value, print_policy_output_2_rule, &
+        print_policy_output_3_value, print_policy_output_3_rule, &
         print_policy_statement_rule, print_policy_format_rule, print_policy_output_rule, &
         print_policy_statement_clause, print_policy_format_clause, print_policy_output_clause, &
         print_policy_statement_page, print_policy_format_page, print_policy_output_page, &
@@ -15,12 +16,20 @@ program test_frontend_program_unit_v2_print
         '  print *, 8'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: two_item_source = 'program p'//new_line('a')// &
         '  print *, 7, 8'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: three_item_source = 'program p'//new_line('a')// &
+        '  print *, 7, 8, 9'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: missing_second = 'program p'//new_line('a')// &
         '  print *, 7,'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: wrong_second = 'program p'//new_line('a')// &
         '  print *, 7, 9'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: write_two_items = 'program p'//new_line('a')// &
         '  write *, 7, 8'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: trailing_three_items = 'program p'//new_line('a')// &
+        '  print *, 7, 8,'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: wrong_third = 'program p'//new_line('a')// &
+        '  print *, 7, 8, 10'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: write_three_items = 'program p'//new_line('a')// &
+        '  write *, 7, 8, 9'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: write_seven = 'program p'//new_line('a')// &
         '  write *, 7'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: missing_item = 'program p'//new_line('a')// &
@@ -71,13 +80,31 @@ program test_frontend_program_unit_v2_print
         error stop 'PRINT two-item serialization changed'
     end if
 
+    call frontend_parse_program_unit_v2('print-three.f90', three_item_source, 'print-input', &
+        unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_count /= 3 .or. &
+        unit%execution_part%print%output_3_value /= print_policy_output_3_value .or. &
+        trim(unit%execution_part%print%output_3_rule) /= print_policy_output_3_rule) then
+        error stop 'bounded PRINT *, 7, 8, 9 witness was rejected'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(output-count 3)') == 0 .or. &
+        index(trim(serialized), '(output-value-3 9)') == 0 .or. &
+        index(trim(serialized), '(output-rule-2 R1217)') == 0 .or. &
+        index(trim(serialized), '(output-rule-3 R1217)') == 0) then
+        error stop 'PRINT three-item serialization changed'
+    end if
+
     call assert_rejected(print_eight)
     call assert_rejected(write_seven)
     call assert_rejected(missing_item)
     call assert_rejected(missing_second)
     call assert_rejected(wrong_second)
     call assert_rejected(write_two_items)
-    write (*, '(a)') 'frontend program-unit-v2 PRINT *, 7[, 8] checks: ok'
+    call assert_rejected(trailing_three_items)
+    call assert_rejected(wrong_third)
+    call assert_rejected(write_three_items)
+    write (*, '(a)') 'frontend program-unit-v2 PRINT *, 7[, 8[, 9]] checks: ok'
 
 contains
 

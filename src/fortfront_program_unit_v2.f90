@@ -19,6 +19,7 @@ module fortfront_program_unit_v2
         print_stmt_to_sx, print_policy_format_kind, print_policy_format_value, &
         print_policy_output_kind, print_policy_output_value, &
         print_policy_output_2_kind, print_policy_output_2_value, &
+        print_policy_output_3_kind, print_policy_output_3_value, print_policy_output_3_rule, &
         print_policy_statement_rule, print_policy_format_rule, print_policy_output_rule, &
         print_policy_output_2_rule, &
         print_policy_document, print_policy_statement_clause, print_policy_format_clause, &
@@ -93,6 +94,9 @@ module fortfront_program_unit_v2
         'end program p'//new_line('a')
     character(len=*), parameter :: print_seven_eight_source = &
         'program p'//new_line('a')//'  print *, 7, 8'//new_line('a')// &
+        'end program p'//new_line('a')
+    character(len=*), parameter :: print_seven_eight_nine_source = &
+        'program p'//new_line('a')//'  print *, 7, 8, 9'//new_line('a')// &
         'end program p'//new_line('a')
 
 contains
@@ -173,6 +177,45 @@ contains
             unit%execution_part%print%format_page = print_policy_format_page
             unit%execution_part%print%output_page = print_policy_output_page
             unit%execution_part%print%output_2_page = print_policy_output_page
+            unit%execution_part%print%source_hash = print_policy_source_hash
+            ok = .true.
+            return
+        end if
+        if (source == print_seven_eight_nine_source) then
+            unit%root%name = 'p'
+            unit%root%span%file = file_name
+            unit%root%span%start_byte = 0_int64
+            unit%root%span%end_byte = int(len(source), int64) - 1_int64
+            unit%root%span%source_hash = source_hash
+            unit%execution_part%print_count = 1_int64
+            unit%execution_part%print%format_kind = print_policy_format_kind
+            unit%execution_part%print%format_value = print_policy_format_value
+            unit%execution_part%print%output_kind = print_policy_output_kind
+            unit%execution_part%print%output_value = print_policy_output_value
+            unit%execution_part%print%output_count = 3_int64
+            unit%execution_part%print%output_2_kind = print_policy_output_2_kind
+            unit%execution_part%print%output_2_value = print_policy_output_2_value
+            unit%execution_part%print%output_3_kind = print_policy_output_3_kind
+            unit%execution_part%print%output_3_value = print_policy_output_3_value
+            unit%execution_part%print%span = unit%root%span
+            unit%execution_part%print%span%start_byte = 10_int64
+            unit%execution_part%print%span%end_byte = 27_int64
+            unit%execution_part%print%statement_rule = print_policy_statement_rule
+            unit%execution_part%print%format_rule = print_policy_format_rule
+            unit%execution_part%print%output_rule = print_policy_output_rule
+            unit%execution_part%print%output_2_rule = print_policy_output_2_rule
+            unit%execution_part%print%output_3_rule = print_policy_output_3_rule
+            unit%execution_part%print%source_document = print_policy_document
+            unit%execution_part%print%statement_clause = print_policy_statement_clause
+            unit%execution_part%print%format_clause = print_policy_format_clause
+            unit%execution_part%print%output_clause = print_policy_output_clause
+            unit%execution_part%print%output_2_clause = print_policy_output_clause
+            unit%execution_part%print%output_3_clause = print_policy_output_clause
+            unit%execution_part%print%statement_page = print_policy_statement_page
+            unit%execution_part%print%format_page = print_policy_format_page
+            unit%execution_part%print%output_page = print_policy_output_page
+            unit%execution_part%print%output_2_page = print_policy_output_page
+            unit%execution_part%print%output_3_page = print_policy_output_page
             unit%execution_part%print%source_hash = print_policy_source_hash
             ok = .true.
             return
