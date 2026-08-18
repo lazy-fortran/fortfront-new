@@ -1,2 +1,4 @@
 (schema frontend-typed-declaration-policy-v0
-  (policy declaration-line exact))
+  (policy declaration-line exact)
+  (cardinality program-declaration exact 1)
+  (cardinality typed-variable-declaration exact 1))

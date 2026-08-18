@@ -207,3 +207,8 @@ main = "test_frontend_generated_program_envelope_v1.f90"
 name = "test_frontend_generated_typed_declaration_policy_v1"
 source-dir = "test"
 main = "test_frontend_generated_typed_declaration_policy_v1.f90"
+
+[[test]]
+name = "test_frontend_typed_cardinality_policy_v1"
+source-dir = "test"
+main = "test_frontend_typed_cardinality_policy_v1.f90"

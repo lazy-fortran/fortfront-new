@@ -21,7 +21,9 @@ module fortfront_frontend
         program_envelope_policy_lookup, program_envelope_policy_matches, &
         program_envelope_program_witness
     use frontend_typed_declaration_policy_generated, only: &
-        typed_declaration_policy_matches
+        typed_declaration_policy_matches, &
+        typed_program_declaration_cardinality, &
+        typed_variable_declaration_cardinality
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
     private
@@ -301,13 +303,13 @@ contains
         span%source_hash = source_hash
         unit%root%name = trim(program_name)
         unit%root%span = span
-        unit%declaration_count = 1_int64
+        unit%declaration_count = typed_program_declaration_cardinality
         unit%declaration%declaration_kind = declaration_kind_program
         unit%declaration%name = trim(program_name)
         unit%declaration%span = span
         unit%declaration%span%start_byte = declaration_start
         unit%declaration%span%end_byte = declaration_end
-        unit%variable_count = 1_int64
+        unit%variable_count = typed_variable_declaration_cardinality
         unit%variable%type_spec = trim(intrinsic_type_spec_table(type_spec_index)%canonical)
         unit%variable%name = trim(variable_name)
         unit%variable%span = span
