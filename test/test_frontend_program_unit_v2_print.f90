@@ -2,6 +2,7 @@ program test_frontend_program_unit_v2_print
     use fortfront_program_unit_v2, only: frontend_parse_program_unit_v2, &
         frontend_program_unit_v2_to_sx, program_unit_v2_t, print_stmt_validate
     use frontend_print_policy_generated, only: print_policy_output_value, &
+        print_policy_output_2_value, print_policy_output_2_rule, &
         print_policy_statement_rule, print_policy_format_rule, print_policy_output_rule, &
         print_policy_statement_clause, print_policy_format_clause, print_policy_output_clause, &
         print_policy_statement_page, print_policy_format_page, print_policy_output_page, &
@@ -12,6 +13,14 @@ program test_frontend_program_unit_v2_print
         '  print *, 7'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: print_eight = 'program p'//new_line('a')// &
         '  print *, 8'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: two_item_source = 'program p'//new_line('a')// &
+        '  print *, 7, 8'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: missing_second = 'program p'//new_line('a')// &
+        '  print *, 7,'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: wrong_second = 'program p'//new_line('a')// &
+        '  print *, 7, 9'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: write_two_items = 'program p'//new_line('a')// &
+        '  write *, 7, 8'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: write_seven = 'program p'//new_line('a')// &
         '  write *, 7'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: missing_item = 'program p'//new_line('a')// &
@@ -48,10 +57,27 @@ program test_frontend_program_unit_v2_print
         error stop 'mutated PRINT value passed validation'
     end if
 
+    call frontend_parse_program_unit_v2('print-two.f90', two_item_source, 'print-input', &
+        unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_count /= 2 .or. &
+        unit%execution_part%print%output_2_value /= print_policy_output_2_value .or. &
+        trim(unit%execution_part%print%output_2_rule) /= print_policy_output_2_rule) then
+        error stop 'bounded PRINT *, 7, 8 witness was rejected'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(output-count 2)') == 0 .or. &
+        index(trim(serialized), '(output-value-2 8)') == 0 .or. &
+        index(trim(serialized), '(output-rule-2 R1217)') == 0) then
+        error stop 'PRINT two-item serialization changed'
+    end if
+
     call assert_rejected(print_eight)
     call assert_rejected(write_seven)
     call assert_rejected(missing_item)
-    write (*, '(a)') 'frontend program-unit-v2 PRINT *, 7 checks: ok'
+    call assert_rejected(missing_second)
+    call assert_rejected(wrong_second)
+    call assert_rejected(write_two_items)
+    write (*, '(a)') 'frontend program-unit-v2 PRINT *, 7[, 8] checks: ok'
 
 contains
 

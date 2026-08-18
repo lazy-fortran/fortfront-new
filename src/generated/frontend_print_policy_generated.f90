@@ -14,6 +14,9 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_output_kind = 'integer-literal'
     integer(int64), parameter, public :: print_policy_output_value = 7_int64
     character(len=*), parameter, public :: print_policy_output_rule = 'R1217'
+    character(len=*), parameter, public :: print_policy_output_2_kind = 'integer-literal'
+    integer(int64), parameter, public :: print_policy_output_2_value = 8_int64
+    character(len=*), parameter, public :: print_policy_output_2_rule = 'R1217'
     character(len=*), parameter, public :: print_policy_document = 'J3-24-007'
     character(len=*), parameter, public :: print_policy_statement_clause = '12.6.1'
     character(len=*), parameter, public :: print_policy_format_clause = '12.6.2.2'
@@ -29,17 +32,23 @@ module frontend_print_policy_generated
         character(len=32) :: format_value = ''
         character(len=32) :: output_kind = ''
         integer(int64) :: output_value = 0_int64
+        integer(int64) :: output_count = 0_int64
+        character(len=32) :: output_2_kind = ''
+        integer(int64) :: output_2_value = 0_int64
         type(source_span_t) :: span
         character(len=32) :: statement_rule = ''
         character(len=32) :: format_rule = ''
         character(len=32) :: output_rule = ''
+        character(len=32) :: output_2_rule = ''
         character(len=128) :: source_document = ''
         character(len=32) :: statement_clause = ''
         character(len=32) :: format_clause = ''
         character(len=32) :: output_clause = ''
+        character(len=32) :: output_2_clause = ''
         integer(int64) :: statement_page = 0_int64
         integer(int64) :: format_page = 0_int64
         integer(int64) :: output_page = 0_int64
+        integer(int64) :: output_2_page = 0_int64
         character(len=128) :: source_hash = ''
     end type print_stmt_t
 
@@ -60,6 +69,26 @@ contains
             message = 'invalid-print-policy-value'
             print_stmt_validate = .false.
             return
+        end if
+        if (value%output_count /= 1_int64 .and. value%output_count /= 2_int64) then
+            message = 'invalid-print-policy-output-count'
+            print_stmt_validate = .false.
+            return
+        end if
+        if (value%output_count == 2_int64) then
+            if (trim(value%output_2_kind) /= trim(print_policy_output_2_kind) .or. &
+                value%output_2_value /= print_policy_output_2_value) then
+                message = 'invalid-print-policy-value'
+                print_stmt_validate = .false.
+                return
+            end if
+            if (trim(value%output_2_rule) /= trim(print_policy_output_2_rule) .or. &
+                trim(value%output_2_clause) /= trim(print_policy_output_clause) .or. &
+                value%output_2_page /= print_policy_output_page) then
+                message = 'invalid-print-policy-rule'
+                print_stmt_validate = .false.
+                return
+            end if
         end if
         if (trim(value%statement_rule) /= trim(print_policy_statement_rule) .or. &
             trim(value%format_rule) /= trim(print_policy_format_rule) .or. &
@@ -89,7 +118,9 @@ contains
         logical, intent(out) :: ok
         character(len=*), intent(out) :: message
         character(len=2048) :: span_sx
-        character(len=32) :: output_value_s, statement_page_s, format_page_s, output_page_s
+        character(len=32) :: output_value_s, output_2_value_s, output_count_s
+        character(len=32) :: statement_page_s
+        character(len=32) :: format_page_s, output_page_s
 
         output = ''
         ok = .false.
@@ -98,12 +129,17 @@ contains
         call source_span_to_sx(value%span, span_sx, ok, message)
         if (.not. ok) return
         write (output_value_s, '(i0)') value%output_value
+        write (output_2_value_s, '(i0)') value%output_2_value
+        write (output_count_s, '(i0)') value%output_count
         write (statement_page_s, '(i0)') value%statement_page
         write (format_page_s, '(i0)') value%format_page
         write (output_page_s, '(i0)') value%output_page
         output = '(print-stmt (format-kind '//trim(value%format_kind)// &
             ') (format-value '//trim(value%format_value)//') (output-kind '// &
             trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
+            ') (output-count '//trim(output_count_s)// &
+            ') (output-kind-2 '//trim(value%output_2_kind)//') (output-value-2 '// &
+            trim(output_2_value_s)//') (output-rule-2 '//trim(value%output_2_rule)// &
             ') (span '//trim(span_sx)//') (statement-rule '// &
             trim(value%statement_rule)//') (format-rule '//trim(value%format_rule)// &
             ') (output-rule '//trim(value%output_rule)//') (source-document '// &

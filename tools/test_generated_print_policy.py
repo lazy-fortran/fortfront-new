@@ -17,7 +17,8 @@ def main() -> int:
             raise AssertionError("checked-in print policy is stale")
     generated = EXPECTED.read_text(encoding="utf-8")
     for required in (
-        "R1212", "R1215", "R1217", "12.6.1", "12.6.2.2", "12.6.3",
+        "R1212", "R1215", "R1217", "print_policy_output_2_value = 8_int64",
+        "12.6.1", "12.6.2.2", "12.6.3",
         "242_int64", "244_int64", "248_int64",
     ):
         if required not in generated:
