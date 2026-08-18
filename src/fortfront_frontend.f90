@@ -28,20 +28,7 @@ module fortfront_frontend
         typed_variable_declaration_cardinality
     use frontend_assignment_policy_generated, only: assignment_policy_lhs, &
         assignment_policy_source_rule, assignment_policy_operator, &
-        assignment_policy_integer_literal, assignment_policy_expression_kind, &
-        assignment_policy_expression_rule, assignment_policy_add_operator_rule, &
-        assignment_policy_left_operand, assignment_policy_right_operand, &
-        assignment_policy_add_operator, assignment_policy_multiply_expression_rule, &
-        assignment_policy_subtract_expression_rule, &
-        assignment_policy_subtract_operator_rule, &
-        assignment_policy_subtract_left_operand, &
-        assignment_policy_subtract_right_operand, &
-        assignment_policy_subtract_operator, &
-        assignment_policy_multiply_operator_rule, assignment_policy_multiply_left_operand, &
-        assignment_policy_multiply_right_operand, assignment_policy_multiply_operator, &
-        assignment_policy_divide_expression_rule, assignment_policy_divide_operator_rule, &
-        assignment_policy_divide_left_operand, assignment_policy_divide_right_operand, &
-        assignment_policy_divide_operator, &
+        assignment_policy_rows, assignment_policy_row_count, &
         assignment_policy_source_page
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
@@ -3094,6 +3081,8 @@ contains
         integer :: second_newline
         integer :: third_newline
         integer :: fourth_newline
+        integer :: row_index
+        logical :: row_matches
         character(len=256) :: expected_assignment
 
         program_name = ''
@@ -3113,63 +3102,38 @@ contains
         if (trim(source(:first_newline - 1)) /= 'program main') return
         if (trim(source(third_newline + 1:fourth_newline - 1)) /= &
             'end program main') return
-        expected_assignment = '  '//trim(variable_name)//' = 1'
         if (trim(assignment_policy_lhs) /= 'assignment-stmt') return
         if (trim(assignment_policy_source_rule) /= 'R1033') return
         if (trim(assignment_policy_operator) /= '=') return
-        if (trim(assignment_policy_integer_literal) /= '1') return
-        if (source(second_newline + 1:third_newline - 1) == trim(expected_assignment)) then
-            expression%kind = 'integer-literal'
-            expression%left_operand = trim(assignment_policy_integer_literal)
-        else if (source(second_newline + 1:third_newline - 1) == &
-                '  '//trim(variable_name)//' = 1 + 2') then
-            if (trim(assignment_policy_expression_kind) /= 'add') return
-            if (trim(assignment_policy_expression_rule) /= 'R1007') return
-            if (trim(assignment_policy_add_operator_rule) /= 'R1010') return
+        do row_index = 1, assignment_policy_row_count
+            expected_assignment = '  '//trim(variable_name)//' = '// &
+                trim(assignment_policy_rows(row_index)%source_spelling)
+            row_matches = source(second_newline + 1:third_newline - 1) == &
+                expected_assignment
+            if (trim(assignment_policy_rows(row_index)%expression_kind) == &
+                'integer-literal') then
+                row_matches = trim(source(second_newline + 1:third_newline - 1)) == &
+                    trim(expected_assignment)
+            end if
+            if (.not. row_matches) cycle
+            if (trim(assignment_policy_rows(row_index)%source_rule) /= &
+                trim(assignment_policy_source_rule)) return
             if (assignment_policy_source_page /= 155) return
-            if (trim(assignment_policy_left_operand) /= '1') return
-            if (trim(assignment_policy_right_operand) /= '2') return
-            if (trim(assignment_policy_add_operator) /= '+') return
-            expression%kind = 'binary-expression'
-            expression%operator = trim(assignment_policy_add_operator)
-            expression%left_operand = trim(assignment_policy_left_operand)
-            expression%right_operand = trim(assignment_policy_right_operand)
-        else if (source(second_newline + 1:third_newline - 1) == &
-                '  '//trim(variable_name)//' = 5 – 3') then
-            if (trim(assignment_policy_subtract_expression_rule) /= 'R1006') return
-            if (trim(assignment_policy_subtract_operator_rule) /= 'R1010') return
-            if (trim(assignment_policy_subtract_left_operand) /= '5') return
-            if (trim(assignment_policy_subtract_right_operand) /= '3') return
-            if (trim(assignment_policy_subtract_operator) /= '–') return
-            expression%kind = 'binary-expression'
-            expression%operator = trim(assignment_policy_subtract_operator)
-            expression%left_operand = trim(assignment_policy_subtract_left_operand)
-            expression%right_operand = trim(assignment_policy_subtract_right_operand)
-        else if (source(second_newline + 1:third_newline - 1) == &
-                '  '//trim(variable_name)//' = 2 * 3') then
-            if (trim(assignment_policy_multiply_expression_rule) /= 'R1006') return
-            if (trim(assignment_policy_multiply_operator_rule) /= 'R1009') return
-            if (trim(assignment_policy_multiply_left_operand) /= '2') return
-            if (trim(assignment_policy_multiply_right_operand) /= '3') return
-            if (trim(assignment_policy_multiply_operator) /= '*') return
-            expression%kind = 'binary-expression'
-            expression%operator = trim(assignment_policy_multiply_operator)
-            expression%left_operand = trim(assignment_policy_multiply_left_operand)
-            expression%right_operand = trim(assignment_policy_multiply_right_operand)
-        else if (source(second_newline + 1:third_newline - 1) == &
-                '  '//trim(variable_name)//' = 6 / 2') then
-            if (trim(assignment_policy_divide_expression_rule) /= 'R1006') return
-            if (trim(assignment_policy_divide_operator_rule) /= 'R1009') return
-            if (trim(assignment_policy_divide_left_operand) /= '6') return
-            if (trim(assignment_policy_divide_right_operand) /= '2') return
-            if (trim(assignment_policy_divide_operator) /= '/') return
-            expression%kind = 'binary-expression'
-            expression%operator = trim(assignment_policy_divide_operator)
-            expression%left_operand = trim(assignment_policy_divide_left_operand)
-            expression%right_operand = trim(assignment_policy_divide_right_operand)
-        else
-            return
-        end if
+            if (trim(assignment_policy_rows(row_index)%expression_kind) == &
+                'integer-literal') then
+                expression%kind = trim(assignment_policy_rows(row_index)%expression_kind)
+                expression%left_operand = trim(assignment_policy_rows(row_index)%left_operand)
+            else
+                if (trim(assignment_policy_rows(row_index)%expression_rule) == '') return
+                if (trim(assignment_policy_rows(row_index)%operator_rule) == '') return
+                expression%kind = 'binary-expression'
+                expression%operator = trim(assignment_policy_rows(row_index)%operator)
+                expression%left_operand = trim(assignment_policy_rows(row_index)%left_operand)
+                expression%right_operand = trim(assignment_policy_rows(row_index)%right_operand)
+            end if
+            exit
+        end do
+        if (row_index > assignment_policy_row_count) return
         program_name = 'main'
         assignment_start = int(second_newline, int64)
         assignment_end = int(third_newline - 2, int64)

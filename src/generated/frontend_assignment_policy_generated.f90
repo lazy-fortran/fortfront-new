@@ -5,27 +5,23 @@ module frontend_assignment_policy_generated
     character(len=*), parameter, public :: assignment_policy_lhs = 'assignment-stmt'
     character(len=*), parameter, public :: assignment_policy_source_rule = 'R1033'
     character(len=*), parameter, public :: assignment_policy_operator = '='
-    character(len=*), parameter, public :: assignment_policy_integer_literal = '1'
-    character(len=*), parameter, public :: assignment_policy_expression_kind = 'add'
-    character(len=*), parameter, public :: assignment_policy_expression_rule = 'R1007'
-    character(len=*), parameter, public :: assignment_policy_add_operator_rule = 'R1010'
-    character(len=*), parameter, public :: assignment_policy_left_operand = '1'
-    character(len=*), parameter, public :: assignment_policy_right_operand = '2'
-    character(len=*), parameter, public :: assignment_policy_add_operator = '+'
-    character(len=*), parameter, public :: assignment_policy_subtract_expression_rule = 'R1006'
-    character(len=*), parameter, public :: assignment_policy_subtract_operator_rule = 'R1010'
-    character(len=*), parameter, public :: assignment_policy_subtract_left_operand = '5'
-    character(len=*), parameter, public :: assignment_policy_subtract_right_operand = '3'
-    character(len=*), parameter, public :: assignment_policy_subtract_operator = '–'
-    character(len=*), parameter, public :: assignment_policy_multiply_expression_rule = 'R1006'
-    character(len=*), parameter, public :: assignment_policy_multiply_operator_rule = 'R1009'
-    character(len=*), parameter, public :: assignment_policy_multiply_left_operand = '2'
-    character(len=*), parameter, public :: assignment_policy_multiply_right_operand = '3'
-    character(len=*), parameter, public :: assignment_policy_multiply_operator = '*'
-    character(len=*), parameter, public :: assignment_policy_divide_expression_rule = 'R1006'
-    character(len=*), parameter, public :: assignment_policy_divide_operator_rule = 'R1009'
-    character(len=*), parameter, public :: assignment_policy_divide_left_operand = '6'
-    character(len=*), parameter, public :: assignment_policy_divide_right_operand = '2'
-    character(len=*), parameter, public :: assignment_policy_divide_operator = '/'
+    type, public :: assignment_policy_row_t
+        character(len=16) :: expression_kind
+        character(len=16) :: expression_rule
+        character(len=16) :: operator_rule
+        character(len=16) :: source_rule
+        character(len=32) :: source_spelling
+        character(len=16) :: left_operand
+        character(len=16) :: right_operand
+        character(len=8) :: operator
+    end type assignment_policy_row_t
+    type(assignment_policy_row_t), parameter, public :: assignment_policy_rows(5) = [ &
+        assignment_policy_row_t('integer-literal', '', '', 'R1033', '1', '1', '', ''), &
+        assignment_policy_row_t('add', 'R1007', 'R1010', 'R1033', '1 + 2', '1', '2', '+'), &
+        assignment_policy_row_t('subtract', 'R1006', 'R1010', 'R1033', '5 – 3', '5', '3', '–'), &
+        assignment_policy_row_t('multiply', 'R1006', 'R1009', 'R1033', '2 * 3', '2', '3', '*'), &
+        assignment_policy_row_t('divide', 'R1006', 'R1009', 'R1033', '6 / 2', '6', '2', '/') &
+    ]
+    integer, parameter, public :: assignment_policy_row_count = 5
     integer, parameter, public :: assignment_policy_source_page = 155
 end module frontend_assignment_policy_generated
