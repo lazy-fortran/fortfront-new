@@ -6,7 +6,8 @@ module fortfront_program_unit_v2
         source_span_validate
     use fortfront_assignment_sequence, only: assignment_sequence_t, &
         frontend_parse_typed_assignment_sequence, &
-        frontend_typed_assignment_sequence_to_sx, assignment_sequence_source_hash
+        frontend_typed_assignment_sequence_to_sx, assignment_sequence_source_hash, &
+        assignment_sequence_two_23_source
     use fortfront_frontend, only: frontend_parse_typed_program_unit, &
         typed_program_unit_t
     use frontend_program_unit_v2_envelope_generated, only: &
@@ -142,6 +143,13 @@ module fortfront_program_unit_v2
         'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')// &
         '  x = 23'//new_line('a')// &
+        '  print *, x'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: print_variable_expression_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = 23'//new_line('a')// &
+        '  x = x + 1'//new_line('a')// &
         '  print *, x'//new_line('a')// &
         'end program main'//new_line('a')
 
@@ -722,6 +730,50 @@ contains
             ok = .true.
             return
         end if
+        if (source == print_variable_expression_source) then
+            declaration_source = 'program main'//new_line('a')// &
+                '  integer :: x'//new_line('a')//'end program main'//new_line('a')
+            call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
+                source_hash, declaration_unit, ok, message)
+            if (.not. ok) return
+            call frontend_parse_typed_assignment_sequence(file_name, assignment_sequence_two_23_source, &
+                assignment_sequence_source_hash, unit%execution_part%sequence, ok, message)
+            if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 2_int64) then
+                message = 'print-variable-expression-assignment-rejected'
+                return
+            end if
+            unit%root = declaration_unit%root
+            unit%root%span%end_byte = int(len(source), int64) - 1_int64
+            unit%declaration_count = declaration_unit%declaration_count
+            unit%declaration = declaration_unit%declaration
+            unit%variable_count = declaration_unit%variable_count
+            unit%variable = declaration_unit%variable
+            unit%execution_part%print_count = 1_int64
+            unit%execution_part%print%format_kind = print_policy_format_kind
+            unit%execution_part%print%format_value = print_policy_format_value
+            unit%execution_part%print%output_kind = print_policy_variable_output_kind
+            unit%execution_part%print%output_name = print_policy_variable_output_name
+            unit%execution_part%print%output_value = print_policy_variable_value_2
+            unit%execution_part%print%output_count = 1_int64
+            unit%execution_part%print%span = unit%root%span
+            unit%execution_part%print%span%start_byte = int(index(source, '  print *, x') - 1, int64)
+            unit%execution_part%print%span%end_byte = &
+                unit%execution_part%print%span%start_byte + 11_int64
+            unit%execution_part%print%statement_rule = print_policy_statement_rule
+            unit%execution_part%print%format_rule = print_policy_format_rule
+            unit%execution_part%print%output_rule = print_policy_variable_output_rule
+            unit%execution_part%print%source_document = print_policy_document
+            unit%execution_part%print%statement_clause = print_policy_statement_clause
+            unit%execution_part%print%format_clause = print_policy_format_clause
+            unit%execution_part%print%output_clause = print_policy_output_clause
+            unit%execution_part%print%statement_page = print_policy_statement_page
+            unit%execution_part%print%format_page = print_policy_format_page
+            unit%execution_part%print%output_page = print_policy_output_page
+            unit%execution_part%print%source_hash = print_policy_source_hash
+            ok = .true.
+            message = ''
+            return
+        end if
         if (source == print_variable_source .or. source == print_variable_23_source) then
             if (source == print_variable_source) then
                 declaration_source = 'program main'//new_line('a')// &
@@ -865,7 +917,8 @@ contains
         if (unit%execution_part%print_count == 1_int64) then
             if ((unit%declaration_count /= 0_int64 .or. unit%variable_count /= 0_int64) .and. &
                 (unit%declaration_count /= 1_int64 .or. unit%variable_count /= 1_int64 .or. &
-                unit%execution_part%sequence%assignment_count /= 1_int64)) then
+                (unit%execution_part%sequence%assignment_count /= 1_int64 .and. &
+                unit%execution_part%sequence%assignment_count /= 2_int64))) then
                 message = 'invalid-program-unit-v2-print-cardinality'
                 return
             end if
