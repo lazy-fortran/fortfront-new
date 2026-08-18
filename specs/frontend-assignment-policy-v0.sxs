@@ -9,4 +9,5 @@
   (binary-expression divide R1006 R1009 6 2 /)
   (sequence two-assignment assignment-stmt assignment-stmt)
   (sequence three-assignment assignment-stmt assignment-stmt assignment-stmt)
+  (sequence four-assignment assignment-stmt assignment-stmt assignment-stmt assignment-stmt)
   (literal-range integer-literal 0 2047))

@@ -12,6 +12,10 @@ program test_frontend_typed_assignment_sequence_v1
         '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
         'end program main'//new_line('a')
+    character(len=*), parameter :: four_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: wrong_operator = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'  x = x - 1'//new_line('a')// &
@@ -25,6 +29,18 @@ program test_frontend_typed_assignment_sequence_v1
     character(len=*), parameter :: wrong_variable = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
         '  y = x + 1'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: four_wrong_operator = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
+        '  x = x - 1'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: four_wrong_variable = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
+        '  y = x + 1'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: four_swapped = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = x + 1'//new_line('a')// &
+        '  x = 7'//new_line('a')//'  x = x + 1'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'end program main'//new_line('a')
     character(len=65536) :: serialized
     character(len=256) :: message
     logical :: ok
@@ -66,11 +82,27 @@ program test_frontend_typed_assignment_sequence_v1
         index(trim(serialized), '(assignment (assignment-stmt') == 0) &
         error stop 'three-assignment serialization changed'
 
+    call frontend_parse_typed_assignment_sequence('four-sequence.f90', four_source, &
+        'l3-raw-program-four-assignment-v1', sequence, ok, message)
+    if (.not. ok .or. sequence%assignment_count /= 4) &
+        error stop 'four-assignment sequence was rejected'
+    if (trim(sequence%assignment(4)%variable) /= 'x' .or. &
+        trim(sequence%assignment(4)%expression%operator) /= '+' .or. &
+        sequence%assignment(3)%span%start_byte >= sequence%assignment(4)%span%start_byte) &
+        error stop 'fourth assignment record changed'
+    call frontend_typed_assignment_sequence_to_sx(sequence, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(assignment-count 4)') == 0 .or. &
+        index(trim(serialized), '(assignment (assignment-stmt') == 0) &
+        error stop 'four-assignment serialization changed'
+
     call check_rejected(swapped)
     call check_rejected(missing_second)
     call check_two(source)
     call check_rejected(wrong_variable)
     call check_rejected(wrong_operator)
+    call check_rejected(four_wrong_variable)
+    call check_rejected(four_wrong_operator)
+    call check_rejected(four_swapped)
     write (*, '(a)') 'frontend typed assignment sequence v1 checks: ok'
 
 contains
