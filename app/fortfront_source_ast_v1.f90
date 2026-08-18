@@ -47,9 +47,17 @@ program fortfront_source_ast_v1
 
     sequence_mode = source == 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
-        '  x = x + 1'//new_line('a')//'end program main'//new_line('a')
+        '  x = x + 1'//new_line('a')//'end program main'//new_line('a') .or. &
+        source == 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
+        'end program main'//new_line('a')
     if (sequence_mode) then
-        source_hash = 'l3-raw-program-two-assignment-v1'
+        if (index(source, '  x = x + 1'//new_line('a')//'  x = x + 1') > 0) then
+            source_hash = 'l3-raw-program-three-assignment-v1'
+        else
+            source_hash = 'l3-raw-program-two-assignment-v1'
+        end if
     else if (source == 'program p'//new_line('a')//'  integer :: x'// &
             new_line('a')//'end program p'//new_line('a')) then
         source_hash = source_hash_x

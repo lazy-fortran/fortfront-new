@@ -33,7 +33,11 @@ def main() -> int:
         "assignment_policy_integer_literal_max = 2047",
         "assignment_policy_sequence_name = 'two-assignment'",
         "assignment_policy_sequence_count = 2",
-        "assignment_policy_sequence_rows(1)",
+        "assignment_policy_three_sequence_name = 'three-assignment'",
+        "assignment_policy_three_sequence_count = 3",
+        "assignment_policy_sequence_max_count = 3",
+        "assignment_policy_sequence_rows(2)",
+        "assignment_policy_sequence_row_t('three-assignment', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt')",
     ):
         if required not in generated:
             raise AssertionError(f"generated policy omitted {required!r}")
