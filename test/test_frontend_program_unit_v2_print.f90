@@ -147,6 +147,16 @@ program test_frontend_program_unit_v2_print
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
         '  print *, x, x, x, x, x, x, x, x, x, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_power_value_eleven_item_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
+        '  print *, x, x, x, x, x, x, x, x, x, x, x'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: variable_power_value_twenty_item_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
+        '  print *, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: variable_power_value_four_item_wrong_fourth = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 3'//new_line('a')//'  x = x ** 2'//new_line('a')// &
@@ -808,6 +818,8 @@ program test_frontend_program_unit_v2_print
     call assert_variable_repeat(variable_power_value_eight_item_source, 8)
     call assert_variable_repeat(variable_power_value_nine_item_source, 9)
     call assert_variable_repeat(variable_power_value_ten_item_source, 10)
+    call assert_variable_repeat(variable_power_value_eleven_item_source, 11)
+    call assert_variable_repeat(variable_power_value_twenty_item_source, 20)
     write (*, '(a)') 'frontend program-unit-v2 PRINT repeated-item checks: ok'
 
 contains

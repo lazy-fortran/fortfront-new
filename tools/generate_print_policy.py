@@ -62,7 +62,7 @@ def _replace_generated_routes(generated: str) -> str:
         "        message = ''",
         "        if (trim(value%format_kind) /= trim(print_policy_format_kind) .or. &",
         "            trim(value%format_value) /= trim(print_policy_format_value) .or. &",
-        "            value%output_count < 1_int64 .or. value%output_count > 10_int64 .or. &",
+        "            value%output_count < 1_int64 .or. value%output_count > 20_int64 .or. &",
         "            (value%output_sequence_length > 0_int64 .and. &",
         "            value%output_count /= value%output_sequence_length) .or. &",
         "            (value%output_sequence_start /= 7_int64 .and. &",
@@ -82,7 +82,11 @@ def _replace_generated_routes(generated: str) -> str:
         "            else if (trim(item%kind) == trim(print_policy_variable_output_kind)) then",
         "                if ((index /= 1 .and. index /= 2 .and. index /= 3 .and. &",
         "                    index /= 4 .and. index /= 5 .and. index /= 6 .and. &",
-        "                    index /= 7 .and. index /= 8 .and. index /= 9 .and. index /= 10) .or. &",
+        "                    index /= 7 .and. index /= 8 .and. index /= 9 .and. &",
+        "                    index /= 10 .and. index /= 11 .and. index /= 12 .and. &",
+        "                    index /= 13 .and. index /= 14 .and. index /= 15 .and. &",
+        "                    index /= 16 .and. index /= 17 .and. index /= 18 .and. &",
+        "                    index /= 19 .and. index /= 20) .or. &",
         "                    trim(item%name) /= trim(print_policy_variable_output_name) .or. &",
         "                    (item%value /= print_policy_variable_value .and. &",
         "                    item%value /= print_policy_variable_value_2 .and. &",
@@ -212,6 +216,16 @@ def _replace_generated_routes(generated: str) -> str:
         type(print_output_item_t), intent(out) :: item
 
         item = print_output_item_t()
+        if (value%output_sequence_length > 0_int64 .and. &
+            trim(value%output_kind) == trim(print_policy_variable_output_kind)) then
+            item%kind = value%output_kind
+            item%name = value%output_name
+            item%value = value%output_value
+            item%rule = value%output_rule
+            item%clause = value%output_clause
+            item%page = value%output_page
+            return
+        end if
         select case (index)
         case (1)
             item%kind = value%output_kind
