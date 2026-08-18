@@ -3117,8 +3117,8 @@ contains
                 '  '//trim(variable_name)//' = 1 + 2') then
             if (source(second_newline + 1:third_newline - 1) /= &
                 '  '//trim(variable_name)//' = 2 * 3') return
-            if (trim(assignment_policy_multiply_expression_rule) /= 'R1008') return
-            if (trim(assignment_policy_multiply_operator_rule) /= 'R1011') return
+            if (trim(assignment_policy_multiply_expression_rule) /= 'R1006') return
+            if (trim(assignment_policy_multiply_operator_rule) /= 'R1009') return
             if (trim(assignment_policy_multiply_left_operand) /= '2') return
             if (trim(assignment_policy_multiply_right_operand) /= '3') return
             if (trim(assignment_policy_multiply_operator) /= '*') return
