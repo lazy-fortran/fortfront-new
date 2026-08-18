@@ -14,7 +14,8 @@ def main() -> int:
         r"\(token assignment (=)\)\s+"
         r"\(expression integer-literal (1)\)\s+"
         r"\(binary-expression (add) (R\d+) (R\d+) (1) (2) (\+)\)\s+"
-        r"\(binary-expression (multiply) (R\d+) (R\d+) (2) (3) (\*)\)\)", source
+        r"\(binary-expression (multiply) (R\d+) (R\d+) (2) (3) (\*)\)\s+"
+        r"\(binary-expression (divide) (R\d+) (R\d+) (6) (2) (/)\)\)", source
     )
     if match is None:
         raise SystemExit("invalid assignment policy schema")
@@ -40,6 +41,11 @@ def main() -> int:
         f"    character(len=*), parameter, public :: assignment_policy_multiply_left_operand = '{match.group(13)}'\n"
         f"    character(len=*), parameter, public :: assignment_policy_multiply_right_operand = '{match.group(14)}'\n"
         f"    character(len=*), parameter, public :: assignment_policy_multiply_operator = '{match.group(15)}'\n"
+        f"    character(len=*), parameter, public :: assignment_policy_divide_expression_rule = '{match.group(17)}'\n"
+        f"    character(len=*), parameter, public :: assignment_policy_divide_operator_rule = '{match.group(18)}'\n"
+        f"    character(len=*), parameter, public :: assignment_policy_divide_left_operand = '{match.group(19)}'\n"
+        f"    character(len=*), parameter, public :: assignment_policy_divide_right_operand = '{match.group(20)}'\n"
+        f"    character(len=*), parameter, public :: assignment_policy_divide_operator = '{match.group(21)}'\n"
         "    integer, parameter, public :: assignment_policy_source_page = 155\n"
         "end module frontend_assignment_policy_generated\n",
         encoding="utf-8",

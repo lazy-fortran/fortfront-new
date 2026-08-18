@@ -17,5 +17,10 @@ module frontend_assignment_policy_generated
     character(len=*), parameter, public :: assignment_policy_multiply_left_operand = '2'
     character(len=*), parameter, public :: assignment_policy_multiply_right_operand = '3'
     character(len=*), parameter, public :: assignment_policy_multiply_operator = '*'
+    character(len=*), parameter, public :: assignment_policy_divide_expression_rule = 'R1006'
+    character(len=*), parameter, public :: assignment_policy_divide_operator_rule = 'R1009'
+    character(len=*), parameter, public :: assignment_policy_divide_left_operand = '6'
+    character(len=*), parameter, public :: assignment_policy_divide_right_operand = '2'
+    character(len=*), parameter, public :: assignment_policy_divide_operator = '/'
     integer, parameter, public :: assignment_policy_source_page = 155
 end module frontend_assignment_policy_generated

@@ -3,4 +3,5 @@
   (token assignment =)
   (expression integer-literal 1)
   (binary-expression add R1007 R1010 1 2 +)
-  (binary-expression multiply R1006 R1009 2 3 *))
+  (binary-expression multiply R1006 R1009 2 3 *)
+  (binary-expression divide R1006 R1009 6 2 /))

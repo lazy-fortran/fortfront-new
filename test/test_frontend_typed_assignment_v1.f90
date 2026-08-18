@@ -15,6 +15,9 @@ program test_frontend_typed_assignment_v1
     character(len=*), parameter :: source_multiply = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 2 * 3'//new_line('a')// &
         'end program main'//new_line('a')
+    character(len=*), parameter :: source_divide = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 6 / 2'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: missing_rhs = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x ='//new_line('a')// &
         'end program main'//new_line('a')
@@ -25,7 +28,13 @@ program test_frontend_typed_assignment_v1
         '  integer :: x'//new_line('a')//'  x = 1 - 2'//new_line('a')// &
         'end program main'//new_line('a')
     character(len=*), parameter :: changed_multiply_operator = 'program main'// &
-        new_line('a')//'  integer :: x'//new_line('a')//'  x = 2 / 3'//new_line('a')// &
+        new_line('a')//'  integer :: x'//new_line('a')//'  x = 2 ** 3'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: missing_divide_left = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = / 2'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: missing_divide_right = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 6 /'//new_line('a')// &
         'end program main'//new_line('a')
     character(len=65536) :: serialized
     character(len=256) :: message
@@ -91,10 +100,26 @@ program test_frontend_typed_assignment_v1
         trim(unit%assignment%expression%left_operand) /= '1') &
         error stop 'plus assignment regressed after multiply'
 
+    call frontend_parse_typed_program_unit('assignment-divide.f90', source_divide, &
+        source_hash, unit, ok, message)
+    if (.not. ok) error stop 'integer divide assignment witness was rejected'
+    if (trim(unit%assignment%expression%kind) /= 'binary-expression' .or. &
+        trim(unit%assignment%expression%operator) /= '/' .or. &
+        trim(unit%assignment%expression%left_operand) /= '6' .or. &
+        trim(unit%assignment%expression%right_operand) /= '2') &
+        error stop 'divide binary expression changed'
+    call frontend_typed_program_unit_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(operator /)') == 0 .or. &
+        index(trim(serialized), '(left-operand 6)') == 0 .or. &
+        index(trim(serialized), '(right-operand 2)') == 0) &
+        error stop 'divide binary expression AST missing'
+
     call check_rejected(missing_rhs)
     call check_rejected(wrong_variable)
     call check_rejected(changed_operator)
     call check_rejected(changed_multiply_operator)
+    call check_rejected(missing_divide_left)
+    call check_rejected(missing_divide_right)
     write (*, '(a)') 'frontend typed assignment v1 checks: ok'
 
 contains
