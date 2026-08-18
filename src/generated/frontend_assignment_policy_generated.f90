@@ -20,7 +20,9 @@ module frontend_assignment_policy_generated
     integer, parameter, public :: assignment_policy_four_sequence_count = 4
     character(len=*), parameter, public :: assignment_policy_five_sequence_name = 'five-assignment'
     integer, parameter, public :: assignment_policy_five_sequence_count = 5
-    integer, parameter, public :: assignment_policy_sequence_max_count = 5
+    character(len=*), parameter, public :: assignment_policy_six_sequence_name = 'six-assignment'
+    integer, parameter, public :: assignment_policy_six_sequence_count = 6
+    integer, parameter, public :: assignment_policy_sequence_max_count = 6
     type, public :: assignment_policy_sequence_row_t
         character(len=32) :: name
         character(len=32) :: first_record
@@ -28,17 +30,21 @@ module frontend_assignment_policy_generated
         character(len=32) :: third_record
         character(len=32) :: fourth_record
         character(len=32) :: fifth_record
+        character(len=32) :: sixth_record
     end type assignment_policy_sequence_row_t
     type(assignment_policy_sequence_row_t), parameter, public :: &
-        assignment_policy_sequence_rows(4) = [ &
-        assignment_policy_sequence_row_t('two-assignment', 'assignment-stmt', 'assignment-stmt', '', '', ''), &
-        assignment_policy_sequence_row_t('three-assignment', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', '', ''), &
+        assignment_policy_sequence_rows(5) = [ &
+        assignment_policy_sequence_row_t('two-assignment', 'assignment-stmt', 'assignment-stmt', '', '', '', ''), &
+        assignment_policy_sequence_row_t('three-assignment', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', '', '', ''), &
         assignment_policy_sequence_row_t( &
         'four-assignment', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', &
-        'assignment-stmt', ''), &
+        'assignment-stmt', '', ''), &
         assignment_policy_sequence_row_t( &
         'five-assignment', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', &
-        'assignment-stmt', 'assignment-stmt') &
+        'assignment-stmt', 'assignment-stmt', ''), &
+        assignment_policy_sequence_row_t( &
+        'six-assignment', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', &
+        'assignment-stmt', 'assignment-stmt', 'assignment-stmt') &
         ]
     integer, parameter, public :: assignment_policy_integer_literal_min = 0
     integer, parameter, public :: assignment_policy_integer_literal_max = 2047

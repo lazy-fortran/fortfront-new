@@ -39,8 +39,10 @@ def main() -> int:
         "assignment_policy_four_sequence_count = 4",
         "assignment_policy_five_sequence_name = 'five-assignment'",
         "assignment_policy_five_sequence_count = 5",
-        "assignment_policy_sequence_max_count = 5",
-        "assignment_policy_sequence_rows(4)",
+        "assignment_policy_six_sequence_name = 'six-assignment'",
+        "assignment_policy_six_sequence_count = 6",
+        "assignment_policy_sequence_max_count = 6",
+        "assignment_policy_sequence_rows(5)",
         "'four-assignment'",
         "'five-assignment'",
     ):
