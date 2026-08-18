@@ -23,6 +23,12 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_variable_value_2_kind = 'integer-literal'
     integer(int64), parameter, public :: print_policy_variable_value_2 = 23_int64
     character(len=*), parameter, public :: print_policy_variable_value_2_rule = 'R1217'
+    character(len=*), parameter, public :: print_policy_variable_value_3_kind = 'integer-literal'
+    integer(int64), parameter, public :: print_policy_variable_value_3 = 21_int64
+    character(len=*), parameter, public :: print_policy_variable_value_3_rule = 'R1217'
+    character(len=*), parameter, public :: print_policy_variable_value_4_kind = 'integer-literal'
+    integer(int64), parameter, public :: print_policy_variable_value_4 = 12_int64
+    character(len=*), parameter, public :: print_policy_variable_value_4_rule = 'R1217'
     character(len=*), parameter, public :: print_policy_output_2_kind = 'integer-literal'
     integer(int64), parameter, public :: print_policy_output_2_value = 8_int64
     character(len=*), parameter, public :: print_policy_output_2_rule = 'R1217'
@@ -170,7 +176,9 @@ contains
             else if (trim(item%kind) == trim(print_policy_variable_output_kind)) then
                 if (index /= 1 .or. trim(item%name) /= trim(print_policy_variable_output_name) .or. &
                     (item%value /= print_policy_variable_value .and. &
-                    item%value /= print_policy_variable_value_2)) then
+                    item%value /= print_policy_variable_value_2 .and. &
+                    item%value /= print_policy_variable_value_3 .and. &
+                    item%value /= print_policy_variable_value_4)) then
                     message = 'invalid-print-policy-value'
                     print_stmt_validate = .false.
                     return

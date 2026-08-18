@@ -64,6 +64,14 @@ program test_frontend_program_unit_v2_print
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 23'//new_line('a')//'  x = x * 2'//new_line('a')// &
         '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_subtract_expression_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 23'//new_line('a')//'  x = x – 2'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_divide_expression_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 24'//new_line('a')//'  x = x / 2'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_24_source = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 24'//new_line('a')// &
         '  print *, x'//new_line('a')//'end program main'//new_line('a')
@@ -100,6 +108,14 @@ program test_frontend_program_unit_v2_print
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 23'//new_line('a')//'  x = x * 2'//new_line('a')// &
         '  write *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_subtract_expression_wrong_operator = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 23'//new_line('a')//'  x = x + 2'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_divide_expression_wrong_operator = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 24'//new_line('a')//'  x = x * 2'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_expression_wrong_variable = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 23'//new_line('a')//'  y = x + 1'//new_line('a')// &
@@ -484,6 +500,38 @@ program test_frontend_program_unit_v2_print
     call assert_rejected(variable_multiply_expression_wrong_operator)
     call assert_rejected(variable_multiply_expression_wrong_name)
     call assert_rejected(variable_multiply_expression_write)
+    call frontend_parse_program_unit_v2('print-variable-subtract-expression.f90', &
+        variable_subtract_expression_source, 'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 2 .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%operator) /= '–' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%left_operand) /= 'x' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%right_operand) /= '2' .or. &
+        unit%execution_part%print%output_value /= 21) then
+        error stop 'PRINT *, x after variable subtraction expression witness was rejected'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(operator –)') == 0 .or. &
+        index(trim(serialized), '(output-name x)') == 0 .or. &
+        index(trim(serialized), '(source-hash '//trim(assignment_sequence_source_hash)//')') == 0) then
+        error stop 'PRINT *, x after variable subtraction expression serialization changed'
+    end if
+    call assert_rejected(variable_subtract_expression_wrong_operator)
+    call frontend_parse_program_unit_v2('print-variable-divide-expression.f90', &
+        variable_divide_expression_source, 'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 2 .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%operator) /= '/' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%left_operand) /= 'x' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%right_operand) /= '2' .or. &
+        unit%execution_part%print%output_value /= 12) then
+        error stop 'PRINT *, x after variable division expression witness was rejected'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(operator /)') == 0 .or. &
+        index(trim(serialized), '(output-name x)') == 0 .or. &
+        index(trim(serialized), '(source-hash '//trim(assignment_sequence_source_hash)//')') == 0) then
+        error stop 'PRINT *, x after variable division expression serialization changed'
+    end if
+    call assert_rejected(variable_divide_expression_wrong_operator)
     write (*, '(a)') 'frontend program-unit-v2 PRINT repeated-item checks: ok'
 
 contains
