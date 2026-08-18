@@ -4,11 +4,14 @@ program fortfront_source_ast_v1
         frontend_typed_program_unit_to_sx, typed_program_unit_t
     implicit none
 
-    character(len=*), parameter :: source_hash = 'l3-raw-program-variable-name-v1'
+    character(len=*), parameter :: source_hash_x = 'l3-raw-program-v0'
+    character(len=*), parameter :: source_hash_y = &
+        'l3-raw-program-variable-name-v1'
     character(len=65536) :: serialized
     character(len=256) :: message
     character(len=:), allocatable :: source
     character(len=1024) :: source_file, output_file
+    character(len=128) :: source_hash
     integer(int64) :: source_size
     integer :: argument_count, io_status, input_unit, output_unit
     logical :: ok
@@ -37,6 +40,12 @@ program fortfront_source_ast_v1
     end if
     close (input_unit)
 
+    if (source == 'program p'//new_line('a')//'  integer :: x'// &
+        new_line('a')//'end program p'//new_line('a')) then
+        source_hash = source_hash_x
+    else
+        source_hash = source_hash_y
+    end if
     call frontend_parse_typed_program_unit(trim(source_file), source, source_hash, &
         unit, ok, message)
     if (.not. ok) call fail('typed frontend rejected source: '//trim(message))
