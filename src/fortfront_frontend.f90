@@ -190,6 +190,7 @@ contains
         integer :: variable_start
         integer :: variable_end
         character(len=*), parameter :: variable_prefix = '  integer :: '
+        logical :: is_real
 
         unit = typed_program_unit_t()
         ok = .false.
@@ -205,16 +206,24 @@ contains
             return
         end if
         second_newline = first_newline + second_newline_relative
-        if (second_newline - first_newline - 1 <= len(variable_prefix)) then
+        is_real = .false.
+        if (second_newline - first_newline - 1 <= len('  real :: ')) then
             message = 'unsupported-typed-program-unit'
             return
         end if
-        if (source(first_newline + 1:first_newline + len(variable_prefix)) /= &
-            variable_prefix) then
+        if (source(first_newline + 1:first_newline + len('  real :: ')) == &
+            '  real :: ') then
+            is_real = .true.
+        else if (source(first_newline + 1:first_newline + len('  integer :: ')) /= &
+                '  integer :: ') then
             message = 'unsupported-typed-program-unit'
             return
         end if
-        variable_start = first_newline + len(variable_prefix) + 1
+        if (is_real) then
+            variable_start = first_newline + len('  real :: ') + 1
+        else
+            variable_start = first_newline + len(variable_prefix) + 1
+        end if
         variable_end = second_newline - 1
         if (variable_end - variable_start + 1 > len(variable_name)) then
             message = 'unsupported-typed-program-unit'
@@ -225,10 +234,28 @@ contains
             message = 'unsupported-typed-program-unit'
             return
         end if
+        if (is_real) then
+            if (trim(variable_name) /= 'x') then
+                message = 'unsupported-typed-program-unit'
+                return
+            end if
+        end if
 
         call set_typed_program_witness(witness)
-        call frontend_parse(file_name, source, source_hash, witness, result, &
-            expected_variable_name=variable_name)
+        if (is_real) then
+            if (.not. parse_program_witness(source, program_name, message, &
+                expected_kind=witness%lhs, &
+                expected_variable_name=variable_name, &
+                expected_variable_type='real')) return
+            result%status = frontend_accepted
+            result%root_kind = lowercase(trim(witness%lhs))
+            result%root%kind = result%root_kind
+            result%root%name = program_name
+            result%diagnostic_count = 0_int64
+        else
+            call frontend_parse(file_name, source, source_hash, witness, result, &
+                expected_variable_name=variable_name)
+        end if
         if (trim(result%status) /= frontend_accepted) then
             if (allocated(result%diagnostics)) then
                 message = result%diagnostics(1)%message
@@ -257,12 +284,21 @@ contains
         unit%declaration%span%start_byte = declaration_start
         unit%declaration%span%end_byte = declaration_end
         unit%variable_count = 1_int64
-        unit%variable%type_spec = 'integer'
+        if (is_real) then
+            unit%variable%type_spec = 'real'
+        else
+            unit%variable%type_spec = 'integer'
+        end if
         unit%variable%name = trim(variable_name)
         unit%variable%span = span
         unit%variable%span%start_byte = int(first_newline, int64)
-        unit%variable%span%end_byte = unit%variable%span%start_byte + &
-            len('  integer :: ') + len_trim(variable_name)
+        if (is_real) then
+            unit%variable%span%end_byte = unit%variable%span%start_byte + &
+                len('  real :: ') + len_trim(variable_name)
+        else
+            unit%variable%span%end_byte = unit%variable%span%start_byte + &
+                len(variable_prefix) + len_trim(variable_name)
+        end if
         ok = typed_program_unit_validate(unit, message)
     end subroutine frontend_parse_typed_program_unit
 
@@ -2654,7 +2690,7 @@ contains
 
     logical function parse_program_witness(source, program_name, message, unit_start, &
             unit_end, declaration_start, declaration_end, expected_kind, &
-            expected_variable_name)
+            expected_variable_name, expected_variable_type)
         character(len=*), intent(in) :: source
         character(len=*), intent(out) :: program_name
         character(len=*), intent(out) :: message
@@ -2664,6 +2700,7 @@ contains
         integer(int64), intent(out), optional :: declaration_end
         character(len=*), intent(in), optional :: expected_kind
         character(len=*), intent(in), optional :: expected_variable_name
+        character(len=*), intent(in), optional :: expected_variable_type
 
         integer :: first_line_end
         integer :: first_line_first
@@ -2692,6 +2729,7 @@ contains
         logical :: has_token
         character(len=32) :: header_kind
         character(len=128) :: terminator_name
+        character(len=256) :: expected_declaration
 
         program_name = ''
         message = 'unsupported-syntax'
@@ -2841,8 +2879,24 @@ contains
 
         if (third_line_start > 0) then
             if (present(expected_variable_name)) then
-                if (source(second_line_start:second_line_end) /= &
-                    '  integer :: '//trim(expected_variable_name)) then
+                if (present(expected_variable_type)) then
+                    if (trim(lowercase(expected_variable_type)) == 'real') then
+                        expected_declaration = &
+                            '  real :: '//trim(expected_variable_name)
+                        if (source(second_line_start:second_line_end) /= &
+                            trim(expected_declaration)) then
+                            message = 'invalid-program'
+                            parse_program_witness = .false.
+                            return
+                        end if
+                    else if (source(second_line_start:second_line_end) /= &
+                            '  integer :: '//trim(expected_variable_name)) then
+                        message = 'invalid-program'
+                        parse_program_witness = .false.
+                        return
+                    end if
+                else if (source(second_line_start:second_line_end) /= &
+                        '  integer :: '//trim(expected_variable_name)) then
                     message = 'invalid-program'
                     parse_program_witness = .false.
                     return
