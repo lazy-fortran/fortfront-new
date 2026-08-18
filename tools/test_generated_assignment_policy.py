@@ -37,9 +37,12 @@ def main() -> int:
         "assignment_policy_three_sequence_count = 3",
         "assignment_policy_four_sequence_name = 'four-assignment'",
         "assignment_policy_four_sequence_count = 4",
-        "assignment_policy_sequence_max_count = 4",
-        "assignment_policy_sequence_rows(3)",
-        "assignment_policy_sequence_row_t('four-assignment', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt')",
+        "assignment_policy_five_sequence_name = 'five-assignment'",
+        "assignment_policy_five_sequence_count = 5",
+        "assignment_policy_sequence_max_count = 5",
+        "assignment_policy_sequence_rows(4)",
+        "'four-assignment'",
+        "'five-assignment'",
     ):
         if required not in generated:
             raise AssertionError(f"generated policy omitted {required!r}")

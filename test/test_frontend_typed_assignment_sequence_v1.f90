@@ -16,6 +16,11 @@ program test_frontend_typed_assignment_sequence_v1
         '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: five_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: wrong_operator = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'  x = x - 1'//new_line('a')// &
@@ -41,6 +46,21 @@ program test_frontend_typed_assignment_sequence_v1
         '  integer :: x'//new_line('a')//'  x = x + 1'//new_line('a')// &
         '  x = 7'//new_line('a')//'  x = x + 1'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: five_wrong_operator = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'  x = x - 1'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: five_wrong_variable = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'  y = x + 1'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: five_swapped = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'  x = 7'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=65536) :: serialized
     character(len=256) :: message
     logical :: ok
@@ -95,6 +115,26 @@ program test_frontend_typed_assignment_sequence_v1
         index(trim(serialized), '(assignment (assignment-stmt') == 0) &
         error stop 'four-assignment serialization changed'
 
+    call frontend_parse_typed_assignment_sequence('five-sequence.f90', five_source, &
+        'l3-raw-program-five-assignment-v1', sequence, ok, message)
+    if (.not. ok .or. sequence%assignment_count /= 5) &
+        error stop 'five-assignment sequence was rejected'
+    if (trim(sequence%assignment(5)%variable) /= 'x' .or. &
+        trim(sequence%assignment(5)%expression%operator) /= '+' .or. &
+        trim(sequence%assignment(5)%expression%left_operand) /= 'x' .or. &
+        trim(sequence%assignment(5)%expression%right_operand) /= '1' .or. &
+        sequence%assignment(4)%span%start_byte >= sequence%assignment(5)%span%start_byte .or. &
+        trim(sequence%assignment(5)%span%source_hash) /= 'l3-raw-program-five-assignment-v1') &
+        error stop 'fifth assignment record changed'
+    call frontend_typed_assignment_sequence_to_sx(sequence, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(assignment-count 5)') == 0) &
+        error stop 'five-assignment serialization changed'
+    call frontend_parse_typed_assignment_sequence('missing-fifth.f90', four_source, &
+        'l3-raw-program-four-assignment-v1', sequence, ok, message)
+    sequence%assignment_count = 5
+    call frontend_typed_assignment_sequence_to_sx(sequence, serialized, ok, message)
+    if (ok) error stop 'missing fifth assignment was serialized'
+
     call check_rejected(swapped)
     call check_rejected(missing_second)
     call check_two(source)
@@ -103,6 +143,9 @@ program test_frontend_typed_assignment_sequence_v1
     call check_rejected(four_wrong_variable)
     call check_rejected(four_wrong_operator)
     call check_rejected(four_swapped)
+    call check_rejected(five_wrong_operator)
+    call check_rejected(five_wrong_variable)
+    call check_rejected(five_swapped)
     write (*, '(a)') 'frontend typed assignment sequence v1 checks: ok'
 
 contains
