@@ -12,7 +12,8 @@ def main() -> int:
         r"\(schema frontend-assignment-policy-v0\s+"
         r"\(policy assignment-stmt assignment-stmt (R\d+)\)\s+"
         r"\(token assignment (=)\)\s+"
-        r"\(expression integer-literal (1)\)\)", source
+        r"\(expression integer-literal (1)\)\s+"
+        r"\(binary-expression (add) (R\d+) (R\d+) (1) (2) (\+)\)\)", source
     )
     if match is None:
         raise SystemExit("invalid assignment policy schema")
@@ -27,6 +28,13 @@ def main() -> int:
         f"    character(len=*), parameter, public :: assignment_policy_source_rule = '{match.group(1)}'\n"
         "    character(len=*), parameter, public :: assignment_policy_operator = '='\n"
         "    character(len=*), parameter, public :: assignment_policy_integer_literal = '1'\n"
+        f"    character(len=*), parameter, public :: assignment_policy_expression_kind = '{match.group(4)}'\n"
+        f"    character(len=*), parameter, public :: assignment_policy_expression_rule = '{match.group(5)}'\n"
+        f"    character(len=*), parameter, public :: assignment_policy_add_operator_rule = '{match.group(6)}'\n"
+        f"    character(len=*), parameter, public :: assignment_policy_left_operand = '{match.group(7)}'\n"
+        f"    character(len=*), parameter, public :: assignment_policy_right_operand = '{match.group(8)}'\n"
+        f"    character(len=*), parameter, public :: assignment_policy_add_operator = '{match.group(9)}'\n"
+        "    integer, parameter, public :: assignment_policy_source_page = 155\n"
         "end module frontend_assignment_policy_generated\n",
         encoding="utf-8",
     )

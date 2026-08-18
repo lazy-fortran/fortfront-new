@@ -6,4 +6,11 @@ module frontend_assignment_policy_generated
     character(len=*), parameter, public :: assignment_policy_source_rule = 'R1033'
     character(len=*), parameter, public :: assignment_policy_operator = '='
     character(len=*), parameter, public :: assignment_policy_integer_literal = '1'
+    character(len=*), parameter, public :: assignment_policy_expression_kind = 'add'
+    character(len=*), parameter, public :: assignment_policy_expression_rule = 'R1007'
+    character(len=*), parameter, public :: assignment_policy_add_operator_rule = 'R1010'
+    character(len=*), parameter, public :: assignment_policy_left_operand = '1'
+    character(len=*), parameter, public :: assignment_policy_right_operand = '2'
+    character(len=*), parameter, public :: assignment_policy_add_operator = '+'
+    integer, parameter, public :: assignment_policy_source_page = 155
 end module frontend_assignment_policy_generated

@@ -1,4 +1,5 @@
 (schema frontend-assignment-policy-v0
   (policy assignment-stmt assignment-stmt R1033)
   (token assignment =)
-  (expression integer-literal 1))
+  (expression integer-literal 1)
+  (binary-expression add R1007 R1010 1 2 +))

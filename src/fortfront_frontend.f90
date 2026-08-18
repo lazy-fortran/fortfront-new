@@ -10,6 +10,7 @@ module fortfront_frontend
         typed_program_root_t => program_root_t, &
         typed_program_declaration_t => program_declaration_t, &
         typed_variable_declaration_t => variable_declaration_t, &
+        typed_assignment_expression_t => assignment_expression_t, &
         typed_assignment_stmt_t => assignment_stmt_t, &
         typed_program_unit_t => program_unit_t, &
         typed_variable_declaration_to_sx => variable_declaration_to_sx, &
@@ -27,7 +28,10 @@ module fortfront_frontend
         typed_variable_declaration_cardinality
     use frontend_assignment_policy_generated, only: assignment_policy_lhs, &
         assignment_policy_source_rule, assignment_policy_operator, &
-        assignment_policy_integer_literal
+        assignment_policy_integer_literal, assignment_policy_expression_kind, &
+        assignment_policy_expression_rule, assignment_policy_add_operator_rule, &
+        assignment_policy_left_operand, assignment_policy_right_operand, &
+        assignment_policy_add_operator, assignment_policy_source_page
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
     private
@@ -163,6 +167,7 @@ module fortfront_frontend
         typed_source_span_t, typed_program_root_t, typed_program_declaration_t, &
         typed_variable_declaration_t, typed_program_unit_t
     public :: typed_assignment_stmt_t
+    public :: typed_assignment_expression_t
     public :: assignment_policy_source_rule
 
 contains
@@ -211,7 +216,7 @@ contains
         integer :: type_spec_index
         integer :: variable_start_relative
         character(len=256) :: expected_declaration
-        character(len=256) :: assignment_expression
+        type(typed_assignment_expression_t) :: assignment_expression
         integer(int64) :: assignment_start
         integer(int64) :: assignment_end
         logical :: assignment_present
@@ -351,7 +356,7 @@ contains
         if (assignment_present) then
             unit%assignment_count = 1_int64
             unit%assignment%variable = trim(variable_name)
-            unit%assignment%expression = trim(assignment_expression)
+            unit%assignment%expression = assignment_expression
             unit%assignment%span = span
             unit%assignment%span%start_byte = assignment_start
             unit%assignment%span%end_byte = assignment_end
@@ -3069,7 +3074,7 @@ contains
         character(len=*), intent(in) :: source
         character(len=*), intent(in) :: variable_name
         character(len=*), intent(out) :: program_name
-        character(len=*), intent(out) :: expression
+        type(typed_assignment_expression_t), intent(out) :: expression
         integer(int64), intent(out) :: assignment_start
         integer(int64), intent(out) :: assignment_end
         character(len=*), intent(out) :: message
@@ -3081,7 +3086,7 @@ contains
         character(len=256) :: expected_assignment
 
         program_name = ''
-        expression = ''
+        expression = typed_assignment_expression_t()
         assignment_start = 0_int64
         assignment_end = 0_int64
         message = 'unsupported-typed-program-unit'
@@ -3102,9 +3107,26 @@ contains
         if (trim(assignment_policy_source_rule) /= 'R1033') return
         if (trim(assignment_policy_operator) /= '=') return
         if (trim(assignment_policy_integer_literal) /= '1') return
-        if (source(second_newline + 1:third_newline - 1) /= trim(expected_assignment)) return
+        if (source(second_newline + 1:third_newline - 1) == trim(expected_assignment)) then
+            expression%kind = 'integer-literal'
+            expression%left_operand = trim(assignment_policy_integer_literal)
+        else if (source(second_newline + 1:third_newline - 1) /= &
+                '  '//trim(variable_name)//' = 1 + 2') then
+            return
+        else
+            if (trim(assignment_policy_expression_kind) /= 'add') return
+            if (trim(assignment_policy_expression_rule) /= 'R1007') return
+            if (trim(assignment_policy_add_operator_rule) /= 'R1010') return
+            if (assignment_policy_source_page /= 155) return
+            if (trim(assignment_policy_left_operand) /= '1') return
+            if (trim(assignment_policy_right_operand) /= '2') return
+            if (trim(assignment_policy_add_operator) /= '+') return
+            expression%kind = 'binary-expression'
+            expression%operator = trim(assignment_policy_add_operator)
+            expression%left_operand = trim(assignment_policy_left_operand)
+            expression%right_operand = trim(assignment_policy_right_operand)
+        end if
         program_name = 'main'
-        expression = '1'
         assignment_start = int(second_newline, int64)
         assignment_end = int(third_newline - 2, int64)
         message = ''

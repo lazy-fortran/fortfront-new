@@ -93,10 +93,20 @@ def parse_schema(text: str) -> tuple[str, list[dict]]:
                 declaration["fields"] += [("assignment-count", "int"), ("assignment", "assignment-stmt")]
         declarations.append({
             "kind": "record",
+            "name": "assignment-expression",
+            "fields": [
+                ("kind", "name"),
+                ("operator", "name"),
+                ("left-operand", "name"),
+                ("right-operand", "name"),
+            ],
+        })
+        declarations.append({
+            "kind": "record",
             "name": "assignment-stmt",
             "fields": [
                 ("variable", "name"),
-                ("expression", "name"),
+                ("expression", "assignment-expression"),
                 ("span", "source-span"),
             ],
         })
@@ -223,6 +233,32 @@ def emit_validators(records: list[dict]) -> list[str]:
             "",
             "        message = ''",
         ]
+        if item["name"] == "assignment-expression":
+            lines += [
+                "        if (trim(value%kind) == 'integer-literal') then",
+                "            if (.not. generated_valid_atom(value%left_operand)) then",
+                "                message = 'invalid-assignment-expression-literal'",
+                "                assignment_expression_validate = .false.",
+                "                return",
+                "            end if",
+                "        else if (trim(value%kind) == 'binary-expression') then",
+                "            if (.not. generated_valid_atom(value%operator) .or. &",
+                "                .not. generated_valid_atom(value%left_operand) .or. &",
+                "                .not. generated_valid_atom(value%right_operand)) then",
+                "                message = 'invalid-assignment-expression-binary'",
+                "                assignment_expression_validate = .false.",
+                "                return",
+                "            end if",
+                "        else",
+                "            message = 'invalid-assignment-expression-kind'",
+                "            assignment_expression_validate = .false.",
+                "            return",
+                "        end if",
+                "        assignment_expression_validate = .true.",
+                "    end function assignment_expression_validate",
+                "",
+            ]
+            continue
         for field_name, field_type in item["fields"]:
             if item["name"] == "program-unit" and field_name == "assignment":
                 lines += [
