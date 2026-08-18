@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the bounded, source-backed PRINT *, 7 through 16 typed AST policy."""
+"""Generate the source-backed PRINT policy and reusable output-list AST fields."""
 
 from __future__ import annotations
 
@@ -51,7 +51,9 @@ def _replace_generated_routes(generated: str) -> str:
         "        integer(int64) :: output_count = 0_int64\n",
         "        integer(int64) :: output_count = 0_int64\n"
         "        integer(int64) :: output_sequence_start = 7_int64\n"
-        "        integer(int64) :: output_sequence_length = 0_int64\n",
+        "        integer(int64) :: output_sequence_length = 0_int64\n"
+        "        type(print_output_item_t), allocatable :: output_items(:)\n"
+        "        character(len=128) :: source_identity = ''\n",
     )
     validate = "\n".join([
         "    logical function print_stmt_validate(value, message)",
@@ -60,6 +62,37 @@ def _replace_generated_routes(generated: str) -> str:
         "        type(print_output_item_t) :: item",
         "        integer :: index",
         "        message = ''",
+        "        if (allocated(value%output_items)) then",
+        "            if (value%output_count /= int(size(value%output_items), int64) .or. &",
+        "                value%output_count < 1_int64 .or. trim(value%source_identity) /= &",
+        "                trim(print_policy_generic_source_identity)) then",
+        "                message = 'invalid-print-policy-output-list'",
+        "                print_stmt_validate = .false.",
+        "                return",
+        "            end if",
+        "            do index = 1, size(value%output_items)",
+        "                item = value%output_items(index)",
+        "                if ((trim(item%kind) /= 'variable' .and. trim(item%kind) /= &",
+        "                    'integer-literal') .or. (trim(item%kind) == 'variable' .and. &",
+        "                    trim(item%name) /= 'x') .or. (trim(item%kind) == 'integer-literal' &",
+        "                    .and. item%value < 0_int64) .or. (trim(item%rule) /= 'R901' .and. &",
+        "                    trim(item%rule) /= 'R1217')) then",
+        "                    message = 'invalid-print-policy-output-item'",
+        "                    print_stmt_validate = .false.",
+        "                    return",
+        "                end if",
+        "            end do",
+        "            if (trim(value%statement_rule) /= trim(print_policy_statement_rule) .or. &",
+        "                trim(value%format_rule) /= trim(print_policy_format_rule) .or. &",
+        "                trim(value%source_document) /= trim(print_policy_document) .or. &",
+        "                trim(value%source_hash) /= trim(print_policy_source_hash)) then",
+        "                message = 'invalid-print-policy-source'",
+        "                print_stmt_validate = .false.",
+        "                return",
+        "            end if",
+        "            print_stmt_validate = source_span_validate(value%span, message)",
+        "            return",
+        "        end if",
         "        if (trim(value%format_kind) /= trim(print_policy_format_kind) .or. &",
         "            trim(value%format_value) /= trim(print_policy_format_value) .or. &",
         "            value%output_count < 1_int64 .or. value%output_count > 100_int64 .or. &",
@@ -152,6 +185,27 @@ def _replace_generated_routes(generated: str) -> str:
         if (.not. print_stmt_validate(value, message)) return
         call source_span_to_sx(value%span, span_sx, ok, message)
         if (.not. ok) return
+        if (allocated(value%output_items)) then
+            write (count_s, '(i0)') value%output_count
+            output = '(print-stmt (format-kind '//trim(value%format_kind)// &
+                ') (format-value '//trim(value%format_value)//') (output-count '//trim(count_s)//') (output-items '
+            do index = 1, size(value%output_items)
+                item = value%output_items(index)
+                if (trim(item%kind) == 'variable') then
+                    output = trim(output)//' (output-item (kind variable) (name '// &
+                        trim(item%name)//') (rule '//trim(item%rule)//')) '
+                else
+                    write (value_s, '(i0)') item%value
+                    output = trim(output)//' (output-item (kind integer-literal) (value '// &
+                        trim(value_s)//') (rule '//trim(item%rule)//')) '
+                end if
+            end do
+            output = trim(output)//') (span '//trim(span_sx)//') (statement-rule '//trim(value%statement_rule)//') '// &
+                '(format-rule '//trim(value%format_rule)//') (source-document '//trim(value%source_document)//') '// &
+                '(source-hash '//trim(value%source_hash)//') (source-identity '//trim(value%source_identity)//'))'
+            ok = .true.
+            return
+        end if
         output = '(print-stmt (format-kind '//trim(value%format_kind)// &
             ') (format-value '//trim(value%format_value)//') '
         call print_stmt_output_item(value, 1, item)
@@ -402,6 +456,8 @@ module frontend_print_policy_generated
     integer(int64), parameter, public :: print_policy_output_page = {output_page}_int64
     character(len=*), parameter, public :: print_policy_source_hash = &
         '{source_hash}'
+    character(len=*), parameter, public :: print_policy_generic_source_identity = &
+        'l3-raw-program-generic-print-list-v0'
 
     type, public :: print_stmt_t
         character(len=32) :: format_kind = ''

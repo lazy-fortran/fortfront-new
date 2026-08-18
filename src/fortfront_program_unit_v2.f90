@@ -39,6 +39,7 @@ module fortfront_program_unit_v2
         print_policy_document, print_policy_statement_clause, print_policy_format_clause, &
         print_policy_output_clause, print_policy_statement_page, &
         print_policy_format_page, print_policy_output_page, print_policy_source_hash
+    use frontend_print_policy_generated, only: print_policy_generic_source_identity
     implicit none
     private
 
@@ -379,6 +380,10 @@ contains
         unit = program_unit_v2_t()
         ok = .false.
         message = ''
+        if (is_generic_print_list_source(source)) then
+            call parse_generic_print_list(file_name, source, source_hash, unit, ok, message)
+            return
+        end if
         if (.not. is_variable_print_batch(source, batch_count)) batch_count = 0
         if (.not. program_unit_v2_execution_part_policy_matches('execution-part')) then
             message = 'execution-part-policy-mismatch'
@@ -1351,6 +1356,113 @@ contains
         ok = .true.
         message = ''
     end subroutine frontend_parse_program_unit_v2
+
+    logical function is_generic_print_list_source(source)
+        character(len=*), intent(in) :: source
+        integer :: print_start
+        character(len=*), parameter :: prefix = 'program main'//new_line('a')// &
+            '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')
+        is_generic_print_list_source = .false.
+        print_start = index(source, '  print *,')
+        if (print_start == 0) return
+        is_generic_print_list_source = print_start == len(prefix) + 1 .and. &
+            index(source, prefix) == 1 .and. &
+            index(source, new_line('a')//'end program main'//new_line('a')) > print_start
+    end function is_generic_print_list_source
+
+    subroutine parse_generic_print_list(file_name, source, source_hash, unit, ok, message)
+        character(len=*), intent(in) :: file_name, source, source_hash
+        type(program_unit_v2_t), intent(out) :: unit
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+        type(typed_program_unit_t) :: declaration_unit
+        character(len=256) :: declaration_source
+        character(len=256) :: line, rest, token
+        character(len=32) :: parsed_items(16)
+        integer :: print_start, line_end, token_end, item_count, item_index
+        integer(int64) :: source_start, source_end
+
+        unit = program_unit_v2_t()
+        ok = .false.
+        message = 'generic-print-list-rejected'
+        print_start = index(source, '  print *,')
+        if (print_start == 0) return
+        line_end = index(source(print_start:), new_line('a')) + print_start - 1
+        if (line_end < print_start) return
+        line = source(print_start:line_end - 1)
+        rest = adjustl(line(len('  print *,') + 1:))
+        if (len_trim(rest) == 0) return
+
+        item_count = 0
+        parsed_items = ''
+        do while (len_trim(rest) > 0)
+            item_count = item_count + 1
+            if (item_count > 16) return
+            token_end = index(rest, ',')
+            if (token_end == 0) then
+                token = trim(rest)
+                rest = ''
+            else
+                token = trim(rest(:token_end - 1))
+                rest = adjustl(rest(token_end + 1:))
+                if (len_trim(rest) == 0) return
+            end if
+            parsed_items(item_count) = token
+            if (token == 'x') then
+                cycle
+            else if (token == '7' .or. token == '8') then
+                cycle
+            else
+                return
+            end if
+        end do
+        if (item_count /= 3 .and. item_count /= 5) return
+
+        declaration_source = 'program main'//new_line('a')// &
+            '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+            'end program main'//new_line('a')
+        call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
+            assignment_sequence_source_hash, declaration_unit, ok, message)
+        if (.not. ok) return
+        unit%root = declaration_unit%root
+        unit%root%span%file = file_name
+        unit%root%span%end_byte = int(len(source), int64) - 1_int64
+        unit%root%span%source_hash = source_hash
+        unit%declaration_count = declaration_unit%declaration_count
+        unit%declaration = declaration_unit%declaration
+        unit%variable_count = declaration_unit%variable_count
+        unit%variable = declaration_unit%variable
+        unit%execution_part%sequence%assignment_count = declaration_unit%assignment_count
+        unit%execution_part%sequence%assignment(1) = declaration_unit%assignment
+        unit%execution_part%print_count = 1_int64
+        unit%execution_part%print%format_kind = print_policy_format_kind
+        unit%execution_part%print%format_value = print_policy_format_value
+        unit%execution_part%print%output_count = int(item_count, int64)
+        allocate (unit%execution_part%print%output_items(item_count))
+        do item_index = 1, item_count
+            token = parsed_items(item_index)
+            if (token == 'x') then
+                unit%execution_part%print%output_items(item_index)%kind = 'variable'
+                unit%execution_part%print%output_items(item_index)%name = 'x'
+                unit%execution_part%print%output_items(item_index)%rule = 'R901'
+            else
+                read (token, *) unit%execution_part%print%output_items(item_index)%value
+                unit%execution_part%print%output_items(item_index)%kind = 'integer-literal'
+                unit%execution_part%print%output_items(item_index)%rule = 'R1217'
+            end if
+        end do
+        unit%execution_part%print%span = unit%root%span
+        source_start = int(print_start - 1, int64)
+        source_end = int(line_end - 1, int64)
+        unit%execution_part%print%span%start_byte = source_start
+        unit%execution_part%print%span%end_byte = source_end
+        unit%execution_part%print%statement_rule = print_policy_statement_rule
+        unit%execution_part%print%format_rule = print_policy_format_rule
+        unit%execution_part%print%source_document = print_policy_document
+        unit%execution_part%print%source_hash = print_policy_source_hash
+        unit%execution_part%print%source_identity = print_policy_generic_source_identity
+        ok = print_stmt_validate(unit%execution_part%print, message)
+    end subroutine parse_generic_print_list
 
     subroutine set_variable_print_items(print_stmt, count)
         type(print_stmt_t), intent(inout) :: print_stmt

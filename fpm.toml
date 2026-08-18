@@ -242,3 +242,8 @@ main = "test_frontend_program_unit_v2_stop.f90"
 name = "test_frontend_program_unit_v2_print"
 source-dir = "test"
 main = "test_frontend_program_unit_v2_print.f90"
+
+[[test]]
+name = "test_frontend_generic_print_list"
+source-dir = "test"
+main = "test_frontend_generic_print_list.f90"
