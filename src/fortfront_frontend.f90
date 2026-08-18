@@ -183,23 +183,27 @@ contains
         integer(int64) :: declaration_start
         integer(int64) :: unit_end
         integer(int64) :: unit_start
+        character(len=*), parameter :: source_prefix = &
+            'program p'//new_line('a')//'  integer :: '
+        character(len=*), parameter :: source_suffix = &
+            new_line('a')//'end program p'//new_line('a')
 
         unit = typed_program_unit_t()
         ok = .false.
         message = ''
-        if (source == 'program p'//new_line('a')//'  integer :: x'// &
-            new_line('a')//'end program p'//new_line('a')) then
-            variable_name = 'x'
-        else if (source == 'program p'//new_line('a')//'  integer :: y'// &
-                new_line('a')//'end program p'//new_line('a')) then
-            variable_name = 'y'
-        else if (source == 'program p'//new_line('a')//'  integer :: z'// &
-                new_line('a')//'end program p'//new_line('a')) then
-            variable_name = 'z'
-        else if (source == 'program p'//new_line('a')//'  integer :: alpha'// &
-                new_line('a')//'end program p'//new_line('a')) then
-            variable_name = 'alpha'
-        else
+        if (len(source) <= len(source_prefix) + len(source_suffix) .or. &
+            source(:len(source_prefix)) /= source_prefix .or. &
+            source(len(source) - len(source_suffix) + 1:) /= source_suffix) then
+            message = 'unsupported-typed-program-unit'
+            return
+        end if
+        if (len(source) - len(source_prefix) - len(source_suffix) > &
+            len(variable_name)) then
+            message = 'unsupported-typed-program-unit'
+            return
+        end if
+        variable_name = source(len(source_prefix) + 1:len(source) - len(source_suffix))
+        if (len_trim(variable_name) == 0) then
             message = 'unsupported-typed-program-unit'
             return
         end if
