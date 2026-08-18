@@ -20,6 +20,9 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_output_3_kind = 'integer-literal'
     integer(int64), parameter, public :: print_policy_output_3_value = 9_int64
     character(len=*), parameter, public :: print_policy_output_3_rule = 'R1217'
+    character(len=*), parameter, public :: print_policy_output_4_kind = 'integer-literal'
+    integer(int64), parameter, public :: print_policy_output_4_value = 10_int64
+    character(len=*), parameter, public :: print_policy_output_4_rule = 'R1217'
     character(len=*), parameter, public :: print_policy_document = 'J3-24-007'
     character(len=*), parameter, public :: print_policy_statement_clause = '12.6.1'
     character(len=*), parameter, public :: print_policy_format_clause = '12.6.2.2'
@@ -40,23 +43,28 @@ module frontend_print_policy_generated
         integer(int64) :: output_2_value = 0_int64
         character(len=32) :: output_3_kind = ''
         integer(int64) :: output_3_value = 0_int64
+        character(len=32) :: output_4_kind = ''
+        integer(int64) :: output_4_value = 0_int64
         type(source_span_t) :: span
         character(len=32) :: statement_rule = ''
         character(len=32) :: format_rule = ''
         character(len=32) :: output_rule = ''
         character(len=32) :: output_2_rule = ''
         character(len=32) :: output_3_rule = ''
+        character(len=32) :: output_4_rule = ''
         character(len=128) :: source_document = ''
         character(len=32) :: statement_clause = ''
         character(len=32) :: format_clause = ''
         character(len=32) :: output_clause = ''
         character(len=32) :: output_2_clause = ''
         character(len=32) :: output_3_clause = ''
+        character(len=32) :: output_4_clause = ''
         integer(int64) :: statement_page = 0_int64
         integer(int64) :: format_page = 0_int64
         integer(int64) :: output_page = 0_int64
         integer(int64) :: output_2_page = 0_int64
         integer(int64) :: output_3_page = 0_int64
+        integer(int64) :: output_4_page = 0_int64
         character(len=128) :: source_hash = ''
     end type print_stmt_t
 
@@ -78,7 +86,7 @@ contains
             print_stmt_validate = .false.
             return
         end if
-        if (value%output_count < 1_int64 .or. value%output_count > 3_int64) then
+        if (value%output_count < 1_int64 .or. value%output_count > 4_int64) then
             message = 'invalid-print-policy-output-count'
             print_stmt_validate = .false.
             return
@@ -113,6 +121,21 @@ contains
                 return
             end if
         end if
+        if (value%output_count == 4_int64) then
+            if (trim(value%output_4_kind) /= trim(print_policy_output_4_kind) .or. &
+                value%output_4_value /= print_policy_output_4_value) then
+                message = 'invalid-print-policy-value'
+                print_stmt_validate = .false.
+                return
+            end if
+            if (trim(value%output_4_rule) /= trim(print_policy_output_4_rule) .or. &
+                trim(value%output_4_clause) /= trim(print_policy_output_clause) .or. &
+                value%output_4_page /= print_policy_output_page) then
+                message = 'invalid-print-policy-rule'
+                print_stmt_validate = .false.
+                return
+            end if
+        end if
         if (trim(value%statement_rule) /= trim(print_policy_statement_rule) .or. &
             trim(value%format_rule) /= trim(print_policy_format_rule) .or. &
             trim(value%output_rule) /= trim(print_policy_output_rule)) then
@@ -142,6 +165,7 @@ contains
         character(len=*), intent(out) :: message
         character(len=2048) :: span_sx
         character(len=32) :: output_value_s, output_2_value_s, output_3_value_s
+        character(len=32) :: output_4_value_s
         character(len=32) :: output_count_s
         character(len=32) :: statement_page_s
         character(len=32) :: format_page_s, output_page_s
@@ -155,6 +179,7 @@ contains
         write (output_value_s, '(i0)') value%output_value
         write (output_2_value_s, '(i0)') value%output_2_value
         write (output_3_value_s, '(i0)') value%output_3_value
+        write (output_4_value_s, '(i0)') value%output_4_value
         write (output_count_s, '(i0)') value%output_count
         write (statement_page_s, '(i0)') value%statement_page
         write (format_page_s, '(i0)') value%format_page
@@ -188,7 +213,7 @@ contains
                 trim(statement_page_s)//') (format-page '//trim(format_page_s)// &
                 ') (output-page '//trim(output_page_s)//') (source-hash '// &
                 trim(value%source_hash)//'))'
-        else
+        else if (value%output_count == 3_int64) then
             output = '(print-stmt (format-kind '//trim(value%format_kind)// &
                 ') (format-value '//trim(value%format_value)//') (output-kind '// &
                 trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
@@ -206,6 +231,25 @@ contains
                 trim(value%output_clause)//') (statement-page '//trim(statement_page_s)// &
                 ') (format-page '//trim(format_page_s)//') (output-page '// &
                 trim(output_page_s)//') (source-hash '//trim(value%source_hash)//'))'
+        else
+            output = '(print-stmt (format-kind '//trim(value%format_kind)// &
+                ') (format-value '//trim(value%format_value)//') (output-kind '// &
+                trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
+                ') (output-count '//trim(output_count_s)//') (output-kind-2 '// &
+                trim(value%output_2_kind)//') (output-value-2 '//trim(output_2_value_s)// &
+                ') (output-rule-2 '//trim(value%output_2_rule)//') (output-kind-3 '// &
+                trim(value%output_3_kind)//') (output-value-3 '//trim(output_3_value_s)// &
+                ') (output-rule-3 '//trim(value%output_3_rule)//') (output-kind-4 '// &
+                trim(value%output_4_kind)//') (output-value-4 '//trim(output_4_value_s)// &
+                ') (output-rule-4 '//trim(value%output_4_rule)//') (span '// &
+                trim(span_sx)//') (statement-rule '//trim(value%statement_rule)// &
+                ') (format-rule '//trim(value%format_rule)//') (output-rule '// &
+                trim(value%output_rule)//') (source-document '//trim(value%source_document)// &
+                ') (statement-clause '//trim(value%statement_clause)//') (format-clause '// &
+                trim(value%format_clause)//') (output-clause '//trim(value%output_clause)// &
+                ') (statement-page '//trim(statement_page_s)//') (format-page '// &
+                trim(format_page_s)//') (output-page '//trim(output_page_s)// &
+                ') (source-hash '//trim(value%source_hash)//'))'
         end if
         ok = .true.
     end subroutine print_stmt_to_sx
