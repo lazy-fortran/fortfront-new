@@ -81,7 +81,7 @@ def _replace_generated_routes(generated: str) -> str:
         "                end if",
         "            else if (trim(item%kind) == trim(print_policy_variable_output_kind)) then",
         "                if ((index /= 1 .and. index /= 2 .and. index /= 3 .and. &",
-        "                    index /= 4 .and. index /= 5) .or. &",
+        "                    index /= 4 .and. index /= 5 .and. index /= 6) .or. &",
         "                    trim(item%name) /= trim(print_policy_variable_output_name) .or. &",
         "                    (item%value /= print_policy_variable_value .and. &",
         "                    item%value /= print_policy_variable_value_2 .and. &",
@@ -288,7 +288,7 @@ def _replace_generated_routes(generated: str) -> str:
     for index in range(2, 11):
         if index == 2 or index == 3:
             continue
-        name = f"value%output_{index}_name" if index in (4, 5) else "print_policy_variable_output_name"
+        name = f"value%output_{index}_name" if index in (4, 5, 6) else "print_policy_variable_output_name"
         generated = generated.replace(
             f"                item%kind = value%output_{index}_kind\n",
             f"                item%kind = value%output_{index}_kind\n"
@@ -416,6 +416,7 @@ module frontend_print_policy_generated
         character(len=32) :: output_5_name = ''
         integer(int64) :: output_5_value = 0_int64
         character(len=32) :: output_6_kind = ''
+        character(len=32) :: output_6_name = ''
         integer(int64) :: output_6_value = 0_int64
         character(len=32) :: output_7_kind = ''
         integer(int64) :: output_7_value = 0_int64

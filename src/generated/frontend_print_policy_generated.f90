@@ -103,6 +103,7 @@ module frontend_print_policy_generated
         character(len=32) :: output_5_name = ''
         integer(int64) :: output_5_value = 0_int64
         character(len=32) :: output_6_kind = ''
+        character(len=32) :: output_6_name = ''
         integer(int64) :: output_6_value = 0_int64
         character(len=32) :: output_7_kind = ''
         integer(int64) :: output_7_value = 0_int64
@@ -185,7 +186,7 @@ contains
                 end if
             else if (trim(item%kind) == trim(print_policy_variable_output_kind)) then
                 if ((index /= 1 .and. index /= 2 .and. index /= 3 .and. &
-                    index /= 4 .and. index /= 5) .or. &
+                    index /= 4 .and. index /= 5 .and. index /= 6) .or. &
                     trim(item%name) /= trim(print_policy_variable_output_name) .or. &
                     (item%value /= print_policy_variable_value .and. &
                     item%value /= print_policy_variable_value_2 .and. &
@@ -342,7 +343,7 @@ contains
                 item%page = value%output_5_page
             else if (index == 6) then
                 item%kind = value%output_6_kind
-                item%name = print_policy_variable_output_name
+                item%name = value%output_6_name
                 item%value = value%output_6_value
                 item%rule = value%output_6_rule
                 item%clause = value%output_6_clause
