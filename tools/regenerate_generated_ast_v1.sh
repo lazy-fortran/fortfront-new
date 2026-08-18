@@ -12,3 +12,5 @@ python3 "$root/tools/generate_typed_declaration_policy.py" \
     "$root/specs/frontend-typed-declaration-policy-v0.sxs" "$output"
 python3 "$root/tools/generate_assignment_policy.py" \
     "$root/specs/frontend-assignment-policy-v0.sxs" "$output"
+python3 "$root/tools/generate_program_unit_v2_envelope.py" \
+    "$root/specs/frontend-program-unit-v2-envelope.sxs" "$output"
