@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the bounded, source-backed PRINT *, 7[, 8[, 9[, 10]]] typed AST policy."""
+"""Generate the bounded, source-backed PRINT *, 7[, 8[, 9[, 10[, 11]]]] typed AST policy."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ SCHEMA = re.compile(
     r"\(output-item (integer-literal) (8) (R\d+)\)\s+"
     r"\(output-item (integer-literal) (9) (R\d+)\)\s+"
     r"\(output-item (integer-literal) (10) (R\d+)\)\s+"
+    r"\(output-item (integer-literal) (11) (R\d+)\)\s+"
     r"\(source (J3-24-007) ([^\s()]+) ([^\s()]+) ([^\s()]+) "
     r"(242) (244) (248) ([^\s()]+)\)\)"
 )
@@ -30,6 +31,7 @@ def render(source: str) -> str:
         format_rule, output_kind, output_value, output_rule, output_2_kind,
         output_2_value, output_2_rule, output_3_kind, output_3_value, output_3_rule,
         output_4_kind, output_4_value, output_4_rule,
+        output_5_kind, output_5_value, output_5_rule,
         document,
         statement_clause, format_clause, output_clause, statement_page,
         format_page, output_page, source_hash,
@@ -59,6 +61,9 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_output_4_kind = '{output_4_kind}'
     integer(int64), parameter, public :: print_policy_output_4_value = {output_4_value}_int64
     character(len=*), parameter, public :: print_policy_output_4_rule = '{output_4_rule}'
+    character(len=*), parameter, public :: print_policy_output_5_kind = '{output_5_kind}'
+    integer(int64), parameter, public :: print_policy_output_5_value = {output_5_value}_int64
+    character(len=*), parameter, public :: print_policy_output_5_rule = '{output_5_rule}'
     character(len=*), parameter, public :: print_policy_document = '{document}'
     character(len=*), parameter, public :: print_policy_statement_clause = '{statement_clause}'
     character(len=*), parameter, public :: print_policy_format_clause = '{format_clause}'
@@ -81,6 +86,8 @@ module frontend_print_policy_generated
         integer(int64) :: output_3_value = 0_int64
         character(len=32) :: output_4_kind = ''
         integer(int64) :: output_4_value = 0_int64
+        character(len=32) :: output_5_kind = ''
+        integer(int64) :: output_5_value = 0_int64
         type(source_span_t) :: span
         character(len=32) :: statement_rule = ''
         character(len=32) :: format_rule = ''
@@ -88,6 +95,7 @@ module frontend_print_policy_generated
         character(len=32) :: output_2_rule = ''
         character(len=32) :: output_3_rule = ''
         character(len=32) :: output_4_rule = ''
+        character(len=32) :: output_5_rule = ''
         character(len=128) :: source_document = ''
         character(len=32) :: statement_clause = ''
         character(len=32) :: format_clause = ''
@@ -95,12 +103,14 @@ module frontend_print_policy_generated
         character(len=32) :: output_2_clause = ''
         character(len=32) :: output_3_clause = ''
         character(len=32) :: output_4_clause = ''
+        character(len=32) :: output_5_clause = ''
         integer(int64) :: statement_page = 0_int64
         integer(int64) :: format_page = 0_int64
         integer(int64) :: output_page = 0_int64
         integer(int64) :: output_2_page = 0_int64
         integer(int64) :: output_3_page = 0_int64
         integer(int64) :: output_4_page = 0_int64
+        integer(int64) :: output_5_page = 0_int64
         character(len=128) :: source_hash = ''
     end type print_stmt_t
 
@@ -122,7 +132,7 @@ contains
             print_stmt_validate = .false.
             return
         end if
-        if (value%output_count < 1_int64 .or. value%output_count > 4_int64) then
+        if (value%output_count < 1_int64 .or. value%output_count > 5_int64) then
             message = 'invalid-print-policy-output-count'
             print_stmt_validate = .false.
             return
@@ -172,6 +182,21 @@ contains
                 return
             end if
         end if
+        if (value%output_count == 5_int64) then
+            if (trim(value%output_5_kind) /= trim(print_policy_output_5_kind) .or. &
+                value%output_5_value /= print_policy_output_5_value) then
+                message = 'invalid-print-policy-value'
+                print_stmt_validate = .false.
+                return
+            end if
+            if (trim(value%output_5_rule) /= trim(print_policy_output_5_rule) .or. &
+                trim(value%output_5_clause) /= trim(print_policy_output_clause) .or. &
+                value%output_5_page /= print_policy_output_page) then
+                message = 'invalid-print-policy-rule'
+                print_stmt_validate = .false.
+                return
+            end if
+        end if
         if (trim(value%statement_rule) /= trim(print_policy_statement_rule) .or. &
             trim(value%format_rule) /= trim(print_policy_format_rule) .or. &
             trim(value%output_rule) /= trim(print_policy_output_rule)) then
@@ -201,7 +226,7 @@ contains
         character(len=*), intent(out) :: message
         character(len=2048) :: span_sx
         character(len=32) :: output_value_s, output_2_value_s, output_3_value_s
-        character(len=32) :: output_4_value_s
+        character(len=32) :: output_4_value_s, output_5_value_s
         character(len=32) :: output_count_s
         character(len=32) :: statement_page_s
         character(len=32) :: format_page_s, output_page_s
@@ -216,6 +241,7 @@ contains
         write (output_2_value_s, '(i0)') value%output_2_value
         write (output_3_value_s, '(i0)') value%output_3_value
         write (output_4_value_s, '(i0)') value%output_4_value
+        write (output_5_value_s, '(i0)') value%output_5_value
         write (output_count_s, '(i0)') value%output_count
         write (statement_page_s, '(i0)') value%statement_page
         write (format_page_s, '(i0)') value%format_page
@@ -267,7 +293,7 @@ contains
                 trim(value%output_clause)//') (statement-page '//trim(statement_page_s)// &
                 ') (format-page '//trim(format_page_s)//') (output-page '// &
                 trim(output_page_s)//') (source-hash '//trim(value%source_hash)//'))'
-        else
+        else if (value%output_count == 4_int64) then
             output = '(print-stmt (format-kind '//trim(value%format_kind)// &
                 ') (format-value '//trim(value%format_value)//') (output-kind '// &
                 trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
@@ -278,6 +304,27 @@ contains
                 ') (output-rule-3 '//trim(value%output_3_rule)//') (output-kind-4 '// &
                 trim(value%output_4_kind)//') (output-value-4 '//trim(output_4_value_s)// &
                 ') (output-rule-4 '//trim(value%output_4_rule)//') (span '// &
+                trim(span_sx)//') (statement-rule '//trim(value%statement_rule)// &
+                ') (format-rule '//trim(value%format_rule)//') (output-rule '// &
+                trim(value%output_rule)//') (source-document '//trim(value%source_document)// &
+                ') (statement-clause '//trim(value%statement_clause)//') (format-clause '// &
+                trim(value%format_clause)//') (output-clause '//trim(value%output_clause)// &
+                ') (statement-page '//trim(statement_page_s)//') (format-page '// &
+                trim(format_page_s)//') (output-page '//trim(output_page_s)// &
+                ') (source-hash '//trim(value%source_hash)//'))'
+        else
+            output = '(print-stmt (format-kind '//trim(value%format_kind)// &
+                ') (format-value '//trim(value%format_value)//') (output-kind '// &
+                trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
+                ') (output-count '//trim(output_count_s)//') (output-kind-2 '// &
+                trim(value%output_2_kind)//') (output-value-2 '//trim(output_2_value_s)// &
+                ') (output-rule-2 '//trim(value%output_2_rule)//') (output-kind-3 '// &
+                trim(value%output_3_kind)//') (output-value-3 '//trim(output_3_value_s)// &
+                ') (output-rule-3 '//trim(value%output_3_rule)//') (output-kind-4 '// &
+                trim(value%output_4_kind)//') (output-value-4 '//trim(output_4_value_s)// &
+                ') (output-rule-4 '//trim(value%output_4_rule)//') (output-kind-5 '// &
+                trim(value%output_5_kind)//') (output-value-5 '//trim(output_5_value_s)// &
+                ') (output-rule-5 '//trim(value%output_5_rule)//') (span '// &
                 trim(span_sx)//') (statement-rule '//trim(value%statement_rule)// &
                 ') (format-rule '//trim(value%format_rule)//') (output-rule '// &
                 trim(value%output_rule)//') (source-document '//trim(value%source_document)// &
