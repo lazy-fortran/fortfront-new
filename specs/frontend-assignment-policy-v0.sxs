@@ -5,4 +5,5 @@
   (binary-expression add R1007 R1010 1 2 +)
   (binary-expression subtract R1006 R1010 5 3 –)
   (binary-expression multiply R1006 R1009 2 3 *)
-  (binary-expression divide R1006 R1009 6 2 /))
+  (binary-expression divide R1006 R1009 6 2 /)
+  (literal-range integer-literal 0 2047))

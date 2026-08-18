@@ -19,6 +19,7 @@ tools/regenerate_generated_ast.sh
 python3 tools/test_generated_ast.py
 tools/regenerate_generated_ast_v1.sh
 python3 tools/test_generated_ast_v1.py
+python3 tools/test_generated_assignment_policy.py
 ```
 
 The regeneration command reads `../lazy-fortran-new/contracts/frontend-ast-v0.sxs`

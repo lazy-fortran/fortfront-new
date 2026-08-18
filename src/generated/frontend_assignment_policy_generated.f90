@@ -7,6 +7,8 @@ module frontend_assignment_policy_generated
     character(len=*), parameter, public :: assignment_policy_operator = '='
     character(len=*), parameter, public :: assignment_policy_integer_literal_rule = &
         'R708'
+    integer, parameter, public :: assignment_policy_integer_literal_min = 0
+    integer, parameter, public :: assignment_policy_integer_literal_max = 2047
     type, public :: assignment_policy_row_t
         character(len=16) :: expression_kind
         character(len=16) :: expression_rule

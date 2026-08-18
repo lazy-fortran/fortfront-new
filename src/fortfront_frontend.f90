@@ -29,6 +29,7 @@ module fortfront_frontend
     use frontend_assignment_policy_generated, only: assignment_policy_lhs, &
         assignment_policy_source_rule, assignment_policy_operator, &
         assignment_policy_integer_literal_rule, &
+        assignment_policy_integer_literal_min, assignment_policy_integer_literal_max, &
         assignment_policy_rows, assignment_policy_row_count, &
         assignment_policy_source_page
     use, intrinsic :: iso_fortran_env, only: int64
@@ -53,9 +54,6 @@ module fortfront_frontend
     integer, parameter, public :: program_unit_declaration_capacity = 16
     integer, parameter, public :: semantic_item_table_capacity = 16
     integer, parameter, public :: diagnostic_table_capacity = 16
-    integer, parameter :: assignment_policy_integer_literal_min = 0
-    integer, parameter :: assignment_policy_integer_literal_max = 2047
-
     type, public :: source_span_t
         character(len=256) :: file = ''
         integer(int64) :: start_byte = 0_int64

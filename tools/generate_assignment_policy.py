@@ -16,7 +16,8 @@ def main() -> int:
         r"\(binary-expression (add) (R\d+) (R\d+) (1) (2) (\+)\)\s+"
         r"\(binary-expression (subtract) (R\d+) (R\d+) (5) (3) (–)\)\s+"
         r"\(binary-expression (multiply) (R\d+) (R\d+) (2) (3) (\*)\)\s+"
-        r"\(binary-expression (divide) (R\d+) (R\d+) (6) (2) (/)\)\)", source
+        r"\(binary-expression (divide) (R\d+) (R\d+) (6) (2) (/)\)\s+"
+        r"\(literal-range integer-literal (-?\d+) (-?\d+)\)\)", source
     )
     if match is None:
         raise SystemExit("invalid assignment policy schema")
@@ -53,6 +54,8 @@ def main() -> int:
         "    character(len=*), parameter, public :: assignment_policy_operator = '='\n"
         "    character(len=*), parameter, public :: assignment_policy_integer_literal_rule = &\n"
         f"        '{match.group(3)}'\n"
+        f"    integer, parameter, public :: assignment_policy_integer_literal_min = {match.group(28)}\n"
+        f"    integer, parameter, public :: assignment_policy_integer_literal_max = {match.group(29)}\n"
         "    type, public :: assignment_policy_row_t\n"
         "        character(len=16) :: expression_kind\n"
         "        character(len=16) :: expression_rule\n"
