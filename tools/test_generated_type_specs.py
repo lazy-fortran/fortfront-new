@@ -18,6 +18,7 @@ def main() -> int:
     entries = parse(SCHEMA.read_text(encoding="utf-8"))
     expected_rules = {
         "integer": "R705", "real": "R706", "double-precision": "R707",
+        "logical": "R704",
     }
     for entry in entries:
         name = str(entry["canonical"])
@@ -34,6 +35,14 @@ def main() -> int:
         pass
     else:
         raise AssertionError("mutated source rule was accepted")
+    logical_mutated = SCHEMA.read_text(encoding="utf-8").replace(
+        "source-rule R704 J3-24-007 5 80", "source-rule R705 J3-24-007 5 80")
+    try:
+        parse(logical_mutated)
+    except SchemaError:
+        pass
+    else:
+        raise AssertionError("mutated logical source rule was accepted")
     with tempfile.TemporaryDirectory(prefix="fortfront-type-specs-") as directory:
         output = Path(directory) / "generated"
         subprocess.run(["python3", str(GENERATOR), str(SCHEMA), str(output)],
@@ -42,12 +51,12 @@ def main() -> int:
         if fresh.read_bytes() != EXPECTED.read_bytes():
             raise AssertionError("checked-in type-spec artifact is stale")
         generated = fresh.read_text(encoding="utf-8")
-        for spelling in ("integer", "real", "double precision", "complex"):
+        for spelling in ("integer", "real", "double precision", "logical", "complex"):
             if f"  {spelling} :: " not in generated:
                 raise AssertionError(f"generated table omitted {spelling!r}")
         if "intrinsic_type_spec_declaration" not in generated:
             raise AssertionError("generated declaration helper is missing")
-        for value in ("R705", "R706", "R707", "J3-24-007", "67_int64", "source_hash"):
+        for value in ("R705", "R706", "R707", "R704", "J3-24-007", "67_int64", "80_int64", "source_hash"):
             if value not in generated:
                 raise AssertionError(f"generated source-rule field omitted {value!r}")
         if "declaration(prefix_length + 1:prefix_length + name_length) = trim(name)" \

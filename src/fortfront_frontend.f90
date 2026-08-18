@@ -2909,6 +2909,16 @@ contains
                             parse_program_witness = .false.
                             return
                         end if
+                    else if (trim(lowercase(expected_variable_type)) == &
+                            'logical') then
+                        expected_declaration = &
+                            '  logical :: '//trim(expected_variable_name)
+                        if (source(second_line_start:second_line_end) /= &
+                            trim(expected_declaration)) then
+                            message = 'invalid-program'
+                            parse_program_witness = .false.
+                            return
+                        end if
                     else if (source(second_line_start:second_line_end) /= &
                             '  integer :: '//trim(expected_variable_name)) then
                         message = 'invalid-program'

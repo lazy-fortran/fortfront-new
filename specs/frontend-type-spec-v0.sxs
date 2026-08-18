@@ -17,6 +17,12 @@
     (canonical double-precision)
     (variable-name x)
     (source-rule R707 J3-24-007 5 67 1cf538329c57e4f617adb36f2c7cd91a5a5561c78bcce16ec96f7ff1a9979f9e))
+  (type-spec logical
+    (source-prefix logical)
+    (parser-type logical)
+    (canonical logical)
+    (variable-name x)
+    (source-rule R704 J3-24-007 5 80 1cf538329c57e4f617adb36f2c7cd91a5a5561c78bcce16ec96f7ff1a9979f9e))
   (type-spec complex
     (source-prefix complex)
     (parser-type complex)

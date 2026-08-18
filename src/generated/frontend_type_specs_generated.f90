@@ -17,10 +17,11 @@ module frontend_type_specs_generated
     end type intrinsic_type_spec_t
 
     type(intrinsic_type_spec_t), parameter, public :: &
-        intrinsic_type_spec_table(4) = [ &
+        intrinsic_type_spec_table(5) = [ &
         intrinsic_type_spec_t('  integer :: ', 'integer', 'integer', '', 'R705', 'J3-24-007', '5', 67_int64, '1cf538329c57e4f617adb36f2c7cd91a5a5561c78bcce16ec96f7ff1a9979f9e'), &
         intrinsic_type_spec_t('  real :: ', 'real', 'real', 'x', 'R706', 'J3-24-007', '5', 67_int64, '1cf538329c57e4f617adb36f2c7cd91a5a5561c78bcce16ec96f7ff1a9979f9e'), &
         intrinsic_type_spec_t('  double precision :: ', 'double-precision', 'double precision', 'x', 'R707', 'J3-24-007', '5', 67_int64, '1cf538329c57e4f617adb36f2c7cd91a5a5561c78bcce16ec96f7ff1a9979f9e'), &
+        intrinsic_type_spec_t('  logical :: ', 'logical', 'logical', 'x', 'R704', 'J3-24-007', '5', 80_int64, '1cf538329c57e4f617adb36f2c7cd91a5a5561c78bcce16ec96f7ff1a9979f9e'), &
         intrinsic_type_spec_t('  complex :: ', 'complex', 'complex', 'x', '', '', '', 0_int64, '') ]
 
     public :: intrinsic_type_spec_lookup

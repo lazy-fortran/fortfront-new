@@ -87,12 +87,13 @@ def parse(text: str) -> list[dict[str, object]]:
         else:
             rule, document, clause, page, source_hash = source_rule
             if (not re.fullmatch(r"[RC][0-9]+", rule) or document != "J3-24-007" or
-                    clause != "5" or page != "67" or
+                    clause != "5" or page not in {"67", "80"} or
                     not re.fullmatch(r"[0-9a-f]{64}", source_hash)):
                 raise SchemaError(f"source-rule in {name} is invalid")
             expected_rule = {"integer": "R705", "real": "R706",
-                             "double-precision": "R707"}.get(canonical[0])
-            if expected_rule is not None and rule != expected_rule:
+                             "double-precision": "R707", "logical": "R704"}.get(canonical[0])
+            expected_page = "80" if canonical[0] == "logical" else "67"
+            if expected_rule is not None and (rule != expected_rule or page != expected_page):
                 raise SchemaError(f"source-rule in {name} is invalid")
             source_values = (rule, document, clause, page, source_hash)
         result.append({
