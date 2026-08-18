@@ -318,6 +318,9 @@ contains
                 write (item_page_s, '(i0)') item%page
                 output = trim(output)//' '//trim(item_page_s)//')) '
             end do
+            write (page_s, '(i0)') value%statement_page
+            write (format_page_s, '(i0)') value%format_page
+            write (output_page_s, '(i0)') value%output_page
             output = trim(output)//') (span '//trim(span_sx)//') (statement-rule '//trim(value%statement_rule)//') '// &
                 '(format-rule '//trim(value%format_rule)//') (output-rule '//trim(value%output_rule)//') '// &
                 '(source-document '//trim(value%source_document)//') '// &
