@@ -7,6 +7,7 @@ program test_frontend_program_unit_v2_print
         print_policy_output_4_value, print_policy_output_4_rule, &
         print_policy_output_5_value, print_policy_output_5_rule, &
         print_policy_output_6_value, print_policy_output_6_rule, &
+        print_policy_output_7_value, print_policy_output_7_rule, &
         print_policy_statement_rule, print_policy_format_rule, print_policy_output_rule, &
         print_policy_statement_clause, print_policy_format_clause, print_policy_output_clause, &
         print_policy_statement_page, print_policy_format_page, print_policy_output_page, &
@@ -27,6 +28,8 @@ program test_frontend_program_unit_v2_print
         '  print *, 7, 8, 9, 10, 11'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: six_item_source = 'program p'//new_line('a')// &
         '  print *, 7, 8, 9, 10, 11, 12'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: seven_item_source = 'program p'//new_line('a')// &
+        '  print *, 7, 8, 9, 10, 11, 12, 13'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: missing_second = 'program p'//new_line('a')// &
         '  print *, 7,'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: wrong_second = 'program p'//new_line('a')// &
@@ -57,6 +60,12 @@ program test_frontend_program_unit_v2_print
         '  print *, 7, 8, 9, 10, 11, 13'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: write_six_items = 'program p'//new_line('a')// &
         '  write *, 7, 8, 9, 10, 11, 12'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: missing_seventh = 'program p'//new_line('a')// &
+        '  print *, 7, 8, 9, 10, 11, 12,'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: wrong_seventh = 'program p'//new_line('a')// &
+        '  print *, 7, 8, 9, 10, 11, 12, 14'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: write_seven_items = 'program p'//new_line('a')// &
+        '  write *, 7, 8, 9, 10, 11, 12, 13'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: write_seven = 'program p'//new_line('a')// &
         '  write *, 7'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: missing_item = 'program p'//new_line('a')// &
@@ -180,7 +189,23 @@ program test_frontend_program_unit_v2_print
     call assert_rejected(missing_sixth)
     call assert_rejected(wrong_sixth)
     call assert_rejected(write_six_items)
-    write (*, '(a)') 'frontend program-unit-v2 PRINT *, 7[, 8[, 9[, 10[, 11[, 12]]]]] checks: ok'
+    call frontend_parse_program_unit_v2('print-seven.f90', seven_item_source, 'print-input', &
+        unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_count /= 7 .or. &
+        unit%execution_part%print%output_7_value /= print_policy_output_7_value .or. &
+        trim(unit%execution_part%print%output_7_rule) /= print_policy_output_7_rule) then
+        error stop 'bounded PRINT *, 7, 8, 9, 10, 11, 12, 13 witness was rejected'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(output-count 7)') == 0 .or. &
+        index(trim(serialized), '(output-value-7 13)') == 0 .or. &
+        index(trim(serialized), '(output-rule-7 R1217)') == 0) then
+        error stop 'PRINT seven-item serialization changed'
+    end if
+    call assert_rejected(missing_seventh)
+    call assert_rejected(wrong_seventh)
+    call assert_rejected(write_seven_items)
+    write (*, '(a)') 'frontend program-unit-v2 PRINT *, 7[, 8[, 9[, 10[, 11[, 12[, 13]]]]]] checks: ok'
 
 contains
 

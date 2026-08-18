@@ -7,4 +7,5 @@
   (output-item integer-literal 10 R1217)
   (output-item integer-literal 11 R1217)
   (output-item integer-literal 12 R1217)
+  (output-item integer-literal 13 R1217)
   (source J3-24-007 12.6.1 12.6.2.2 12.6.3 242 244 248 7371e889f231cfb0316d30365d5083fb5af34cbb6d5f7cb1e01855c73021bfa2))
