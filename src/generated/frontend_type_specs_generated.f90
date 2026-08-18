@@ -18,6 +18,7 @@ module frontend_type_specs_generated
         intrinsic_type_spec_t('  complex :: ', 'complex', 'complex', 'x') ]
 
     public :: intrinsic_type_spec_lookup
+    public :: intrinsic_type_spec_declaration
     public :: intrinsic_type_spec_variable_allowed
 
 contains
@@ -42,6 +43,25 @@ contains
         end do
         intrinsic_type_spec_lookup = .false.
     end function intrinsic_type_spec_lookup
+
+    logical function intrinsic_type_spec_declaration(spec_index, name, declaration)
+        integer, intent(in) :: spec_index
+        character(len=*), intent(in) :: name
+        character(len=*), intent(out) :: declaration
+        integer :: prefix_length, name_length
+
+        declaration = ''
+        intrinsic_type_spec_declaration = .false.
+        if (spec_index < 1) return
+        if (spec_index > size(intrinsic_type_spec_table)) return
+        prefix_length = len_trim(intrinsic_type_spec_table(spec_index)%source_prefix) + 1
+        name_length = len_trim(name)
+        if (name_length == 0) return
+        if (prefix_length + name_length > len(declaration)) return
+        declaration(:prefix_length) = intrinsic_type_spec_table(spec_index)%source_prefix(:prefix_length)
+        declaration(prefix_length + 1:prefix_length + name_length) = trim(name)
+        intrinsic_type_spec_declaration = .true.
+    end function intrinsic_type_spec_declaration
 
     logical function intrinsic_type_spec_variable_allowed(spec_index, name)
         integer, intent(in) :: spec_index

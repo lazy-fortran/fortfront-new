@@ -14,7 +14,8 @@ module fortfront_frontend
         typed_program_unit_to_sx => program_unit_to_sx, &
         typed_program_unit_validate => program_unit_validate
     use frontend_type_specs_generated, only: intrinsic_type_spec_lookup, &
-        intrinsic_type_spec_table, intrinsic_type_spec_variable_allowed
+        intrinsic_type_spec_table, intrinsic_type_spec_variable_allowed, &
+        intrinsic_type_spec_declaration
     use frontend_program_envelope_generated, only: &
         program_envelope_header_keyword, program_envelope_terminator_keyword, &
         program_envelope_terminator_kind, program_envelope_token_matches, &
@@ -198,6 +199,7 @@ contains
         character(len=32) :: expected_variable_type
         integer :: type_spec_index
         integer :: variable_start_relative
+        character(len=256) :: expected_declaration
 
         unit = typed_program_unit_t()
         ok = .false.
@@ -235,6 +237,11 @@ contains
             message = 'unsupported-typed-program-unit'
             return
         end if
+        if (.not. intrinsic_type_spec_declaration(type_spec_index, variable_name, &
+            expected_declaration)) then
+            message = 'unsupported-typed-program-unit'
+            return
+        end if
 
         witness%id = program_envelope_program_witness%id
         witness%lhs = program_envelope_program_witness%lhs
@@ -247,11 +254,13 @@ contains
         witness%source%source_hash = program_envelope_program_witness%source_hash
         if (len_trim(intrinsic_type_spec_table(type_spec_index)%variable_name) == 0) then
             call frontend_parse(file_name, source, source_hash, witness, result, &
-                expected_variable_name=variable_name)
+                expected_variable_name=variable_name, &
+                expected_variable_declaration=expected_declaration)
         else
             if (.not. parse_program_witness(source, program_name, message, &
                 expected_kind=witness%lhs, expected_variable_name=variable_name, &
-                expected_variable_type=expected_variable_type)) return
+                expected_variable_type=expected_variable_type, &
+                expected_variable_declaration=expected_declaration)) return
             result%status = frontend_accepted
             result%root_kind = lowercase(trim(witness%lhs))
             result%root%kind = result%root_kind
@@ -270,13 +279,15 @@ contains
             if (.not. parse_program_witness(source, unit%root%name, message, &
                 unit_start=unit_start, unit_end=unit_end, &
                 declaration_start=declaration_start, declaration_end=declaration_end, &
-                expected_kind=root_kind_program, expected_variable_name=variable_name)) return
+                expected_kind=root_kind_program, expected_variable_name=variable_name, &
+                expected_variable_declaration=expected_declaration)) return
         else
             if (.not. parse_program_witness(source, unit%root%name, message, &
                 unit_start=unit_start, unit_end=unit_end, &
                 declaration_start=declaration_start, declaration_end=declaration_end, &
                 expected_kind=root_kind_program, expected_variable_name=variable_name, &
-                expected_variable_type=expected_variable_type)) return
+                expected_variable_type=expected_variable_type, &
+                expected_variable_declaration=expected_declaration)) return
         end if
 
         program_name = unit%root%name
@@ -401,13 +412,14 @@ contains
     end subroutine frontend_parse_generated_program_unit
 
     subroutine frontend_parse(file_name, source, source_hash, syntax_item, result, &
-            expected_variable_name)
+            expected_variable_name, expected_variable_declaration)
         character(len=*), intent(in) :: file_name
         character(len=*), intent(in) :: source
         character(len=*), intent(in) :: source_hash
         type(standardir_syntax_item_t), intent(in) :: syntax_item
         type(frontend_result_t), intent(out) :: result
         character(len=*), intent(in), optional :: expected_variable_name
+        character(len=*), intent(in), optional :: expected_variable_declaration
 
         type(source_span_t) :: span
         character(len=128) :: program_name
@@ -426,7 +438,8 @@ contains
                 if (present(expected_variable_name)) then
                     if (parse_program_witness(source, program_name, diagnostic_message, &
                         expected_kind=syntax_item%lhs, &
-                        expected_variable_name=expected_variable_name)) then
+                        expected_variable_name=expected_variable_name, &
+                        expected_variable_declaration=expected_variable_declaration)) then
                         result%status = frontend_accepted
                         result%root_kind = lowercase(trim(syntax_item%lhs))
                         result%root%kind = result%root_kind
@@ -2676,7 +2689,7 @@ contains
 
     logical function parse_program_witness(source, program_name, message, unit_start, &
             unit_end, declaration_start, declaration_end, expected_kind, &
-            expected_variable_name, expected_variable_type)
+            expected_variable_name, expected_variable_type, expected_variable_declaration)
         character(len=*), intent(in) :: source
         character(len=*), intent(out) :: program_name
         character(len=*), intent(out) :: message
@@ -2687,6 +2700,7 @@ contains
         character(len=*), intent(in), optional :: expected_kind
         character(len=*), intent(in), optional :: expected_variable_name
         character(len=*), intent(in), optional :: expected_variable_type
+        character(len=*), intent(in), optional :: expected_variable_declaration
 
         integer :: first_line_end
         integer :: first_line_first
@@ -2868,7 +2882,14 @@ contains
 
         if (third_line_start > 0) then
             if (present(expected_variable_name)) then
-                if (present(expected_variable_type)) then
+                if (present(expected_variable_declaration)) then
+                    if (source(second_line_start:second_line_end) /= &
+                        trim(expected_variable_declaration)) then
+                        message = 'invalid-program'
+                        parse_program_witness = .false.
+                        return
+                    end if
+                else if (present(expected_variable_type)) then
                     if (trim(lowercase(expected_variable_type)) == 'real') then
                         expected_declaration = &
                             '  real :: '//trim(expected_variable_name)

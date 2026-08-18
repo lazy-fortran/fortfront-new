@@ -24,6 +24,11 @@ def main() -> int:
         for spelling in ("integer", "real", "double precision", "complex"):
             if f"  {spelling} :: " not in generated:
                 raise AssertionError(f"generated table omitted {spelling!r}")
+        if "intrinsic_type_spec_declaration" not in generated:
+            raise AssertionError("generated declaration helper is missing")
+        if "declaration(prefix_length + 1:prefix_length + name_length) = trim(name)" \
+                not in generated:
+            raise AssertionError("generated declaration helper does not append the identifier")
     print("frontend type-spec generator checks: ok")
     return 0
 
