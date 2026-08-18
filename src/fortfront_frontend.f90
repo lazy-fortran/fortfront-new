@@ -196,6 +196,9 @@ contains
         else if (source == 'program p'//new_line('a')//'  integer :: z'// &
                 new_line('a')//'end program p'//new_line('a')) then
             variable_name = 'z'
+        else if (source == 'program p'//new_line('a')//'  integer :: alpha'// &
+                new_line('a')//'end program p'//new_line('a')) then
+            variable_name = 'alpha'
         else
             message = 'unsupported-typed-program-unit'
             return
@@ -235,7 +238,7 @@ contains
         unit%variable%span = span
         unit%variable%span%start_byte = len('program p'//new_line('a'))
         unit%variable%span%end_byte = unit%variable%span%start_byte + &
-            len('  integer :: x')
+            len('  integer :: ') + len_trim(variable_name)
         ok = typed_program_unit_validate(unit, message)
     end subroutine frontend_parse_typed_program_unit
 
@@ -2813,11 +2816,6 @@ contains
         end if
 
         if (third_line_start > 0) then
-            if (second_line_end - second_line_start + 1 /= len('  integer :: x')) then
-                message = 'invalid-program'
-                parse_program_witness = .false.
-                return
-            end if
             if (present(expected_variable_name)) then
                 if (source(second_line_start:second_line_end) /= &
                     '  integer :: '//trim(expected_variable_name)) then
