@@ -23,6 +23,7 @@ def main() -> int:
         "print_policy_output_5_value = 11_int64",
         "print_policy_output_6_value = 12_int64",
         "print_policy_output_7_value = 13_int64",
+        "print_policy_output_8_value = 14_int64",
         "12.6.1", "12.6.2.2", "12.6.3",
         "242_int64", "244_int64", "248_int64",
     ):
