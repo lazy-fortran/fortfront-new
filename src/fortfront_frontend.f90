@@ -192,7 +192,9 @@ contains
         character(len=*), parameter :: variable_prefix = '  integer :: '
         character(len=*), parameter :: real_prefix = '  real :: '
         character(len=*), parameter :: double_prefix = '  double precision :: '
+        character(len=*), parameter :: complex_prefix = '  complex :: '
         character(len=32) :: expected_variable_type
+        logical :: is_complex
         logical :: is_real
         logical :: is_double
 
@@ -210,6 +212,7 @@ contains
             return
         end if
         second_newline = first_newline + second_newline_relative
+        is_complex = .false.
         is_real = .false.
         is_double = .false.
         if (second_newline - first_newline - 1 < len(real_prefix)) then
@@ -220,11 +223,15 @@ contains
             if (source(first_newline + 1:first_newline + len(double_prefix)) == &
                 double_prefix) is_double = .true.
         end if
+        if (second_newline - first_newline - 1 >= len(complex_prefix)) then
+            if (source(first_newline + 1:first_newline + len(complex_prefix)) == &
+                complex_prefix) is_complex = .true.
+        end if
         if (second_newline - first_newline - 1 >= len(real_prefix)) then
             if (source(first_newline + 1:first_newline + len(real_prefix)) == &
                 real_prefix) is_real = .true.
         end if
-        if (.not. is_real .and. .not. is_double) then
+        if (.not. is_real .and. .not. is_double .and. .not. is_complex) then
             if (second_newline - first_newline - 1 < len(variable_prefix)) then
                 message = 'unsupported-typed-program-unit'
                 return
@@ -237,6 +244,8 @@ contains
         end if
         if (is_double) then
             variable_start = first_newline + len(double_prefix) + 1
+        else if (is_complex) then
+            variable_start = first_newline + len(complex_prefix) + 1
         else if (is_real) then
             variable_start = first_newline + len('  real :: ') + 1
         else
@@ -246,6 +255,8 @@ contains
             expected_variable_type = 'real'
         else if (is_double) then
             expected_variable_type = 'double precision'
+        else if (is_complex) then
+            expected_variable_type = 'complex'
         else
             expected_variable_type = 'integer'
         end if
@@ -259,7 +270,7 @@ contains
             message = 'unsupported-typed-program-unit'
             return
         end if
-        if (is_real .or. is_double) then
+        if (is_real .or. is_double .or. is_complex) then
             if (trim(variable_name) /= 'x') then
                 message = 'unsupported-typed-program-unit'
                 return
@@ -267,7 +278,7 @@ contains
         end if
 
         call set_typed_program_witness(witness)
-        if (is_real .or. is_double) then
+        if (is_real .or. is_double .or. is_complex) then
             if (.not. parse_program_witness(source, program_name, message, &
                 expected_kind=witness%lhs, &
                 expected_variable_name=variable_name, &
@@ -289,7 +300,7 @@ contains
             end if
             return
         end if
-        if (is_real .or. is_double) then
+        if (is_real .or. is_double .or. is_complex) then
             if (.not. parse_program_witness(source, unit%root%name, message, &
                 unit_start=unit_start, unit_end=unit_end, &
                 declaration_start=declaration_start, declaration_end=declaration_end, &
@@ -321,6 +332,8 @@ contains
             unit%variable%type_spec = 'real'
         else if (is_double) then
             unit%variable%type_spec = 'double-precision'
+        else if (is_complex) then
+            unit%variable%type_spec = 'complex'
         else
             unit%variable%type_spec = 'integer'
         end if
@@ -333,6 +346,9 @@ contains
         else if (is_double) then
             unit%variable%span%end_byte = unit%variable%span%start_byte + &
                 len(double_prefix) + len_trim(variable_name)
+        else if (is_complex) then
+            unit%variable%span%end_byte = unit%variable%span%start_byte + &
+                len(complex_prefix) + len_trim(variable_name)
         else
             unit%variable%span%end_byte = unit%variable%span%start_byte + &
                 len(variable_prefix) + len_trim(variable_name)
@@ -2931,6 +2947,16 @@ contains
                             'double precision') then
                         expected_declaration = &
                             '  double precision :: '//trim(expected_variable_name)
+                        if (source(second_line_start:second_line_end) /= &
+                            trim(expected_declaration)) then
+                            message = 'invalid-program'
+                            parse_program_witness = .false.
+                            return
+                        end if
+                    else if (trim(lowercase(expected_variable_type)) == &
+                            'complex') then
+                        expected_declaration = &
+                            '  complex :: '//trim(expected_variable_name)
                         if (source(second_line_start:second_line_end) /= &
                             trim(expected_declaration)) then
                             message = 'invalid-program'
