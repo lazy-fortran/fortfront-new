@@ -1,12 +1,34 @@
 program test_frontend_typed_intrinsic_type_specs_v1
     use fortfront_frontend, only: frontend_parse_typed_program_unit, &
         frontend_typed_variable_declaration_to_sx, typed_program_unit_t
+    use frontend_type_specs_generated, only: intrinsic_type_spec_table, &
+        intrinsic_type_spec_lookup
     implicit none
 
     type(typed_program_unit_t) :: unit
     character(len=1024) :: serialized
     character(len=256) :: message
     logical :: ok
+    integer :: spec_index, variable_start
+
+    if (.not. intrinsic_type_spec_lookup('  integer :: y', spec_index, variable_start)) &
+        error stop 'generated integer lookup failed'
+    if (trim(intrinsic_type_spec_table(spec_index)%source_rule) /= 'R705' .or. &
+        trim(intrinsic_type_spec_table(spec_index)%source_document) /= 'J3-24-007' .or. &
+        intrinsic_type_spec_table(spec_index)%source_page /= 67) &
+        error stop 'generated integer source rule changed'
+    if (.not. intrinsic_type_spec_lookup('  real :: x', spec_index, variable_start)) &
+        error stop 'generated real lookup failed'
+    if (trim(intrinsic_type_spec_table(spec_index)%source_rule) /= 'R706') &
+        error stop 'generated real source rule changed'
+    if (.not. intrinsic_type_spec_lookup('  double precision :: x', spec_index, variable_start)) &
+        error stop 'generated double precision lookup failed'
+    if (trim(intrinsic_type_spec_table(spec_index)%source_rule) /= 'R707') &
+        error stop 'generated double precision source rule changed'
+    if (.not. intrinsic_type_spec_lookup('  complex :: x', spec_index, variable_start)) &
+        error stop 'generated complex lookup failed'
+    if (len_trim(intrinsic_type_spec_table(spec_index)%source_rule) /= 0) &
+        error stop 'complex source rule was invented'
 
     call check_type('program p'//new_line('a')//'  integer :: y'//new_line('a')// &
         'end program p'//new_line('a'), 'integer', 'y')
