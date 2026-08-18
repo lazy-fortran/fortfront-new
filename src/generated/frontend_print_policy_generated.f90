@@ -134,21 +134,36 @@ contains
         write (statement_page_s, '(i0)') value%statement_page
         write (format_page_s, '(i0)') value%format_page
         write (output_page_s, '(i0)') value%output_page
-        output = '(print-stmt (format-kind '//trim(value%format_kind)// &
-            ') (format-value '//trim(value%format_value)//') (output-kind '// &
-            trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
-            ') (output-count '//trim(output_count_s)// &
-            ') (output-kind-2 '//trim(value%output_2_kind)//') (output-value-2 '// &
-            trim(output_2_value_s)//') (output-rule-2 '//trim(value%output_2_rule)// &
-            ') (span '//trim(span_sx)//') (statement-rule '// &
-            trim(value%statement_rule)//') (format-rule '//trim(value%format_rule)// &
-            ') (output-rule '//trim(value%output_rule)//') (source-document '// &
-            trim(value%source_document)//') (statement-clause '// &
-            trim(value%statement_clause)//') (format-clause '//trim(value%format_clause)// &
-            ') (output-clause '//trim(value%output_clause)//') (statement-page '// &
-            trim(statement_page_s)//') (format-page '//trim(format_page_s)// &
-            ') (output-page '//trim(output_page_s)//') (source-hash '// &
-            trim(value%source_hash)//'))'
+        if (value%output_count == 1_int64) then
+            output = '(print-stmt (format-kind '//trim(value%format_kind)// &
+                ') (format-value '//trim(value%format_value)//') (output-kind '// &
+                trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
+                ') (span '//trim(span_sx)//') (statement-rule '// &
+                trim(value%statement_rule)//') (format-rule '//trim(value%format_rule)// &
+                ') (output-rule '//trim(value%output_rule)//') (source-document '// &
+                trim(value%source_document)//') (statement-clause '// &
+                trim(value%statement_clause)//') (format-clause '//trim(value%format_clause)// &
+                ') (output-clause '//trim(value%output_clause)//') (statement-page '// &
+                trim(statement_page_s)//') (format-page '//trim(format_page_s)// &
+                ') (output-page '//trim(output_page_s)//') (source-hash '// &
+                trim(value%source_hash)//'))'
+        else
+            output = '(print-stmt (format-kind '//trim(value%format_kind)// &
+                ') (format-value '//trim(value%format_value)//') (output-kind '// &
+                trim(value%output_kind)//') (output-value '//trim(output_value_s)// &
+                ') (output-count '//trim(output_count_s)//') (output-kind-2 '// &
+                trim(value%output_2_kind)//') (output-value-2 '// &
+                trim(output_2_value_s)//') (output-rule-2 '//trim(value%output_2_rule)// &
+                ') (span '//trim(span_sx)//') (statement-rule '// &
+                trim(value%statement_rule)//') (format-rule '//trim(value%format_rule)// &
+                ') (output-rule '//trim(value%output_rule)//') (source-document '// &
+                trim(value%source_document)//') (statement-clause '// &
+                trim(value%statement_clause)//') (format-clause '//trim(value%format_clause)// &
+                ') (output-clause '//trim(value%output_clause)//') (statement-page '// &
+                trim(statement_page_s)//') (format-page '//trim(format_page_s)// &
+                ') (output-page '//trim(output_page_s)//') (source-hash '// &
+                trim(value%source_hash)//'))'
+        end if
         ok = .true.
     end subroutine print_stmt_to_sx
 
