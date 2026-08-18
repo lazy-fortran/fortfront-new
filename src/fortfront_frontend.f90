@@ -32,6 +32,11 @@ module fortfront_frontend
         assignment_policy_expression_rule, assignment_policy_add_operator_rule, &
         assignment_policy_left_operand, assignment_policy_right_operand, &
         assignment_policy_add_operator, assignment_policy_multiply_expression_rule, &
+        assignment_policy_subtract_expression_rule, &
+        assignment_policy_subtract_operator_rule, &
+        assignment_policy_subtract_left_operand, &
+        assignment_policy_subtract_right_operand, &
+        assignment_policy_subtract_operator, &
         assignment_policy_multiply_operator_rule, assignment_policy_multiply_left_operand, &
         assignment_policy_multiply_right_operand, assignment_policy_multiply_operator, &
         assignment_policy_divide_expression_rule, assignment_policy_divide_operator_rule, &
@@ -3116,34 +3121,8 @@ contains
         if (source(second_newline + 1:third_newline - 1) == trim(expected_assignment)) then
             expression%kind = 'integer-literal'
             expression%left_operand = trim(assignment_policy_integer_literal)
-        else if (source(second_newline + 1:third_newline - 1) /= &
+        else if (source(second_newline + 1:third_newline - 1) == &
                 '  '//trim(variable_name)//' = 1 + 2') then
-            if (source(second_newline + 1:third_newline - 1) == &
-                '  '//trim(variable_name)//' = 2 * 3') then
-                if (trim(assignment_policy_multiply_expression_rule) /= 'R1006') return
-                if (trim(assignment_policy_multiply_operator_rule) /= 'R1009') return
-                if (trim(assignment_policy_multiply_left_operand) /= '2') return
-                if (trim(assignment_policy_multiply_right_operand) /= '3') return
-                if (trim(assignment_policy_multiply_operator) /= '*') return
-                expression%kind = 'binary-expression'
-                expression%operator = trim(assignment_policy_multiply_operator)
-                expression%left_operand = trim(assignment_policy_multiply_left_operand)
-                expression%right_operand = trim(assignment_policy_multiply_right_operand)
-            else if (source(second_newline + 1:third_newline - 1) == &
-                    '  '//trim(variable_name)//' = 6 / 2') then
-                if (trim(assignment_policy_divide_expression_rule) /= 'R1006') return
-                if (trim(assignment_policy_divide_operator_rule) /= 'R1009') return
-                if (trim(assignment_policy_divide_left_operand) /= '6') return
-                if (trim(assignment_policy_divide_right_operand) /= '2') return
-                if (trim(assignment_policy_divide_operator) /= '/') return
-                expression%kind = 'binary-expression'
-                expression%operator = trim(assignment_policy_divide_operator)
-                expression%left_operand = trim(assignment_policy_divide_left_operand)
-                expression%right_operand = trim(assignment_policy_divide_right_operand)
-            else
-                return
-            end if
-        else
             if (trim(assignment_policy_expression_kind) /= 'add') return
             if (trim(assignment_policy_expression_rule) /= 'R1007') return
             if (trim(assignment_policy_add_operator_rule) /= 'R1010') return
@@ -3155,6 +3134,41 @@ contains
             expression%operator = trim(assignment_policy_add_operator)
             expression%left_operand = trim(assignment_policy_left_operand)
             expression%right_operand = trim(assignment_policy_right_operand)
+        else if (source(second_newline + 1:third_newline - 1) == &
+                '  '//trim(variable_name)//' = 5 – 3') then
+            if (trim(assignment_policy_subtract_expression_rule) /= 'R1006') return
+            if (trim(assignment_policy_subtract_operator_rule) /= 'R1010') return
+            if (trim(assignment_policy_subtract_left_operand) /= '5') return
+            if (trim(assignment_policy_subtract_right_operand) /= '3') return
+            if (trim(assignment_policy_subtract_operator) /= '–') return
+            expression%kind = 'binary-expression'
+            expression%operator = trim(assignment_policy_subtract_operator)
+            expression%left_operand = trim(assignment_policy_subtract_left_operand)
+            expression%right_operand = trim(assignment_policy_subtract_right_operand)
+        else if (source(second_newline + 1:third_newline - 1) == &
+                '  '//trim(variable_name)//' = 2 * 3') then
+            if (trim(assignment_policy_multiply_expression_rule) /= 'R1006') return
+            if (trim(assignment_policy_multiply_operator_rule) /= 'R1009') return
+            if (trim(assignment_policy_multiply_left_operand) /= '2') return
+            if (trim(assignment_policy_multiply_right_operand) /= '3') return
+            if (trim(assignment_policy_multiply_operator) /= '*') return
+            expression%kind = 'binary-expression'
+            expression%operator = trim(assignment_policy_multiply_operator)
+            expression%left_operand = trim(assignment_policy_multiply_left_operand)
+            expression%right_operand = trim(assignment_policy_multiply_right_operand)
+        else if (source(second_newline + 1:third_newline - 1) == &
+                '  '//trim(variable_name)//' = 6 / 2') then
+            if (trim(assignment_policy_divide_expression_rule) /= 'R1006') return
+            if (trim(assignment_policy_divide_operator_rule) /= 'R1009') return
+            if (trim(assignment_policy_divide_left_operand) /= '6') return
+            if (trim(assignment_policy_divide_right_operand) /= '2') return
+            if (trim(assignment_policy_divide_operator) /= '/') return
+            expression%kind = 'binary-expression'
+            expression%operator = trim(assignment_policy_divide_operator)
+            expression%left_operand = trim(assignment_policy_divide_left_operand)
+            expression%right_operand = trim(assignment_policy_divide_right_operand)
+        else
+            return
         end if
         program_name = 'main'
         assignment_start = int(second_newline, int64)
