@@ -80,7 +80,8 @@ def _replace_generated_routes(generated: str) -> str:
         "                    return",
         "                end if",
         "            else if (trim(item%kind) == trim(print_policy_variable_output_kind)) then",
-        "                if (index /= 1 .or. trim(item%name) /= trim(print_policy_variable_output_name) .or. &",
+        "                if ((index /= 1 .and. index /= 2) .or. &",
+        "                    trim(item%name) /= trim(print_policy_variable_output_name) .or. &",
         "                    (item%value /= print_policy_variable_value .and. &",
         "                    item%value /= print_policy_variable_value_2 .and. &",
         "                    item%value /= print_policy_variable_value_3 .and. &",
@@ -170,8 +171,15 @@ def _replace_generated_routes(generated: str) -> str:
                 write (index_s, '(i0)') index
                 write (value_s, '(i0)') item%value
                 output = trim(output)//' (output-kind-'//trim(index_s)//' '// &
-                    trim(item%kind)//') (output-value-'//trim(index_s)//' '// &
-                    trim(value_s)//') (output-rule-'//trim(index_s)//' '// &
+                    trim(item%kind)//')'
+                if (trim(item%kind) == trim(print_policy_variable_output_kind)) then
+                    output = trim(output)//' (output-name-'//trim(index_s)//' '// &
+                        trim(item%name)//')'
+                else
+                    output = trim(output)//' (output-value-'//trim(index_s)//' '// &
+                        trim(value_s)//')'
+                end if
+                output = trim(output)//' (output-rule-'//trim(index_s)//' '// &
                     trim(item%rule)//')'
             end do
         end if
@@ -213,6 +221,7 @@ def _replace_generated_routes(generated: str) -> str:
         case default
             if (index == 2) then
                 item%kind = value%output_2_kind
+                item%name = value%output_2_name
                 item%value = value%output_2_value
                 item%rule = value%output_2_rule
                 item%clause = value%output_2_clause
@@ -275,6 +284,8 @@ def _replace_generated_routes(generated: str) -> str:
         item_helper + "end module frontend_print_policy_generated\n",
     )
     for index in range(2, 11):
+        if index == 2:
+            continue
         generated = generated.replace(
             f"                item%kind = value%output_{index}_kind\n",
             f"                item%kind = value%output_{index}_kind\n"
@@ -390,6 +401,7 @@ module frontend_print_policy_generated
         integer(int64) :: output_value = 0_int64
         integer(int64) :: output_count = 0_int64
         character(len=32) :: output_2_kind = ''
+        character(len=32) :: output_2_name = ''
         integer(int64) :: output_2_value = 0_int64
         character(len=32) :: output_3_kind = ''
         integer(int64) :: output_3_value = 0_int64
