@@ -25,6 +25,11 @@ name = "fortfront-source-ast-v1"
 source-dir = "app"
 main = "fortfront_source_ast_v1.f90"
 
+[[executable]]
+name = "fortfront-program-unit-v2"
+source-dir = "app"
+main = "fortfront_program_unit_v2_cli.f90"
+
 [library]
 source-dir = "src"
 
