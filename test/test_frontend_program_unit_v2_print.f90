@@ -1,6 +1,7 @@
 program test_frontend_program_unit_v2_print
     use fortfront_program_unit_v2, only: frontend_parse_program_unit_v2, &
         frontend_program_unit_v2_to_sx, program_unit_v2_t, print_stmt_validate
+    use fortfront_assignment_sequence, only: assignment_sequence_source_hash
     use frontend_print_policy_generated, only: print_policy_output_value, &
         print_policy_output_2_value, print_policy_output_2_rule, &
         print_policy_output_3_value, print_policy_output_3_rule, &
@@ -404,6 +405,20 @@ program test_frontend_program_unit_v2_print
         variable_expression_source, 'print-input', unit, ok, message)
     if (.not. ok .or. unit%declaration_count /= 1 .or. unit%variable_count /= 1 .or. &
         unit%execution_part%sequence%assignment_count /= 2 .or. &
+        trim(unit%root%span%file) /= 'print-variable-expression.f90' .or. &
+        trim(unit%root%span%source_hash) /= assignment_sequence_source_hash .or. &
+        trim(unit%declaration%span%file) /= 'print-variable-expression.f90' .or. &
+        trim(unit%declaration%span%source_hash) /= assignment_sequence_source_hash .or. &
+        trim(unit%variable%span%file) /= 'print-variable-expression.f90' .or. &
+        trim(unit%variable%span%source_hash) /= assignment_sequence_source_hash .or. &
+        trim(unit%execution_part%sequence%assignment(1)%span%file) /= &
+        'print-variable-expression.f90' .or. &
+        trim(unit%execution_part%sequence%assignment(1)%span%source_hash) /= &
+        assignment_sequence_source_hash .or. &
+        trim(unit%execution_part%sequence%assignment(2)%span%file) /= &
+        'print-variable-expression.f90' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%span%source_hash) /= &
+        assignment_sequence_source_hash .or. &
         unit%execution_part%sequence%assignment(1)%expression%left_operand /= '23' .or. &
         trim(unit%execution_part%sequence%assignment(2)%variable) /= 'x' .or. &
         trim(unit%execution_part%sequence%assignment(2)%expression%operator) /= '+' .or. &
@@ -416,6 +431,8 @@ program test_frontend_program_unit_v2_print
     end if
     call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
     if (.not. ok .or. index(trim(serialized), '(assignment-count 2)') == 0 .or. &
+        index(trim(serialized), '(source-hash '//trim(assignment_sequence_source_hash)//')') == 0 .or. &
+        index(trim(serialized), '(source-hash '//trim(print_policy_source_hash)//')') == 0 .or. &
         index(trim(serialized), '(output-kind variable)') == 0 .or. &
         index(trim(serialized), '(output-name x)') == 0) then
         error stop 'PRINT *, x after variable expression serialization changed'

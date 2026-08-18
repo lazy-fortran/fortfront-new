@@ -734,7 +734,7 @@ contains
             declaration_source = 'program main'//new_line('a')// &
                 '  integer :: x'//new_line('a')//'end program main'//new_line('a')
             call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
-                source_hash, declaration_unit, ok, message)
+                assignment_sequence_source_hash, declaration_unit, ok, message)
             if (.not. ok) return
             call frontend_parse_typed_assignment_sequence(file_name, assignment_sequence_two_23_source, &
                 assignment_sequence_source_hash, unit%execution_part%sequence, ok, message)
