@@ -172,3 +172,8 @@ main = "test_frontend_source_v0.f90"
 name = "test_frontend_typed_declaration_v1"
 source-dir = "test"
 main = "test_frontend_typed_declaration_v1.f90"
+
+[[test]]
+name = "test_frontend_typed_variable_name_v1"
+source-dir = "test"
+main = "test_frontend_typed_variable_name_v1.f90"

@@ -178,6 +178,7 @@ contains
         type(frontend_result_t) :: result
         type(standardir_syntax_item_t) :: witness
         type(typed_source_span_t) :: span
+        character(len=128) :: variable_name
         integer(int64) :: declaration_end
         integer(int64) :: declaration_start
         integer(int64) :: unit_end
@@ -186,14 +187,20 @@ contains
         unit = typed_program_unit_t()
         ok = .false.
         message = ''
-        if (source /= 'program p'//new_line('a')//'  integer :: x'// &
+        if (source == 'program p'//new_line('a')//'  integer :: x'// &
             new_line('a')//'end program p'//new_line('a')) then
+            variable_name = 'x'
+        else if (source == 'program p'//new_line('a')//'  integer :: y'// &
+                new_line('a')//'end program p'//new_line('a')) then
+            variable_name = 'y'
+        else
             message = 'unsupported-typed-program-unit'
             return
         end if
 
         call set_typed_program_witness(witness)
-        call frontend_parse(file_name, source, source_hash, witness, result)
+        call frontend_parse(file_name, source, source_hash, witness, result, &
+            expected_variable_name=variable_name)
         if (trim(result%status) /= frontend_accepted) then
             if (allocated(result%diagnostics)) then
                 message = result%diagnostics(1)%message
@@ -205,7 +212,7 @@ contains
         if (.not. parse_program_witness(source, unit%root%name, message, &
             unit_start=unit_start, unit_end=unit_end, &
             declaration_start=declaration_start, declaration_end=declaration_end, &
-            expected_kind=root_kind_program)) return
+            expected_kind=root_kind_program, expected_variable_name=variable_name)) return
 
         span%file = file_name
         span%start_byte = unit_start
@@ -221,7 +228,7 @@ contains
         unit%declaration%span%end_byte = declaration_end
         unit%variable_count = 1_int64
         unit%variable%type_spec = 'integer'
-        unit%variable%name = 'x'
+        unit%variable%name = variable_name
         unit%variable%span = span
         unit%variable%span%start_byte = len('program p'//new_line('a'))
         unit%variable%span%end_byte = unit%variable%span%start_byte + &
@@ -341,12 +348,14 @@ contains
         ok = generated_program_unit_validate(unit, message)
     end subroutine frontend_parse_generated_program_unit
 
-    subroutine frontend_parse(file_name, source, source_hash, syntax_item, result)
+    subroutine frontend_parse(file_name, source, source_hash, syntax_item, result, &
+            expected_variable_name)
         character(len=*), intent(in) :: file_name
         character(len=*), intent(in) :: source
         character(len=*), intent(in) :: source_hash
         type(standardir_syntax_item_t), intent(in) :: syntax_item
         type(frontend_result_t), intent(out) :: result
+        character(len=*), intent(in), optional :: expected_variable_name
 
         type(source_span_t) :: span
         character(len=128) :: program_name
@@ -362,8 +371,19 @@ contains
             diagnostic_message = 'empty-source'
         else
             if (validate_syntax_item(syntax_item, diagnostic_message)) then
-                if (parse_program_witness(source, program_name, diagnostic_message, &
-                    expected_kind=syntax_item%lhs)) then
+                if (present(expected_variable_name)) then
+                    if (parse_program_witness(source, program_name, diagnostic_message, &
+                        expected_kind=syntax_item%lhs, &
+                        expected_variable_name=expected_variable_name)) then
+                        result%status = frontend_accepted
+                        result%root_kind = lowercase(trim(syntax_item%lhs))
+                        result%root%kind = result%root_kind
+                        result%root%name = program_name
+                        result%diagnostic_count = 0_int64
+                        return
+                    end if
+                else if (parse_program_witness(source, program_name, diagnostic_message, &
+                        expected_kind=syntax_item%lhs)) then
                     result%status = frontend_accepted
                     result%root_kind = lowercase(trim(syntax_item%lhs))
                     result%root%kind = result%root_kind
@@ -2603,7 +2623,8 @@ contains
     end function valid_resolution
 
     logical function parse_program_witness(source, program_name, message, unit_start, &
-            unit_end, declaration_start, declaration_end, expected_kind)
+            unit_end, declaration_start, declaration_end, expected_kind, &
+            expected_variable_name)
         character(len=*), intent(in) :: source
         character(len=*), intent(out) :: program_name
         character(len=*), intent(out) :: message
@@ -2612,6 +2633,7 @@ contains
         integer(int64), intent(out), optional :: declaration_start
         integer(int64), intent(out), optional :: declaration_end
         character(len=*), intent(in), optional :: expected_kind
+        character(len=*), intent(in), optional :: expected_variable_name
 
         integer :: first_line_end
         integer :: first_line_first
@@ -2793,7 +2815,14 @@ contains
                 parse_program_witness = .false.
                 return
             end if
-            if (source(second_line_start:second_line_end) /= '  integer :: x') then
+            if (present(expected_variable_name)) then
+                if (source(second_line_start:second_line_end) /= &
+                    '  integer :: '//trim(expected_variable_name)) then
+                    message = 'invalid-program'
+                    parse_program_witness = .false.
+                    return
+                end if
+            else if (source(second_line_start:second_line_end) /= '  integer :: x') then
                 message = 'invalid-program'
                 parse_program_witness = .false.
                 return

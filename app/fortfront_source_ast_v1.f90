@@ -4,7 +4,7 @@ program fortfront_source_ast_v1
         frontend_typed_program_unit_to_sx, typed_program_unit_t
     implicit none
 
-    character(len=*), parameter :: source_hash = 'l3-raw-program-v0'
+    character(len=*), parameter :: source_hash = 'l3-raw-program-variable-name-v1'
     character(len=65536) :: serialized
     character(len=256) :: message
     character(len=:), allocatable :: source
