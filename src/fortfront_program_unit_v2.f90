@@ -824,7 +824,8 @@ contains
                 call frontend_parse_typed_assignment_sequence(file_name, &
                     assignment_sequence_two_2_power_source, assignment_sequence_source_hash, &
                     unit%execution_part%sequence, ok, message)
-            else if (source == print_variable_power_value_source) then
+            else if (source == print_variable_power_value_source .or. &
+                    source == print_variable_power_value_two_item_source) then
                 call frontend_parse_typed_assignment_sequence(file_name, &
                     assignment_sequence_two_3_power_source, assignment_sequence_source_hash, &
                     unit%execution_part%sequence, ok, message)
