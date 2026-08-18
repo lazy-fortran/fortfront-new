@@ -22,7 +22,15 @@ module frontend_assignment_policy_generated
     integer, parameter, public :: assignment_policy_five_sequence_count = 5
     character(len=*), parameter, public :: assignment_policy_six_sequence_name = 'six-assignment'
     integer, parameter, public :: assignment_policy_six_sequence_count = 6
-    integer, parameter, public :: assignment_policy_sequence_max_count = 6
+    character(len=*), parameter, public :: assignment_policy_seven_sequence_name = 'seven-assignment'
+    integer, parameter, public :: assignment_policy_seven_sequence_count = 7
+    character(len=*), parameter, public :: assignment_policy_eight_sequence_name = 'eight-assignment'
+    integer, parameter, public :: assignment_policy_eight_sequence_count = 8
+    character(len=*), parameter, public :: assignment_policy_nine_sequence_name = 'nine-assignment'
+    integer, parameter, public :: assignment_policy_nine_sequence_count = 9
+    character(len=*), parameter, public :: assignment_policy_ten_sequence_name = 'ten-assignment'
+    integer, parameter, public :: assignment_policy_ten_sequence_count = 10
+    integer, parameter, public :: assignment_policy_sequence_max_count = 10
     type, public :: assignment_policy_sequence_row_t
         character(len=32) :: name
         character(len=32) :: first_record
@@ -31,19 +39,38 @@ module frontend_assignment_policy_generated
         character(len=32) :: fourth_record
         character(len=32) :: fifth_record
         character(len=32) :: sixth_record
+        character(len=32) :: seventh_record
+        character(len=32) :: eighth_record
+        character(len=32) :: ninth_record
+        character(len=32) :: tenth_record
     end type assignment_policy_sequence_row_t
     type(assignment_policy_sequence_row_t), parameter, public :: &
-        assignment_policy_sequence_rows(5) = [ &
-        assignment_policy_sequence_row_t('two-assignment', 'assignment-stmt', 'assignment-stmt', '', '', '', ''), &
-        assignment_policy_sequence_row_t('three-assignment', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', '', '', ''), &
+        assignment_policy_sequence_rows(9) = [ &
+        assignment_policy_sequence_row_t('two-assignment', 'assignment-stmt', 'assignment-stmt', '', '', '', '', '', '', '', ''), &
+        assignment_policy_sequence_row_t('three-assignment', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', '', '', '', '', '', '', ''), &
         assignment_policy_sequence_row_t( &
         'four-assignment', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', &
-        'assignment-stmt', '', ''), &
+        'assignment-stmt', '', '', '', '', '', ''), &
         assignment_policy_sequence_row_t( &
         'five-assignment', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', &
-        'assignment-stmt', 'assignment-stmt', ''), &
+        'assignment-stmt', 'assignment-stmt', '', '', '', '', ''), &
         assignment_policy_sequence_row_t( &
         'six-assignment', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', &
+        'assignment-stmt', 'assignment-stmt', 'assignment-stmt', '', '', '', ''), &
+        assignment_policy_sequence_row_t( &
+        'seven-assignment', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', &
+        'assignment-stmt', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', '', '', ''), &
+        assignment_policy_sequence_row_t( &
+        'eight-assignment', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', &
+        'assignment-stmt', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', &
+        'assignment-stmt', '', ''), &
+        assignment_policy_sequence_row_t( &
+        'nine-assignment', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', &
+        'assignment-stmt', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', &
+        'assignment-stmt', 'assignment-stmt', ''), &
+        assignment_policy_sequence_row_t( &
+        'ten-assignment', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', &
+        'assignment-stmt', 'assignment-stmt', 'assignment-stmt', 'assignment-stmt', &
         'assignment-stmt', 'assignment-stmt', 'assignment-stmt') &
         ]
     integer, parameter, public :: assignment_policy_integer_literal_min = 0

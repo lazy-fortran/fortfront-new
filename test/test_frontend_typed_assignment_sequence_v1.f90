@@ -51,6 +51,30 @@ program test_frontend_typed_assignment_sequence_v1
         '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: seven_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        repeat('  x = x + 1'//new_line('a'), 6)//'end program main'//new_line('a')
+    character(len=*), parameter :: eight_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        repeat('  x = x + 1'//new_line('a'), 7)//'end program main'//new_line('a')
+    character(len=*), parameter :: nine_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        repeat('  x = x + 1'//new_line('a'), 8)//'end program main'//new_line('a')
+    character(len=*), parameter :: ten_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        repeat('  x = x + 1'//new_line('a'), 9)//'end program main'//new_line('a')
+    character(len=*), parameter :: seven_wrong_operator = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        repeat('  x = x + 1'//new_line('a'), 5)//'  x = x - 1'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: eight_wrong_variable = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        repeat('  x = x + 1'//new_line('a'), 6)//'  y = x + 1'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: nine_swapped = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        repeat('  x = x + 1'//new_line('a'), 6)//'  x = 7'//new_line('a')// &
+        repeat('  x = x + 1'//new_line('a'), 1)//'end program main'//new_line('a')
     character(len=*), parameter :: five_wrong_operator = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
@@ -164,6 +188,10 @@ program test_frontend_typed_assignment_sequence_v1
     if (.not. ok .or. index(trim(serialized), '(assignment-count 6)') == 0 .or. &
         index(trim(serialized), '(assignment (assignment-stmt') == 0) &
         error stop 'six-assignment serialization changed'
+    call check_positive(seven_source, 7, 'seven')
+    call check_positive(eight_source, 8, 'eight')
+    call check_positive(nine_source, 9, 'nine')
+    call check_positive(ten_source, 10, 'ten')
     call frontend_parse_typed_assignment_sequence('missing-fifth.f90', four_source, &
         'l3-raw-program-four-assignment-v1', sequence, ok, message)
     sequence%assignment_count = 5
@@ -189,6 +217,9 @@ program test_frontend_typed_assignment_sequence_v1
     call check_rejected(six_wrong_operator)
     call check_rejected(six_wrong_variable)
     call check_rejected(six_swapped)
+    call check_rejected(seven_wrong_operator)
+    call check_rejected(eight_wrong_variable)
+    call check_rejected(nine_swapped)
     write (*, '(a)') 'frontend typed assignment sequence v1 checks: ok'
 
 contains
@@ -209,5 +240,31 @@ contains
         if (.not. ok .or. sequence%assignment_count /= 2) &
             error stop 'missing-third neighbour was not bounded to count two'
     end subroutine check_two
+
+    subroutine check_positive(value, expected_count, label)
+        character(len=*), intent(in) :: value, label
+        integer, intent(in) :: expected_count
+
+        call frontend_parse_typed_assignment_sequence(label//'-sequence.f90', value, &
+            assignment_sequence_source_hash, sequence, ok, message)
+        if (.not. ok .or. sequence%assignment_count /= expected_count) &
+            error stop 'generated assignment sequence was rejected'
+        if (trim(sequence%assignment(expected_count)%variable) /= 'x' .or. &
+            trim(sequence%assignment(expected_count)%expression%operator) /= '+' .or. &
+            sequence%assignment(expected_count - 1)%span%start_byte >= &
+            sequence%assignment(expected_count)%span%start_byte) &
+            error stop 'generated assignment sequence record changed'
+        call frontend_typed_assignment_sequence_to_sx(sequence, serialized, ok, message)
+        if (.not. ok .or. index(trim(serialized), &
+            '(assignment-count '//trim(adjustl(to_string(expected_count)))//')') == 0) &
+            error stop 'generated assignment sequence serialization changed'
+    end subroutine check_positive
+
+    function to_string(value) result(text)
+        integer, intent(in) :: value
+        character(len=16) :: text
+
+        write (text, '(i0)') value
+    end function to_string
 
 end program test_frontend_typed_assignment_sequence_v1

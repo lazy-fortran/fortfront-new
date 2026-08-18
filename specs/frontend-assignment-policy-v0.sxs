@@ -12,4 +12,8 @@
   (sequence four-assignment assignment-stmt assignment-stmt assignment-stmt assignment-stmt)
   (sequence five-assignment assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt)
   (sequence six-assignment assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt)
+  (sequence seven-assignment assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt)
+  (sequence eight-assignment assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt)
+  (sequence nine-assignment assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt)
+  (sequence ten-assignment assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt)
   (literal-range integer-literal 0 2047))
