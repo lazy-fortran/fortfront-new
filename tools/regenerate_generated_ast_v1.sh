@@ -10,3 +10,5 @@ python3 "$root/tools/generate_type_specs.py" \
     "$root/specs/frontend-type-spec-v0.sxs" "$output"
 python3 "$root/tools/generate_typed_declaration_policy.py" \
     "$root/specs/frontend-typed-declaration-policy-v0.sxs" "$output"
+python3 "$root/tools/generate_assignment_policy.py" \
+    "$root/specs/frontend-assignment-policy-v0.sxs" "$output"

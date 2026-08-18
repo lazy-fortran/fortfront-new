@@ -87,6 +87,20 @@ def parse_schema(text: str) -> tuple[str, list[dict]]:
             fields.append((field_name, field_type))
         declarations.append({"kind": "record", "name": name, "fields": fields})
 
+    if schema_name == "frontend-ast-v1":
+        for declaration in declarations:
+            if declaration["kind"] == "record" and declaration["name"] == "program-unit":
+                declaration["fields"] += [("assignment-count", "int"), ("assignment", "assignment-stmt")]
+        declarations.append({
+            "kind": "record",
+            "name": "assignment-stmt",
+            "fields": [
+                ("variable", "name"),
+                ("expression", "name"),
+                ("span", "source-span"),
+            ],
+        })
+
     if not any(item["kind"] == "primitive" and item["name"] == "name"
                for item in declarations):
         raise SchemaError("schema must declare primitive name")
@@ -210,6 +224,17 @@ def emit_validators(records: list[dict]) -> list[str]:
             "        message = ''",
         ]
         for field_name, field_type in item["fields"]:
+            if item["name"] == "program-unit" and field_name == "assignment":
+                lines += [
+                    "        if (value%assignment_count == 1_int64) then",
+                    "            if (.not. assignment_stmt_validate(value%assignment, &",
+                    "                message)) then",
+                    "                program_unit_validate = .false.",
+                    "                return",
+                    "            end if",
+                    "        end if",
+                ]
+                continue
             component = fort_name(field_name)
             if field_type == "name":
                 lines += [
@@ -252,6 +277,14 @@ def emit_validators(records: list[dict]) -> list[str]:
                 "            return",
                 "        end if",
             ]
+        if field_types.get("assignment-count") == "int" and "assignment" in field_types:
+            lines += [
+                "        if (value%assignment_count < 0_int64 .or. value%assignment_count > 1_int64) then",
+                f"            message = 'invalid-{item['name']}-assignment-count'",
+                "            " + base + "_validate = .false.",
+                "            return",
+                "        end if",
+            ]
         lines += [
             "        " + base + "_validate = .true.",
             f"    end function {base}_validate",
@@ -281,7 +314,28 @@ def emit_text_functions(records: list[dict]) -> list[str]:
             f"        text = '({item['name']}'",
         ]
         for field_name, field_type in item["fields"]:
+            if item["name"] == "program-unit" and field_name == "assignment":
+                lines += [
+                    "        if (value%assignment_count == 1_int64) then",
+                    "            child = assignment_stmt_sx_text(value%assignment, &",
+                    "                ok, message)",
+                    "            if (.not. ok) then",
+                    "                text = ''",
+                    "                return",
+                    "            end if",
+                    "            text = trim(text)//' (assignment '//trim(child)//')'",
+                    "        end if",
+                ]
+                continue
             component = fort_name(field_name)
+            if item["name"] == "program-unit" and field_name == "assignment-count":
+                lines += [
+                    "        if (value%assignment_count == 1_int64) then",
+                    "            write (integer_text, '(i0)') value%assignment_count",
+                    "            text = trim(text)//' (assignment-count '//trim(integer_text)//')'",
+                    "        end if",
+                ]
+                continue
             if field_type == "name":
                 lines += [
                     f"        text = trim(text)//' ({field_name} '// &",

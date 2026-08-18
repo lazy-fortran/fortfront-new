@@ -1,0 +1,4 @@
+(schema frontend-assignment-policy-v0
+  (policy assignment-stmt assignment-stmt R1033)
+  (token assignment =)
+  (expression integer-literal 1))

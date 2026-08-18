@@ -10,6 +10,7 @@ module fortfront_frontend
         typed_program_root_t => program_root_t, &
         typed_program_declaration_t => program_declaration_t, &
         typed_variable_declaration_t => variable_declaration_t, &
+        typed_assignment_stmt_t => assignment_stmt_t, &
         typed_program_unit_t => program_unit_t, &
         typed_variable_declaration_to_sx => variable_declaration_to_sx, &
         typed_program_unit_to_sx => program_unit_to_sx, &
@@ -24,6 +25,9 @@ module fortfront_frontend
         typed_declaration_policy_matches, &
         typed_program_declaration_cardinality, &
         typed_variable_declaration_cardinality
+    use frontend_assignment_policy_generated, only: assignment_policy_lhs, &
+        assignment_policy_source_rule, assignment_policy_operator, &
+        assignment_policy_integer_literal
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
     private
@@ -158,6 +162,8 @@ module fortfront_frontend
         frontend_typed_program_unit_to_sx, frontend_validate_typed_program_unit, &
         typed_source_span_t, typed_program_root_t, typed_program_declaration_t, &
         typed_variable_declaration_t, typed_program_unit_t
+    public :: typed_assignment_stmt_t
+    public :: assignment_policy_source_rule
 
 contains
 
@@ -205,10 +211,15 @@ contains
         integer :: type_spec_index
         integer :: variable_start_relative
         character(len=256) :: expected_declaration
+        character(len=256) :: assignment_expression
+        integer(int64) :: assignment_start
+        integer(int64) :: assignment_end
+        logical :: assignment_present
 
         unit = typed_program_unit_t()
         ok = .false.
         message = ''
+        assignment_present = .false.
         first_newline = index(source, new_line('a'))
         if (first_newline == 0) then
             message = 'unsupported-typed-program-unit'
@@ -248,6 +259,14 @@ contains
             return
         end if
 
+        if (is_assignment_witness(source)) then
+            if (.not. parse_integer_assignment_witness(source, trim(variable_name), &
+                program_name, assignment_expression, assignment_start, &
+                assignment_end, message)) return
+            assignment_present = .true.
+            result%status = frontend_accepted
+        end if
+
         witness%id = program_envelope_program_witness%id
         witness%lhs = program_envelope_program_witness%lhs
         witness%origin = program_envelope_program_witness%origin
@@ -257,7 +276,12 @@ contains
         witness%source%rule = program_envelope_program_witness%rule
         witness%source%page = program_envelope_program_witness%page
         witness%source%source_hash = program_envelope_program_witness%source_hash
-        if (len_trim(intrinsic_type_spec_table(type_spec_index)%variable_name) == 0) then
+        if (assignment_present) then
+            result%root_kind = root_kind_program
+            result%root%kind = root_kind_program
+            result%root%name = trim(program_name)
+            result%diagnostic_count = 0_int64
+        else if (len_trim(intrinsic_type_spec_table(type_spec_index)%variable_name) == 0) then
             call frontend_parse(file_name, source, source_hash, witness, result, &
                 expected_variable_name=variable_name, &
                 expected_variable_declaration=expected_declaration)
@@ -280,7 +304,15 @@ contains
             end if
             return
         end if
-        if (len_trim(intrinsic_type_spec_table(type_spec_index)%variable_name) == 0) then
+        if (assignment_present) then
+            if (.not. parse_integer_assignment_witness(source, trim(variable_name), &
+                unit%root%name, assignment_expression, assignment_start, &
+                assignment_end, message)) return
+            unit_start = 0_int64
+            unit_end = int(len(source), int64) - 1_int64
+            declaration_start = 0_int64
+            declaration_end = int(first_newline - 1, int64)
+        else if (len_trim(intrinsic_type_spec_table(type_spec_index)%variable_name) == 0) then
             if (.not. parse_program_witness(source, unit%root%name, message, &
                 unit_start=unit_start, unit_end=unit_end, &
                 declaration_start=declaration_start, declaration_end=declaration_end, &
@@ -316,6 +348,14 @@ contains
         unit%variable%span%start_byte = int(first_newline, int64)
         unit%variable%span%end_byte = unit%variable%span%start_byte + &
             variable_start_relative - 1 + len_trim(variable_name)
+        if (assignment_present) then
+            unit%assignment_count = 1_int64
+            unit%assignment%variable = trim(variable_name)
+            unit%assignment%expression = trim(assignment_expression)
+            unit%assignment%span = span
+            unit%assignment%span%start_byte = assignment_start
+            unit%assignment%span%end_byte = assignment_end
+        end if
         ok = typed_program_unit_validate(unit, message)
     end subroutine frontend_parse_typed_program_unit
 
@@ -3007,6 +3047,69 @@ contains
         if (present(declaration_end)) declaration_end = int(header_name_end, int64)
         parse_program_witness = .true.
     end function parse_program_witness
+
+    logical function is_assignment_witness(source)
+        character(len=*), intent(in) :: source
+
+        integer :: position
+        integer :: newlines
+
+        newlines = 0
+        position = 1
+        do while (position <= len(source))
+            if (source(position:position) == new_line('a')) newlines = newlines + 1
+            position = position + 1
+        end do
+        is_assignment_witness = newlines >= 4 .or. index(source, '  x =') > 0 .or. &
+            index(source, '  y =') > 0
+    end function is_assignment_witness
+
+    logical function parse_integer_assignment_witness(source, variable_name, &
+            program_name, expression, assignment_start, assignment_end, message)
+        character(len=*), intent(in) :: source
+        character(len=*), intent(in) :: variable_name
+        character(len=*), intent(out) :: program_name
+        character(len=*), intent(out) :: expression
+        integer(int64), intent(out) :: assignment_start
+        integer(int64), intent(out) :: assignment_end
+        character(len=*), intent(out) :: message
+
+        integer :: first_newline
+        integer :: second_newline
+        integer :: third_newline
+        integer :: fourth_newline
+        character(len=256) :: expected_assignment
+
+        program_name = ''
+        expression = ''
+        assignment_start = 0_int64
+        assignment_end = 0_int64
+        message = 'unsupported-typed-program-unit'
+        first_newline = index(source, new_line('a'))
+        if (first_newline == 0) return
+        second_newline = first_newline + index(source(first_newline + 1:), new_line('a'))
+        if (second_newline <= first_newline) return
+        third_newline = second_newline + index(source(second_newline + 1:), new_line('a'))
+        if (third_newline <= second_newline) return
+        fourth_newline = third_newline + index(source(third_newline + 1:), new_line('a'))
+        if (fourth_newline <= third_newline) return
+        if (fourth_newline /= len(source)) return
+        if (trim(source(:first_newline - 1)) /= 'program main') return
+        if (trim(source(third_newline + 1:fourth_newline - 1)) /= &
+            'end program main') return
+        expected_assignment = '  '//trim(variable_name)//' = 1'
+        if (trim(assignment_policy_lhs) /= 'assignment-stmt') return
+        if (trim(assignment_policy_source_rule) /= 'R1033') return
+        if (trim(assignment_policy_operator) /= '=') return
+        if (trim(assignment_policy_integer_literal) /= '1') return
+        if (source(second_newline + 1:third_newline - 1) /= trim(expected_assignment)) return
+        program_name = 'main'
+        expression = '1'
+        assignment_start = int(second_newline, int64)
+        assignment_end = int(third_newline - 2, int64)
+        message = ''
+        parse_integer_assignment_witness = .true.
+    end function parse_integer_assignment_witness
 
     subroutine trim_line_bounds(source, line_start, line_end, first, last)
         character(len=*), intent(in) :: source

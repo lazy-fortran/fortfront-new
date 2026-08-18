@@ -9,6 +9,7 @@ module frontend_ast_v1_generated
     public :: program_root_t
     public :: program_declaration_t
     public :: variable_declaration_t
+    public :: assignment_stmt_t
     public :: program_unit_t
     public :: generated_ast_to_sx
     public :: generated_ast_validate
@@ -31,6 +32,10 @@ module frontend_ast_v1_generated
     public :: variable_declaration_validate
     public :: generated_ast_variable_declaration_callback
     public :: generated_ast_visit_variable_declaration
+    public :: assignment_stmt_to_sx
+    public :: assignment_stmt_validate
+    public :: generated_ast_assignment_stmt_callback
+    public :: generated_ast_visit_assignment_stmt
     public :: program_unit_to_sx
     public :: program_unit_validate
     public :: generated_ast_program_unit_callback
@@ -60,12 +65,20 @@ module frontend_ast_v1_generated
         type(source_span_t) :: span
     end type variable_declaration_t
 
+    type, public :: assignment_stmt_t
+        character(len=256) :: variable = ''
+        character(len=256) :: expression = ''
+        type(source_span_t) :: span
+    end type assignment_stmt_t
+
     type, public :: program_unit_t
         type(program_root_t) :: root
         integer(int64) :: declaration_count = 0_int64
         type(program_declaration_t) :: declaration
         integer(int64) :: variable_count = 0_int64
         type(variable_declaration_t) :: variable
+        integer(int64) :: assignment_count = 0_int64
+        type(assignment_stmt_t) :: assignment
     end type program_unit_t
 
     abstract interface
@@ -89,6 +102,11 @@ module frontend_ast_v1_generated
             type(variable_declaration_t), intent(in) :: value
         end subroutine generated_ast_variable_declaration_callback
 
+        subroutine generated_ast_assignment_stmt_callback(value)
+            import assignment_stmt_t
+            type(assignment_stmt_t), intent(in) :: value
+        end subroutine generated_ast_assignment_stmt_callback
+
         subroutine generated_ast_program_unit_callback(value)
             import program_unit_t
             type(program_unit_t), intent(in) :: value
@@ -101,6 +119,7 @@ module frontend_ast_v1_generated
         procedure(generated_ast_program_root_callback), pointer, nopass :: visit_program_root => null()
         procedure(generated_ast_program_declaration_callback), pointer, nopass :: visit_program_declaration => null()
         procedure(generated_ast_variable_declaration_callback), pointer, nopass :: visit_variable_declaration => null()
+        procedure(generated_ast_assignment_stmt_callback), pointer, nopass :: visit_assignment_stmt => null()
         procedure(generated_ast_program_unit_callback), pointer, nopass :: visit_program_unit => null()
     end type generated_ast_visitor_t
 
@@ -198,6 +217,29 @@ contains
         variable_declaration_validate = .true.
     end function variable_declaration_validate
 
+    logical function assignment_stmt_validate(value, message)
+        type(assignment_stmt_t), intent(in) :: value
+        character(len=*), intent(out) :: message
+
+        message = ''
+        if (.not. generated_valid_atom(value%variable)) then
+            message = 'invalid-assignment-stmt-variable'
+            assignment_stmt_validate = .false.
+            return
+        end if
+        if (.not. generated_valid_atom(value%expression)) then
+            message = 'invalid-assignment-stmt-expression'
+            assignment_stmt_validate = .false.
+            return
+        end if
+        if (.not. source_span_validate(value%span, &
+            message)) then
+            assignment_stmt_validate = .false.
+            return
+        end if
+        assignment_stmt_validate = .true.
+    end function assignment_stmt_validate
+
     logical function program_unit_validate(value, message)
         type(program_unit_t), intent(in) :: value
         character(len=*), intent(out) :: message
@@ -218,8 +260,20 @@ contains
             program_unit_validate = .false.
             return
         end if
+        if (value%assignment_count == 1_int64) then
+            if (.not. assignment_stmt_validate(value%assignment, &
+                message)) then
+                program_unit_validate = .false.
+                return
+            end if
+        end if
         if (value%declaration_count /= 1_int64) then
             message = 'invalid-program-unit-declaration-count'
+            program_unit_validate = .false.
+            return
+        end if
+        if (value%assignment_count < 0_int64 .or. value%assignment_count > 1_int64) then
+            message = 'invalid-program-unit-assignment-count'
             program_unit_validate = .false.
             return
         end if
@@ -335,6 +389,34 @@ contains
         text = trim(text)//')'
     end function variable_declaration_sx_text
 
+    function assignment_stmt_sx_text(value, ok, message) result(text)
+        type(assignment_stmt_t), intent(in) :: value
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+        character(len=65536) :: text
+        character(len=65536) :: child
+        character(len=64) :: integer_text
+
+        ok = assignment_stmt_validate(value, message)
+        if (.not. ok) then
+            text = ''
+            return
+        end if
+        text = '(assignment-stmt'
+        text = trim(text)//' (variable '// &
+            trim(value%variable)//')'
+        text = trim(text)//' (expression '// &
+            trim(value%expression)//')'
+        child = source_span_sx_text(value%span, &
+            ok, message)
+        if (.not. ok) then
+            text = ''
+            return
+        end if
+        text = trim(text)//' (span '//trim(child)//')'
+        text = trim(text)//')'
+    end function assignment_stmt_sx_text
+
     function program_unit_sx_text(value, ok, message) result(text)
         type(program_unit_t), intent(in) :: value
         logical, intent(out) :: ok
@@ -376,6 +458,19 @@ contains
             return
         end if
         text = trim(text)//' (variable '//trim(child)//')'
+        if (value%assignment_count == 1_int64) then
+            write (integer_text, '(i0)') value%assignment_count
+            text = trim(text)//' (assignment-count '//trim(integer_text)//')'
+        end if
+        if (value%assignment_count == 1_int64) then
+            child = assignment_stmt_sx_text(value%assignment, &
+                ok, message)
+            if (.not. ok) then
+                text = ''
+                return
+            end if
+            text = trim(text)//' (assignment '//trim(child)//')'
+        end if
         text = trim(text)//')'
     end function program_unit_sx_text
 
@@ -431,6 +526,19 @@ contains
         call generated_copy_text(text, output, ok, message)
     end subroutine variable_declaration_to_sx
 
+    subroutine assignment_stmt_to_sx(value, output, ok, message)
+        type(assignment_stmt_t), intent(in) :: value
+        character(len=*), intent(out) :: output
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+        character(len=65536) :: text
+
+        output = ''
+        text = assignment_stmt_sx_text(value, ok, message)
+        if (.not. ok) return
+        call generated_copy_text(text, output, ok, message)
+    end subroutine assignment_stmt_to_sx
+
     subroutine program_unit_to_sx(value, output, ok, message)
         type(program_unit_t), intent(in) :: value
         character(len=*), intent(out) :: output
@@ -457,6 +565,8 @@ contains
             call generated_ast_visit_program_declaration(value, visitor)
             type is (variable_declaration_t)
             call generated_ast_visit_variable_declaration(value, visitor)
+            type is (assignment_stmt_t)
+            call generated_ast_visit_assignment_stmt(value, visitor)
             type is (program_unit_t)
             call generated_ast_visit_program_unit(value, visitor)
         class default
@@ -480,6 +590,8 @@ contains
             call program_declaration_to_sx(value, output, ok, message)
             type is (variable_declaration_t)
             call variable_declaration_to_sx(value, output, ok, message)
+            type is (assignment_stmt_t)
+            call assignment_stmt_to_sx(value, output, ok, message)
             type is (program_unit_t)
             call program_unit_to_sx(value, output, ok, message)
         class default
@@ -501,6 +613,8 @@ contains
             generated_ast_validate = program_declaration_validate(value, message)
             type is (variable_declaration_t)
             generated_ast_validate = variable_declaration_validate(value, message)
+            type is (assignment_stmt_t)
+            generated_ast_validate = assignment_stmt_validate(value, message)
             type is (program_unit_t)
             generated_ast_validate = program_unit_validate(value, message)
         class default
@@ -542,6 +656,15 @@ contains
             visitor)
     end subroutine generated_ast_visit_variable_declaration
 
+    subroutine generated_ast_visit_assignment_stmt(value, visitor)
+        type(assignment_stmt_t), intent(in) :: value
+        class(generated_ast_visitor_t), intent(inout) :: visitor
+
+        if (associated(visitor%visit_assignment_stmt)) call visitor%visit_assignment_stmt(value)
+        call generated_ast_visit_source_span(value%span, &
+            visitor)
+    end subroutine generated_ast_visit_assignment_stmt
+
     subroutine generated_ast_visit_program_unit(value, visitor)
         type(program_unit_t), intent(in) :: value
         class(generated_ast_visitor_t), intent(inout) :: visitor
@@ -552,6 +675,8 @@ contains
         call generated_ast_visit_program_declaration(value%declaration, &
             visitor)
         call generated_ast_visit_variable_declaration(value%variable, &
+            visitor)
+        call generated_ast_visit_assignment_stmt(value%assignment, &
             visitor)
     end subroutine generated_ast_visit_program_unit
 
@@ -589,6 +714,15 @@ contains
             kind, count)
     end subroutine generated_ast_count_variable_declaration
 
+    subroutine generated_ast_count_assignment_stmt(kind, count)
+        character(len=*), intent(in) :: kind
+        integer(int64), intent(inout) :: count
+
+        if (trim(kind) == 'assignment-stmt') count = count + 1_int64
+        call generated_ast_count_source_span( &
+            kind, count)
+    end subroutine generated_ast_count_assignment_stmt
+
     subroutine generated_ast_count_program_unit(kind, count)
         character(len=*), intent(in) :: kind
         integer(int64), intent(inout) :: count
@@ -599,6 +733,8 @@ contains
         call generated_ast_count_program_declaration( &
             kind, count)
         call generated_ast_count_variable_declaration( &
+            kind, count)
+        call generated_ast_count_assignment_stmt( &
             kind, count)
     end subroutine generated_ast_count_program_unit
 
@@ -632,6 +768,9 @@ contains
             ok = .true.
             type is (variable_declaration_t)
             call generated_ast_count_variable_declaration(kind, count)
+            ok = .true.
+            type is (assignment_stmt_t)
+            call generated_ast_count_assignment_stmt(kind, count)
             ok = .true.
             type is (program_unit_t)
             call generated_ast_count_program_unit(kind, count)
