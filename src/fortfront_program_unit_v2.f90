@@ -44,6 +44,16 @@ module fortfront_program_unit_v2
         '  x = x + 1'//new_line('a')// &
         '  x = x + 1'//new_line('a')// &
         'end program main'//new_line('a')
+    character(len=*), parameter :: six_assignment_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = 7'//new_line('a')// &
+        '  x = x + 1'//new_line('a')// &
+        '  x = x + 1'//new_line('a')// &
+        '  x = x + 1'//new_line('a')// &
+        '  x = x + 1'//new_line('a')// &
+        '  x = x + 1'//new_line('a')// &
+        'end program main'//new_line('a')
 
 contains
 
@@ -70,6 +80,8 @@ contains
             execution_source_hash = assignment_sequence_source_hash
         else if (source == five_assignment_source) then
             execution_source_hash = 'l3-raw-program-five-assignment-v1'
+        else if (source == six_assignment_source) then
+            execution_source_hash = 'l3-raw-program-six-assignment-v1'
         else
             message = 'unsupported-program-unit-v2'
             return
