@@ -12,7 +12,7 @@ def main() -> int:
         r"\(schema frontend-assignment-policy-v0\s+"
         r"\(policy assignment-stmt assignment-stmt (R\d+)\)\s+"
         r"\(token assignment (=)\)\s+"
-        r"\(expression integer-literal (1)\)\s+"
+        r"\(expression integer-literal (R\d+)\)\s+"
         r"\(binary-expression (add) (R\d+) (R\d+) (1) (2) (\+)\)\s+"
         r"\(binary-expression (subtract) (R\d+) (R\d+) (5) (3) (–)\)\s+"
         r"\(binary-expression (multiply) (R\d+) (R\d+) (2) (3) (\*)\)\s+"
@@ -23,7 +23,7 @@ def main() -> int:
     output = Path(sys.argv[2])
     output.mkdir(parents=True, exist_ok=True)
     rows = [
-        ("integer-literal", "", "", match.group(1), "1", "1", "", ""),
+        ("integer-literal", match.group(3), "", match.group(1), "", "", "", ""),
         (match.group(4), match.group(5), match.group(6), match.group(1),
             f"{match.group(7)} {match.group(9)} {match.group(8)}", match.group(7),
             match.group(8), match.group(9)),
@@ -51,6 +51,8 @@ def main() -> int:
         "    character(len=*), parameter, public :: assignment_policy_lhs = 'assignment-stmt'\n"
         f"    character(len=*), parameter, public :: assignment_policy_source_rule = '{match.group(1)}'\n"
         "    character(len=*), parameter, public :: assignment_policy_operator = '='\n"
+        "    character(len=*), parameter, public :: assignment_policy_integer_literal_rule = &\n"
+        f"        '{match.group(3)}'\n"
         "    type, public :: assignment_policy_row_t\n"
         "        character(len=16) :: expression_kind\n"
         "        character(len=16) :: expression_rule\n"
@@ -63,7 +65,7 @@ def main() -> int:
         "    end type assignment_policy_row_t\n"
         "    type(assignment_policy_row_t), parameter, public :: assignment_policy_rows(5) = [ &\n"
         f"{row_text} &\n"
-        "    ]\n"
+        "        ]\n"
         "    integer, parameter, public :: assignment_policy_row_count = 5\n"
         "    integer, parameter, public :: assignment_policy_source_page = 155\n"
         "end module frontend_assignment_policy_generated\n",

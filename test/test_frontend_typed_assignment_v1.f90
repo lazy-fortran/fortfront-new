@@ -9,6 +9,18 @@ program test_frontend_typed_assignment_v1
     character(len=*), parameter :: source = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 1'//new_line('a')// &
         'end program main'//new_line('a')
+    character(len=*), parameter :: source_literal_7 = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: source_literal_2047 = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 2047'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: source_literal_2048 = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 2048'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: source_real_literal = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7.0'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: source_add = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 1 + 2'//new_line('a')// &
         'end program main'//new_line('a')
@@ -69,6 +81,20 @@ program test_frontend_typed_assignment_v1
     call frontend_typed_program_unit_to_sx(unit, serialized, ok, message)
     if (.not. ok .or. index(trim(serialized), '(assignment-stmt') == 0) &
         error stop 'assignment AST output missing'
+
+    call frontend_parse_typed_program_unit('assignment-literal-7.f90', source_literal_7, &
+        source_hash, unit, ok, message)
+    if (.not. ok) error stop 'decimal integer literal assignment was rejected'
+    if (trim(unit%assignment%expression%kind) /= 'integer-literal' .or. &
+        trim(unit%assignment%expression%left_operand) /= '7' .or. &
+        trim(unit%assignment%expression%operator) /= '' .or. &
+        trim(unit%assignment%expression%right_operand) /= '') &
+        error stop 'decimal integer literal AST changed'
+
+    call frontend_parse_typed_program_unit('assignment-literal-2047.f90', &
+        source_literal_2047, source_hash, unit, ok, message)
+    if (.not. ok .or. trim(unit%assignment%expression%left_operand) /= '2047') &
+        error stop 'maximum decimal integer literal was rejected'
 
     call frontend_parse_typed_program_unit('assignment-add.f90', source_add, source_hash, &
         unit, ok, message)
@@ -147,6 +173,8 @@ program test_frontend_typed_assignment_v1
     call check_rejected(missing_divide_right)
     call check_rejected(missing_subtract_left)
     call check_rejected(missing_subtract_right)
+    call check_rejected(source_literal_2048)
+    call check_rejected(source_real_literal)
     write (*, '(a)') 'frontend typed assignment v1 checks: ok'
 
 contains

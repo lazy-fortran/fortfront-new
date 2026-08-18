@@ -5,6 +5,8 @@ module frontend_assignment_policy_generated
     character(len=*), parameter, public :: assignment_policy_lhs = 'assignment-stmt'
     character(len=*), parameter, public :: assignment_policy_source_rule = 'R1033'
     character(len=*), parameter, public :: assignment_policy_operator = '='
+    character(len=*), parameter, public :: assignment_policy_integer_literal_rule = &
+        'R708'
     type, public :: assignment_policy_row_t
         character(len=16) :: expression_kind
         character(len=16) :: expression_rule
@@ -16,12 +18,12 @@ module frontend_assignment_policy_generated
         character(len=8) :: operator
     end type assignment_policy_row_t
     type(assignment_policy_row_t), parameter, public :: assignment_policy_rows(5) = [ &
-        assignment_policy_row_t('integer-literal', '', '', 'R1033', '1', '1', '', ''), &
+        assignment_policy_row_t('integer-literal', 'R708', '', 'R1033', '', '', '', ''), &
         assignment_policy_row_t('add', 'R1007', 'R1010', 'R1033', '1 + 2', '1', '2', '+'), &
         assignment_policy_row_t('subtract', 'R1006', 'R1010', 'R1033', '5 – 3', '5', '3', '–'), &
         assignment_policy_row_t('multiply', 'R1006', 'R1009', 'R1033', '2 * 3', '2', '3', '*'), &
         assignment_policy_row_t('divide', 'R1006', 'R1009', 'R1033', '6 / 2', '6', '2', '/') &
-    ]
+        ]
     integer, parameter, public :: assignment_policy_row_count = 5
     integer, parameter, public :: assignment_policy_source_page = 155
 end module frontend_assignment_policy_generated

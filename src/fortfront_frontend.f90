@@ -28,6 +28,7 @@ module fortfront_frontend
         typed_variable_declaration_cardinality
     use frontend_assignment_policy_generated, only: assignment_policy_lhs, &
         assignment_policy_source_rule, assignment_policy_operator, &
+        assignment_policy_integer_literal_rule, &
         assignment_policy_rows, assignment_policy_row_count, &
         assignment_policy_source_page
     use, intrinsic :: iso_fortran_env, only: int64
@@ -52,6 +53,8 @@ module fortfront_frontend
     integer, parameter, public :: program_unit_declaration_capacity = 16
     integer, parameter, public :: semantic_item_table_capacity = 16
     integer, parameter, public :: diagnostic_table_capacity = 16
+    integer, parameter :: assignment_policy_integer_literal_min = 0
+    integer, parameter :: assignment_policy_integer_literal_max = 2047
 
     type, public :: source_span_t
         character(len=256) :: file = ''
@@ -3083,7 +3086,10 @@ contains
         integer :: fourth_newline
         integer :: row_index
         logical :: row_matches
+        logical :: valid_integer_literal
         character(len=256) :: expected_assignment
+        character(len=256) :: assignment_line
+        character(len=16) :: integer_literal
 
         program_name = ''
         expression = typed_assignment_expression_t()
@@ -3105,15 +3111,19 @@ contains
         if (trim(assignment_policy_lhs) /= 'assignment-stmt') return
         if (trim(assignment_policy_source_rule) /= 'R1033') return
         if (trim(assignment_policy_operator) /= '=') return
+        if (trim(assignment_policy_integer_literal_rule) /= 'R708') return
         do row_index = 1, assignment_policy_row_count
+            assignment_line = source(second_newline + 1:third_newline - 1)
             expected_assignment = '  '//trim(variable_name)//' = '// &
                 trim(assignment_policy_rows(row_index)%source_spelling)
-            row_matches = source(second_newline + 1:third_newline - 1) == &
-                expected_assignment
             if (trim(assignment_policy_rows(row_index)%expression_kind) == &
                 'integer-literal') then
-                row_matches = trim(source(second_newline + 1:third_newline - 1)) == &
-                    trim(expected_assignment)
+                valid_integer_literal = parse_bounded_decimal_integer_literal( &
+                    assignment_line, variable_name, integer_literal)
+                row_matches = valid_integer_literal
+            else
+                row_matches = source(second_newline + 1:third_newline - 1) == &
+                    expected_assignment
             end if
             if (.not. row_matches) cycle
             if (trim(assignment_policy_rows(row_index)%source_rule) /= &
@@ -3121,8 +3131,10 @@ contains
             if (assignment_policy_source_page /= 155) return
             if (trim(assignment_policy_rows(row_index)%expression_kind) == &
                 'integer-literal') then
+                if (trim(assignment_policy_rows(row_index)%expression_rule) /= &
+                    trim(assignment_policy_integer_literal_rule)) return
                 expression%kind = trim(assignment_policy_rows(row_index)%expression_kind)
-                expression%left_operand = trim(assignment_policy_rows(row_index)%left_operand)
+                expression%left_operand = trim(integer_literal)
             else
                 if (trim(assignment_policy_rows(row_index)%expression_rule) == '') return
                 if (trim(assignment_policy_rows(row_index)%operator_rule) == '') return
@@ -3140,6 +3152,38 @@ contains
         message = ''
         parse_integer_assignment_witness = .true.
     end function parse_integer_assignment_witness
+
+    logical function parse_bounded_decimal_integer_literal(source_line, variable_name, &
+            literal)
+        character(len=*), intent(in) :: source_line
+        character(len=*), intent(in) :: variable_name
+        character(len=*), intent(out) :: literal
+
+        character(len=256) :: candidate
+        character(len=256) :: prefix
+        integer :: digit
+        integer :: index_value
+        integer :: value
+
+        literal = ''
+        parse_bounded_decimal_integer_literal = .false.
+        candidate = adjustl(source_line)
+        prefix = trim(variable_name)//' ='
+        if (len_trim(candidate) <= len_trim(prefix) + 1) return
+        if (candidate(:len_trim(prefix)) /= trim(prefix)) return
+        literal = trim(candidate(len_trim(prefix) + 2:))
+        if (len_trim(literal) == 0) return
+        if (len_trim(literal) > 4) return
+        value = 0
+        do index_value = 1, len_trim(literal)
+            digit = iachar(literal(index_value:index_value)) - iachar('0')
+            if (digit < 0 .or. digit > 9) return
+            value = value*10 + digit
+        end do
+        if (value < assignment_policy_integer_literal_min) return
+        if (value > assignment_policy_integer_literal_max) return
+        parse_bounded_decimal_integer_literal = .true.
+    end function parse_bounded_decimal_integer_literal
 
     subroutine trim_line_bounds(source, line_start, line_end, first, last)
         character(len=*), intent(in) :: source
