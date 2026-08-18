@@ -17,7 +17,8 @@ module fortfront_frontend
         intrinsic_type_spec_table, intrinsic_type_spec_variable_allowed
     use frontend_program_envelope_generated, only: &
         program_envelope_header_keyword, program_envelope_terminator_keyword, &
-        program_envelope_terminator_kind, program_envelope_token_matches
+        program_envelope_terminator_kind, program_envelope_token_matches, &
+        program_envelope_program_witness
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
     private
@@ -235,7 +236,15 @@ contains
             return
         end if
 
-        call set_typed_program_witness(witness)
+        witness%id = program_envelope_program_witness%id
+        witness%lhs = program_envelope_program_witness%lhs
+        witness%origin = program_envelope_program_witness%origin
+        witness%resolution = program_envelope_program_witness%resolution
+        witness%source%document = program_envelope_program_witness%document
+        witness%source%clause = program_envelope_program_witness%clause
+        witness%source%rule = program_envelope_program_witness%rule
+        witness%source%page = program_envelope_program_witness%page
+        witness%source%source_hash = program_envelope_program_witness%source_hash
         if (len_trim(intrinsic_type_spec_table(type_spec_index)%variable_name) == 0) then
             call frontend_parse(file_name, source, source_hash, witness, result, &
                 expected_variable_name=variable_name)
@@ -309,21 +318,6 @@ contains
 
         frontend_validate_typed_program_unit = typed_program_unit_validate(unit, message)
     end function frontend_validate_typed_program_unit
-
-    subroutine set_typed_program_witness(value)
-        type(standardir_syntax_item_t), intent(out) :: value
-
-        value%id = 'R501'
-        value%lhs = 'program'
-        value%origin = 'mechanical'
-        value%resolution = 'resolved'
-        value%source%document = 'J3-24-007'
-        value%source%clause = '5'
-        value%source%rule = 'R501'
-        value%source%page = 53_int64
-        value%source%source_hash = &
-            '1cf538329c57e4f617adb36f2c7cd91a5a5561c78bcce16ec96f7ff1a9979f'
-    end subroutine set_typed_program_witness
 
     subroutine frontend_read(file_name, source, source_hash, result)
         character(len=*), intent(in) :: file_name
