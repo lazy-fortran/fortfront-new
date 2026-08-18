@@ -327,6 +327,42 @@ module fortfront_program_unit_v2
 
 contains
 
+    logical function is_variable_print_batch(source, count)
+        character(len=*), intent(in) :: source
+        integer, intent(out) :: count
+        character(len=*), parameter :: marker = '  print *, x'
+        character(len=*), parameter :: item = ', x'
+        character(len=*), parameter :: suffix = new_line('a')//'end program main'//new_line('a')
+        integer :: marker_start, prefix_length, suffix_start, line_length, position
+
+        count = 0
+        is_variable_print_batch = .false.
+        marker_start = index(source, marker)
+        if (marker_start <= 1) return
+        prefix_length = marker_start - 1
+        if (prefix_length /= index(print_variable_power_value_source, marker) - 1) return
+        if (source(1:prefix_length) /= print_variable_power_value_source(1:prefix_length)) return
+        suffix_start = len(source) - len(suffix) + 1
+        if (suffix_start <= marker_start + len(marker)) return
+        if (source(suffix_start:) /= suffix) return
+        line_length = suffix_start - marker_start
+        if (line_length < len(marker)) return
+        if (mod(line_length - len(marker), len(item)) /= 0) return
+        count = 1 + (line_length - len(marker)) / len(item)
+        if (count < 1 .or. count > 40) then
+            count = 0
+            return
+        end if
+        do position = 1, count - 1
+            if (source(marker_start + len(marker) + (position - 1) * len(item): &
+                marker_start + len(marker) + position * len(item) - 1) /= item) then
+                count = 0
+                return
+            end if
+        end do
+        is_variable_print_batch = .true.
+    end function is_variable_print_batch
+
     subroutine frontend_parse_program_unit_v2(file_name, source, source_hash, &
             unit, ok, message)
         character(len=*), intent(in) :: file_name, source, source_hash
@@ -338,10 +374,12 @@ contains
         character(len=128) :: execution_source_hash
         integer(int64) :: stored_value
         integer :: stored_value_status
+        integer :: batch_count
 
         unit = program_unit_v2_t()
         ok = .false.
         message = ''
+        if (.not. is_variable_print_batch(source, batch_count)) batch_count = 0
         if (.not. program_unit_v2_execution_part_policy_matches('execution-part')) then
             message = 'execution-part-policy-mismatch'
             return
@@ -926,7 +964,8 @@ contains
             source == print_variable_power_value_seventeen_item_source .or. &
             source == print_variable_power_value_eighteen_item_source .or. &
             source == print_variable_power_value_nineteen_item_source .or. &
-            source == print_variable_power_value_twenty_item_source) then
+            source == print_variable_power_value_twenty_item_source .or. &
+            batch_count > 0) then
             declaration_source = 'program main'//new_line('a')// &
                 '  integer :: x'//new_line('a')//'end program main'//new_line('a')
             call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
@@ -967,7 +1006,8 @@ contains
                     source == print_variable_power_value_seventeen_item_source .or. &
                     source == print_variable_power_value_eighteen_item_source .or. &
                     source == print_variable_power_value_nineteen_item_source .or. &
-                    source == print_variable_power_value_twenty_item_source) then
+                    source == print_variable_power_value_twenty_item_source .or. &
+                    batch_count > 0) then
                 call frontend_parse_typed_assignment_sequence(file_name, &
                     assignment_sequence_two_3_power_source, assignment_sequence_source_hash, &
                     unit%execution_part%sequence, ok, message)
@@ -1015,7 +1055,8 @@ contains
                     source == print_variable_power_value_seventeen_item_source .or. &
                     source == print_variable_power_value_eighteen_item_source .or. &
                     source == print_variable_power_value_nineteen_item_source .or. &
-                    source == print_variable_power_value_twenty_item_source) then
+                    source == print_variable_power_value_twenty_item_source .or. &
+                    batch_count > 0) then
                 unit%execution_part%print%output_value = print_policy_variable_value_6
             else
                 unit%execution_part%print%output_value = print_policy_variable_value_2
@@ -1163,6 +1204,9 @@ contains
             else if (source == print_variable_power_value_twenty_item_source) then
                 unit%execution_part%print%output_count = 20_int64
                 unit%execution_part%print%output_sequence_length = 20_int64
+            else if (batch_count > 0) then
+                unit%execution_part%print%output_count = int(batch_count, int64)
+                unit%execution_part%print%output_sequence_length = int(batch_count, int64)
             end if
             unit%execution_part%print%span = unit%root%span
             unit%execution_part%print%span%start_byte = int(index(source, '  print *, x') - 1, int64)
@@ -1185,7 +1229,7 @@ contains
                 unit%execution_part%print%span%end_byte = unit%execution_part%print%span%start_byte + 45_int64
             else if (unit%execution_part%print%output_sequence_length > 0_int64) then
                 unit%execution_part%print%span%end_byte = unit%execution_part%print%span%start_byte + &
-                    4_int64 * unit%execution_part%print%output_count + 5_int64
+                    3_int64 * unit%execution_part%print%output_count + 8_int64
             end if
             unit%execution_part%print%statement_rule = print_policy_statement_rule
             unit%execution_part%print%format_rule = print_policy_format_rule

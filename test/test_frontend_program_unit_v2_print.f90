@@ -820,6 +820,9 @@ program test_frontend_program_unit_v2_print
     call assert_variable_repeat(variable_power_value_ten_item_source, 10)
     call assert_variable_repeat(variable_power_value_eleven_item_source, 11)
     call assert_variable_repeat(variable_power_value_twenty_item_source, 20)
+    call assert_variable_repeat_count(21)
+    call assert_variable_repeat_count(30)
+    call assert_variable_repeat_count(40)
     write (*, '(a)') 'frontend program-unit-v2 PRINT repeated-item checks: ok'
 
 contains
@@ -869,5 +872,34 @@ contains
             end if
         end do
     end subroutine assert_variable_repeat
+
+    subroutine assert_variable_repeat_count(expected_count)
+        integer, intent(in) :: expected_count
+        character(len=4096) :: generated_source
+
+        generated_source = 'program main'//new_line('a')// &
+            '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+            '  x = x ** 2'//new_line('a')//'  print *, '// &
+            repeat('x, ', expected_count - 1)//'x'//new_line('a')// &
+            'end program main'//new_line('a')
+        call assert_variable_repeat(trim(generated_source), expected_count)
+
+        generated_source = 'program main'//new_line('a')// &
+            '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+            '  x = x ** 2'//new_line('a')//'  print *, '// &
+            repeat('x, ', expected_count - 1)//'y'//new_line('a')// &
+            'end program main'//new_line('a')
+        call assert_rejected(trim(generated_source))
+
+        generated_source = 'program main'//new_line('a')// &
+            '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+            '  x = x ** 2'//new_line('a')//'  write *, '// &
+            repeat('x, ', expected_count - 1)//'x'//new_line('a')// &
+            'end program main'//new_line('a')
+        call assert_rejected(trim(generated_source))
+        if (expected_count < 21 .or. expected_count > 40) then
+            error stop 'invalid focused PRINT count'
+        end if
+    end subroutine assert_variable_repeat_count
 
 end program test_frontend_program_unit_v2_print
