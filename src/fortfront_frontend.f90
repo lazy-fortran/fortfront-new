@@ -11,6 +11,7 @@ module fortfront_frontend
         typed_program_declaration_t => program_declaration_t, &
         typed_variable_declaration_t => variable_declaration_t, &
         typed_program_unit_t => program_unit_t, &
+        typed_variable_declaration_to_sx => variable_declaration_to_sx, &
         typed_program_unit_to_sx => program_unit_to_sx, &
         typed_program_unit_validate => program_unit_validate
     use frontend_type_specs_generated, only: intrinsic_type_spec_lookup, &
@@ -150,6 +151,7 @@ module fortfront_frontend
         frontend_generated_program_unit_to_sx, &
         frontend_validate_generated_program_unit
     public :: frontend_parse_typed_program_unit, &
+        frontend_typed_variable_declaration_to_sx, &
         frontend_typed_program_unit_to_sx, frontend_validate_typed_program_unit, &
         typed_source_span_t, typed_program_root_t, typed_program_declaration_t, &
         typed_variable_declaration_t, typed_program_unit_t
@@ -322,6 +324,15 @@ contains
 
         call typed_program_unit_to_sx(unit, output, ok, message)
     end subroutine frontend_typed_program_unit_to_sx
+
+    subroutine frontend_typed_variable_declaration_to_sx(variable, output, ok, message)
+        type(typed_variable_declaration_t), intent(in) :: variable
+        character(len=*), intent(out) :: output
+        logical, intent(out) :: ok
+        character(len=*), intent(out) :: message
+
+        call typed_variable_declaration_to_sx(variable, output, ok, message)
+    end subroutine frontend_typed_variable_declaration_to_sx
 
     logical function frontend_validate_typed_program_unit(unit, message)
         type(typed_program_unit_t), intent(in) :: unit

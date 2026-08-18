@@ -1,9 +1,10 @@
 program test_frontend_typed_intrinsic_type_specs_v1
     use fortfront_frontend, only: frontend_parse_typed_program_unit, &
-        typed_program_unit_t
+        frontend_typed_variable_declaration_to_sx, typed_program_unit_t
     implicit none
 
     type(typed_program_unit_t) :: unit
+    character(len=1024) :: serialized
     character(len=256) :: message
     logical :: ok
 
@@ -33,6 +34,8 @@ contains
 
     subroutine check_type(source, expected, name)
         character(len=*), intent(in) :: source, expected, name
+        character(len=1024) :: expected_serialized
+        character(len=32) :: start_byte, end_byte
 
         call frontend_parse_typed_program_unit('type.f90', source, 'type-spec-test', &
             unit, ok, message)
@@ -41,6 +44,17 @@ contains
             error stop 'generated type-spec canonical value changed'
         if (trim(unit%variable%name) /= trim(name)) &
             error stop 'generated type-spec variable extraction changed'
+        call frontend_typed_variable_declaration_to_sx(unit%variable, serialized, &
+            ok, message)
+        if (.not. ok) error stop 'generated variable declaration serialization failed'
+        write (start_byte, '(i0)') unit%variable%span%start_byte
+        write (end_byte, '(i0)') unit%variable%span%end_byte
+        expected_serialized = '(variable-declaration (type-spec '//trim(expected)// &
+            ') (name '//trim(name)//') (span (source-span (file type.f90) '// &
+            '(start-byte '//trim(start_byte)//') (end-byte '//trim(end_byte)//') '// &
+            '(source-hash type-spec-test))))'
+        if (trim(serialized) /= trim(expected_serialized)) &
+            error stop 'generated variable declaration payload changed'
     end subroutine check_type
 
 end program test_frontend_typed_intrinsic_type_specs_v1
