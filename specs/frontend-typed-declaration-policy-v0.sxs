@@ -1,0 +1,2 @@
+(schema frontend-typed-declaration-policy-v0
+  (policy declaration-line exact))

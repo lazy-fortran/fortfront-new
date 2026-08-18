@@ -20,6 +20,8 @@ module fortfront_frontend
     use frontend_program_envelope_generated, only: &
         program_envelope_policy_lookup, program_envelope_policy_matches, &
         program_envelope_program_witness
+    use frontend_typed_declaration_policy_generated, only: &
+        typed_declaration_policy_matches
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
     private
@@ -2868,8 +2870,9 @@ contains
         if (third_line_start > 0) then
             if (present(expected_variable_name)) then
                 if (present(expected_variable_declaration)) then
-                    if (source(second_line_start:second_line_end) /= &
-                        trim(expected_variable_declaration)) then
+                    if (.not. typed_declaration_policy_matches( &
+                        source(second_line_start:second_line_end), &
+                        expected_variable_declaration)) then
                         message = 'invalid-program'
                         parse_program_witness = .false.
                         return
