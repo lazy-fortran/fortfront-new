@@ -18,6 +18,8 @@ module fortfront_program_unit_v2
     use frontend_print_policy_generated, only: print_stmt_t, print_stmt_validate, &
         print_stmt_to_sx, print_policy_format_kind, print_policy_format_value, &
         print_policy_output_kind, print_policy_output_value, &
+        print_policy_variable_output_kind, print_policy_variable_output_name, &
+        print_policy_variable_output_rule, &
         print_policy_output_2_kind, print_policy_output_2_value, &
         print_policy_output_3_kind, print_policy_output_3_value, print_policy_output_3_rule, &
         print_policy_output_4_kind, print_policy_output_4_value, print_policy_output_4_rule, &
@@ -129,6 +131,12 @@ module fortfront_program_unit_v2
     character(len=*), parameter :: print_generic_item_source = &
         'program p'//new_line('a')//'  print *, 17, 18, 19'//new_line('a')// &
         'end program p'//new_line('a')
+    character(len=*), parameter :: print_variable_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = 17'//new_line('a')// &
+        '  print *, x'//new_line('a')// &
+        'end program main'//new_line('a')
 
 contains
 
@@ -705,6 +713,48 @@ contains
             ok = .true.
             return
         end if
+        if (source == print_variable_source) then
+            declaration_source = 'program main'//new_line('a')// &
+                '  integer :: x'//new_line('a')// &
+                '  x = 17'//new_line('a')//'end program main'//new_line('a')
+            call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
+                source_hash, declaration_unit, ok, message)
+            if (.not. ok .or. declaration_unit%assignment_count /= 1_int64) then
+                message = 'print-variable-assignment-rejected'
+                return
+            end if
+            unit%root = declaration_unit%root
+            unit%root%span%end_byte = int(len(source), int64) - 1_int64
+            unit%declaration_count = declaration_unit%declaration_count
+            unit%declaration = declaration_unit%declaration
+            unit%variable_count = declaration_unit%variable_count
+            unit%variable = declaration_unit%variable
+            unit%execution_part%sequence%assignment_count = 1_int64
+            unit%execution_part%sequence%assignment(1) = declaration_unit%assignment
+            unit%execution_part%sequence%assignment(1)%span%end_byte = 31_int64
+            unit%execution_part%print_count = 1_int64
+            unit%execution_part%print%format_kind = print_policy_format_kind
+            unit%execution_part%print%format_value = print_policy_format_value
+            unit%execution_part%print%output_kind = print_policy_variable_output_kind
+            unit%execution_part%print%output_name = print_policy_variable_output_name
+            unit%execution_part%print%output_count = 1_int64
+            unit%execution_part%print%span = unit%root%span
+            unit%execution_part%print%span%start_byte = 34_int64
+            unit%execution_part%print%span%end_byte = 45_int64
+            unit%execution_part%print%statement_rule = print_policy_statement_rule
+            unit%execution_part%print%format_rule = print_policy_format_rule
+            unit%execution_part%print%output_rule = print_policy_variable_output_rule
+            unit%execution_part%print%source_document = print_policy_document
+            unit%execution_part%print%statement_clause = print_policy_statement_clause
+            unit%execution_part%print%format_clause = print_policy_format_clause
+            unit%execution_part%print%output_clause = print_policy_output_clause
+            unit%execution_part%print%statement_page = print_policy_statement_page
+            unit%execution_part%print%format_page = print_policy_format_page
+            unit%execution_part%print%output_page = print_policy_output_page
+            unit%execution_part%print%source_hash = print_policy_source_hash
+            ok = .true.
+            return
+        end if
         if (source == stop_seven_source) then
             unit%root%name = 'p'
             unit%root%span%file = file_name
@@ -789,7 +839,9 @@ contains
             return
         end if
         if (unit%execution_part%print_count == 1_int64) then
-            if (unit%declaration_count /= 0_int64 .or. unit%variable_count /= 0_int64) then
+            if ((unit%declaration_count /= 0_int64 .or. unit%variable_count /= 0_int64) .and. &
+                (unit%declaration_count /= 1_int64 .or. unit%variable_count /= 1_int64 .or. &
+                unit%execution_part%sequence%assignment_count /= 1_int64)) then
                 message = 'invalid-program-unit-v2-print-cardinality'
                 return
             end if
@@ -797,9 +849,23 @@ contains
             if (.not. ok) return
             call program_root_to_sx(unit%root, root_sx, ok, message)
             if (.not. ok) return
-            output = '(program-unit-v2 (root '//trim(root_sx)//') '// &
-                '(declaration-count 0) (declaration) (variable-count 0) (variable) '// &
-                '(execution-part '//trim(print_sx)//'))'
+            if (unit%declaration_count == 1_int64) then
+                call program_declaration_to_sx(unit%declaration, declaration_sx, ok, message)
+                if (.not. ok) return
+                call variable_declaration_to_sx(unit%variable, variable_sx, ok, message)
+                if (.not. ok) return
+                call frontend_typed_assignment_sequence_to_sx(unit%execution_part%sequence, &
+                    sequence_sx, ok, message)
+                if (.not. ok) return
+                output = '(program-unit-v2 (root '//trim(root_sx)//') '// &
+                    '(declaration-count 1) (declaration '//trim(declaration_sx)//') '// &
+                    '(variable-count 1) (variable '//trim(variable_sx)//') '// &
+                    '(execution-part '//trim(sequence_sx)//' '//trim(print_sx)//'))'
+            else
+                output = '(program-unit-v2 (root '//trim(root_sx)//') '// &
+                    '(declaration-count 0) (declaration) (variable-count 0) (variable) '// &
+                    '(execution-part '//trim(print_sx)//'))'
+            end if
             ok = .true.
             return
         end if

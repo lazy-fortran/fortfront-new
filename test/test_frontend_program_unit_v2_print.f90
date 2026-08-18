@@ -11,6 +11,8 @@ program test_frontend_program_unit_v2_print
         print_policy_output_8_value, print_policy_output_8_rule, &
         print_policy_output_9_value, print_policy_output_9_rule, &
         print_policy_output_10_value, print_policy_output_10_rule, &
+        print_policy_variable_output_kind, print_policy_variable_output_name, &
+        print_policy_variable_output_rule, &
         print_policy_statement_rule, print_policy_format_rule, print_policy_output_rule, &
         print_policy_statement_clause, print_policy_format_clause, print_policy_output_clause, &
         print_policy_statement_page, print_policy_format_page, print_policy_output_page, &
@@ -47,6 +49,18 @@ program test_frontend_program_unit_v2_print
         '  print *, 17, 18, 20'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: generic_write = 'program p'//new_line('a')// &
         '  write *, 17, 18, 19'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: variable_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 17'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_missing_assignment = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_wrong_name = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 17'//new_line('a')// &
+        '  print *, y'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_write = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 17'//new_line('a')// &
+        '  write *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: missing_second = 'program p'//new_line('a')// &
         '  print *, 7,'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: wrong_second = 'program p'//new_line('a')// &
@@ -319,6 +333,32 @@ program test_frontend_program_unit_v2_print
     call assert_rejected(generic_missing_third)
     call assert_rejected(generic_wrong_third)
     call assert_rejected(generic_write)
+    call frontend_parse_program_unit_v2('print-variable.f90', variable_source, 'print-input', &
+        unit, ok, message)
+    if (.not. ok .or. unit%declaration_count /= 1 .or. unit%variable_count /= 1 .or. &
+        unit%execution_part%sequence%assignment_count /= 1 .or. &
+        trim(unit%execution_part%sequence%assignment(1)%variable) /= 'x' .or. &
+        unit%execution_part%sequence%assignment(1)%expression%left_operand /= '17' .or. &
+        trim(unit%execution_part%print%output_kind) /= print_policy_variable_output_kind .or. &
+        trim(unit%execution_part%print%output_name) /= print_policy_variable_output_name .or. &
+        trim(unit%execution_part%print%output_rule) /= print_policy_variable_output_rule) then
+        error stop 'PRINT *, x stored-variable witness was rejected'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(assignment-count 1)') == 0 .or. &
+        index(trim(serialized), '(output-kind variable)') == 0 .or. &
+        index(trim(serialized), '(output-name x)') == 0 .or. &
+        index(trim(serialized), '(output-rule R901)') == 0 .or. &
+        index(trim(serialized), '(declaration-count 1)') == 0) then
+        error stop 'PRINT *, x stored-variable serialization changed'
+    end if
+    unit%execution_part%print%output_name = 'y'
+    if (print_stmt_validate(unit%execution_part%print, message)) then
+        error stop 'mutated PRINT variable name passed validation'
+    end if
+    call assert_rejected(variable_missing_assignment)
+    call assert_rejected(variable_wrong_name)
+    call assert_rejected(variable_write)
     write (*, '(a)') 'frontend program-unit-v2 PRINT repeated-item checks: ok'
 
 contains

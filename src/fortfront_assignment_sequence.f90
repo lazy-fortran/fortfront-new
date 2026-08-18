@@ -375,7 +375,8 @@ contains
         output = ''
         ok = .false.
         message = ''
-        if (sequence%assignment_count /= int(assignment_policy_sequence_count, int64) .and. &
+        if (sequence%assignment_count /= 1_int64 .and. &
+            sequence%assignment_count /= int(assignment_policy_sequence_count, int64) .and. &
             sequence%assignment_count /= int(assignment_policy_three_sequence_count, int64) .and. &
             sequence%assignment_count /= int(assignment_policy_four_sequence_count, int64) .and. &
             sequence%assignment_count /= int(assignment_policy_five_sequence_count, int64) .and. &
@@ -389,6 +390,12 @@ contains
         end if
         call assignment_stmt_to_sx(sequence%assignment(1), first_text, ok, message)
         if (.not. ok) return
+        if (sequence%assignment_count == 1_int64) then
+            output = '(assignment-sequence (assignment-count 1) (assignment '// &
+                trim(first_text)//'))'
+            ok = .true.
+            return
+        end if
         call assignment_stmt_to_sx(sequence%assignment(2), second_text, ok, message)
         if (.not. ok) return
         write (count_text, '(i0)') sequence%assignment_count

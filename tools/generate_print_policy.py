@@ -22,6 +22,7 @@ SCHEMA = re.compile(
     r"\(output-item (integer-literal) (14) (R\d+)\)\s+"
     r"\(output-item (integer-literal) (15) (R\d+)\)\s+"
     r"\(output-item (integer-literal) (16) (R\d+)\)\s+"
+    r"\(variable-output (variable) (x) (R\d+)\)\s+"
     r"\(source (J3-24-007) ([^\s()]+) ([^\s()]+) ([^\s()]+) "
     r"(242) (244) (248) ([^\s()]+)\)\)"
 )
@@ -32,6 +33,7 @@ def _replace_generated_routes(generated: str) -> str:
         "    type, public :: print_stmt_t\n",
         "    type, public :: print_output_item_t\n"
         "        character(len=32) :: kind = ''\n"
+        "        character(len=32) :: name = ''\n"
         "        integer(int64) :: value = 0_int64\n"
         "        character(len=32) :: rule = ''\n"
         "        character(len=32) :: clause = ''\n"
@@ -65,13 +67,25 @@ def _replace_generated_routes(generated: str) -> str:
         "        end if",
         "        do index = 1, int(value%output_count)",
         "            call print_stmt_output_item(value, index, item)",
-        "            if (trim(item%kind) /= trim(print_policy_output_kind) .or. &",
-        "                item%value /= value%output_sequence_start + int(index - 1, int64)) then",
+        "            if (trim(item%kind) == trim(print_policy_output_kind)) then",
+        "                if (item%value /= value%output_sequence_start + int(index - 1, int64)) then",
+        "                    message = 'invalid-print-policy-value'",
+        "                    print_stmt_validate = .false.",
+        "                    return",
+        "                end if",
+        "            else if (trim(item%kind) == trim(print_policy_variable_output_kind)) then",
+        "                if (index /= 1 .or. trim(item%name) /= trim(print_policy_variable_output_name)) then",
+        "                    message = 'invalid-print-policy-value'",
+        "                    print_stmt_validate = .false.",
+        "                    return",
+        "                end if",
+        "            else",
         "                message = 'invalid-print-policy-value'",
         "                print_stmt_validate = .false.",
         "                return",
         "            end if",
-        "            if (trim(item%rule) /= trim(print_policy_output_rule) .or. &",
+        "            if ((trim(item%rule) /= trim(print_policy_output_rule) .and. &",
+        "                trim(item%rule) /= trim(print_policy_variable_output_rule)) .or. &",
         "                trim(item%clause) /= trim(print_policy_output_clause) .or. &",
         "                item%page /= print_policy_output_page) then",
         "                message = 'invalid-print-policy-rule'",
@@ -81,7 +95,8 @@ def _replace_generated_routes(generated: str) -> str:
         "        end do",
         "        if (trim(value%statement_rule) /= trim(print_policy_statement_rule) .or. &",
         "            trim(value%format_rule) /= trim(print_policy_format_rule) .or. &",
-        "            trim(value%output_rule) /= trim(print_policy_output_rule)) then",
+        "            (trim(value%output_rule) /= trim(print_policy_output_rule) .and. &",
+        "            trim(value%output_rule) /= trim(print_policy_variable_output_rule))) then",
         "            message = 'invalid-print-policy-rule'",
         "            print_stmt_validate = .false.",
         "            return",
@@ -127,9 +142,14 @@ def _replace_generated_routes(generated: str) -> str:
         output = '(print-stmt (format-kind '//trim(value%format_kind)// &
             ') (format-value '//trim(value%format_value)//') '
         call print_stmt_output_item(value, 1, item)
-        write (value_s, '(i0)') item%value
-        output = trim(output)//'(output-kind '//trim(item%kind)//') (output-value '// &
-            trim(value_s)//')'
+        if (trim(item%kind) == trim(print_policy_variable_output_kind)) then
+            output = trim(output)//'(output-kind '//trim(item%kind)//') (output-name '// &
+                trim(item%name)//')'
+        else
+            write (value_s, '(i0)') item%value
+            output = trim(output)//'(output-kind '//trim(item%kind)//') (output-value '// &
+                trim(value_s)//')'
+        end if
         if (value%output_count > 1_int64) then
             write (count_s, '(i0)') value%output_count
             output = trim(output)//' (output-count '//trim(count_s)//')'
@@ -173,6 +193,7 @@ def _replace_generated_routes(generated: str) -> str:
         select case (index)
         case (1)
             item%kind = value%output_kind
+            item%name = value%output_name
             item%value = value%output_value
             item%rule = value%output_rule
             item%clause = value%output_clause
@@ -241,6 +262,12 @@ def _replace_generated_routes(generated: str) -> str:
         "end module frontend_print_policy_generated\n",
         item_helper + "end module frontend_print_policy_generated\n",
     )
+    for index in range(2, 11):
+        generated = generated.replace(
+            f"                item%kind = value%output_{index}_kind\n",
+            f"                item%kind = value%output_{index}_kind\n"
+            f"                item%name = ''\n",
+        )
     return generated
 
 
@@ -259,7 +286,7 @@ def render(source: str) -> str:
         output_8_kind, output_8_value, output_8_rule,
         output_9_kind, output_9_value, output_9_rule,
         output_10_kind, output_10_value, output_10_rule,
-        document,
+        variable_kind, variable_name, variable_rule, document,
         statement_clause, format_clause, output_clause, statement_page,
         format_page, output_page, source_hash,
     ) = match.groups()
@@ -279,6 +306,9 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_output_kind = '{output_kind}'
     integer(int64), parameter, public :: print_policy_output_value = {output_value}_int64
     character(len=*), parameter, public :: print_policy_output_rule = '{output_rule}'
+    character(len=*), parameter, public :: print_policy_variable_output_kind = '{variable_kind}'
+    character(len=*), parameter, public :: print_policy_variable_output_name = '{variable_name}'
+    character(len=*), parameter, public :: print_policy_variable_output_rule = '{variable_rule}'
     character(len=*), parameter, public :: print_policy_output_2_kind = '{output_2_kind}'
     integer(int64), parameter, public :: print_policy_output_2_value = {output_2_value}_int64
     character(len=*), parameter, public :: print_policy_output_2_rule = '{output_2_rule}'
@@ -320,6 +350,7 @@ module frontend_print_policy_generated
         character(len=32) :: format_kind = ''
         character(len=32) :: format_value = ''
         character(len=32) :: output_kind = ''
+        character(len=32) :: output_name = ''
         integer(int64) :: output_value = 0_int64
         integer(int64) :: output_count = 0_int64
         character(len=32) :: output_2_kind = ''
