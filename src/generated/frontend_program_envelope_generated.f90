@@ -18,6 +18,20 @@ module frontend_program_envelope_generated
         program_envelope_token_t('end'), &
         program_envelope_token_t('program') ]
 
+    type, public :: program_envelope_policy_t
+        character(len=32) :: kind = ''
+        character(len=32) :: header = ''
+        character(len=32) :: terminator_keyword = ''
+        character(len=32) :: terminator_kind = ''
+    end type program_envelope_policy_t
+
+    type(program_envelope_policy_t), parameter, public :: &
+        program_envelope_policy_table(4) = [ &
+        program_envelope_policy_t('program', 'program', 'end', 'program'), &
+        program_envelope_policy_t('module', 'module', 'end', 'module'), &
+        program_envelope_policy_t('subroutine', 'subroutine', 'end', 'subroutine'), &
+        program_envelope_policy_t('function', 'function', 'end', 'function') ]
+
     type, public :: program_envelope_witness_t
         character(len=64) :: id = ''
         character(len=64) :: lhs = ''
@@ -34,9 +48,50 @@ module frontend_program_envelope_generated
         program_envelope_program_witness = program_envelope_witness_t( &
         'R501', 'program', 'mechanical', 'resolved', 'J3-24-007', '5', 'R501', 53_int64, '1cf538329c57e4f617adb36f2c7cd91a5a5561c78bcce16ec96f7ff1a9979f')
 
+    public :: program_envelope_policy_lookup
+    public :: program_envelope_policy_matches
     public :: program_envelope_token_matches
 
 contains
+
+    logical function program_envelope_policy_lookup(token, policy_index, kind)
+        character(len=*), intent(in) :: token
+        integer, intent(out) :: policy_index
+        character(len=*), intent(out) :: kind
+        integer :: index
+
+        policy_index = 0
+        kind = ''
+        do index = 1, size(program_envelope_policy_table)
+            if (lowercase(trim(token)) == lowercase(trim(program_envelope_policy_table(index)%header))) then
+                policy_index = index
+                kind = program_envelope_policy_table(index)%kind
+                program_envelope_policy_lookup = .true.
+                return
+            end if
+        end do
+        program_envelope_policy_lookup = .false.
+    end function program_envelope_policy_lookup
+
+    logical function program_envelope_policy_matches(policy_index, slot, token)
+        integer, intent(in) :: policy_index
+        integer, intent(in) :: slot
+        character(len=*), intent(in) :: token
+
+        program_envelope_policy_matches = .false.
+        if (policy_index < 1) return
+        if (policy_index > size(program_envelope_policy_table)) return
+        if (slot == 1) then
+            program_envelope_policy_matches = lowercase(trim(token)) == &
+                lowercase(trim(program_envelope_policy_table(policy_index)%header))
+        else if (slot == 2) then
+            program_envelope_policy_matches = lowercase(trim(token)) == &
+                lowercase(trim(program_envelope_policy_table(policy_index)%terminator_keyword))
+        else if (slot == 3) then
+            program_envelope_policy_matches = lowercase(trim(token)) == &
+                lowercase(trim(program_envelope_policy_table(policy_index)%terminator_kind))
+        end if
+    end function program_envelope_policy_matches
 
     logical function program_envelope_token_matches(slot, token)
         integer, intent(in) :: slot

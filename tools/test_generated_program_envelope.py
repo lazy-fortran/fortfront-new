@@ -12,15 +12,18 @@ EXPECTED = ROOT / "src" / "generated" / "frontend_program_envelope_generated.f90
 
 
 def main() -> None:
-    tokens, witness = parse(SCHEMA.read_text(encoding="utf-8"))
+    tokens, policies, witness = parse(SCHEMA.read_text(encoding="utf-8"))
     with tempfile.TemporaryDirectory(prefix="fortfront-envelope-") as directory:
         fresh = Path(directory) / EXPECTED.name
-        fresh.write_text(render(tokens, witness), encoding="utf-8")
+        fresh.write_text(render(tokens, policies, witness), encoding="utf-8")
         if fresh.read_bytes() != EXPECTED.read_bytes():
             raise AssertionError("checked-in program-envelope generated Fortran is stale")
 
     generated = EXPECTED.read_text(encoding="utf-8")
-    for value in ("program_envelope_program_witness", "R501", "J3-24-007", "53_int64"):
+    for value in (
+        "program_envelope_program_witness", "program_envelope_policy_table",
+        "program", "module", "subroutine", "function", "R501", "J3-24-007", "53_int64",
+    ):
         if value not in generated:
             raise AssertionError(f"generated witness omitted {value!r}")
     print("generated program envelope freshness and witness checks: ok")

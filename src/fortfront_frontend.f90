@@ -18,8 +18,7 @@ module fortfront_frontend
         intrinsic_type_spec_table, intrinsic_type_spec_variable_allowed, &
         intrinsic_type_spec_declaration
     use frontend_program_envelope_generated, only: &
-        program_envelope_header_keyword, program_envelope_terminator_keyword, &
-        program_envelope_terminator_kind, program_envelope_token_matches, &
+        program_envelope_policy_lookup, program_envelope_policy_matches, &
         program_envelope_program_witness
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
@@ -2738,6 +2737,7 @@ contains
         integer :: token_end
         integer :: token_start
         logical :: has_token
+        integer :: policy_index
         character(len=32) :: header_kind
         character(len=128) :: terminator_name
         character(len=256) :: expected_declaration
@@ -2819,37 +2819,11 @@ contains
         end if
         header_keyword_start = token_start
         header_keyword_end = token_end
-        if (program_envelope_token_matches(program_envelope_header_keyword, &
-            source(header_keyword_start:header_keyword_end))) then
-            header_kind = root_kind_program
-        else
-            select case (trim(lowercase(source(header_keyword_start:header_keyword_end))))
-            case ('module')
-                header_kind = root_kind_module
-            case ('subroutine')
-                header_kind = root_kind_subroutine
-            case ('function')
-                header_kind = root_kind_function
-            case default
-                if (header_keyword_end - header_keyword_start + 1 >= len('program')) then
-                    if (trim(lowercase(source(header_keyword_start:header_keyword_start + &
-                        len('program') - 1))) == 'program') message = 'invalid-program'
-                end if
-                if (header_keyword_end - header_keyword_start + 1 >= len('module')) then
-                    if (trim(lowercase(source(header_keyword_start:header_keyword_start + &
-                        len('module') - 1))) == 'module') message = 'invalid-program'
-                end if
-                if (header_keyword_end - header_keyword_start + 1 >= len('subroutine')) then
-                    if (trim(lowercase(source(header_keyword_start:header_keyword_start + &
-                        len('subroutine') - 1))) == 'subroutine') message = 'invalid-program'
-                end if
-                if (header_keyword_end - header_keyword_start + 1 >= len('function')) then
-                    if (trim(lowercase(source(header_keyword_start:header_keyword_start + &
-                        len('function') - 1))) == 'function') message = 'invalid-program'
-                end if
-                parse_program_witness = .false.
-                return
-            end select
+        if (.not. program_envelope_policy_lookup( &
+            source(header_keyword_start:header_keyword_end), policy_index, header_kind)) then
+            message = 'invalid-program'
+            parse_program_witness = .false.
+            return
         end if
 
         if (present(expected_kind)) then
@@ -2961,15 +2935,8 @@ contains
         end if
         terminator_keyword_start = token_start
         terminator_keyword_end = token_end
-        if (trim(header_kind) == root_kind_program) then
-            if (.not. program_envelope_token_matches(program_envelope_terminator_keyword, &
-                source(terminator_keyword_start:terminator_keyword_end))) then
-                message = 'invalid-program'
-                parse_program_witness = .false.
-                return
-            end if
-        else if (trim(lowercase(source(terminator_keyword_start: &
-                terminator_keyword_end))) /= 'end') then
+        if (.not. program_envelope_policy_matches(policy_index, 2, &
+            source(terminator_keyword_start:terminator_keyword_end))) then
             message = 'invalid-program'
             parse_program_witness = .false.
             return
@@ -2980,14 +2947,8 @@ contains
         if (.not. has_token) then
             terminator_end = terminator_keyword_end
         else
-            if (trim(header_kind) == root_kind_program) then
-                if (.not. program_envelope_token_matches(program_envelope_terminator_kind, &
-                    source(token_start:token_end))) then
-                    message = 'invalid-program'
-                    parse_program_witness = .false.
-                    return
-                end if
-            else if (trim(lowercase(source(token_start:token_end))) /= trim(header_kind)) then
+            if (.not. program_envelope_policy_matches(policy_index, 3, &
+                source(token_start:token_end))) then
                 message = 'invalid-program'
                 parse_program_witness = .false.
                 return

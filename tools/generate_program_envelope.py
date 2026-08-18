@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the bounded program-envelope table and R501 witness."""
+"""Generate the bounded program-envelope tables and R501 witness."""
 
 from __future__ import annotations
 
@@ -9,11 +9,17 @@ from pathlib import Path
 
 
 TOKEN = re.compile(r"\(token\s+([a-z][a-z0-9-]*)\s+([a-z][a-z0-9-]*)\)")
+POLICY = re.compile(
+    r"\(policy\s+([a-z][a-z0-9-]*)\s+([a-z][a-z0-9-]*)\s+"
+    r"([a-z][a-z0-9-]*)\s+([a-z][a-z0-9-]*)\)"
+)
 WITNESS = re.compile(r"\(witness\s+([a-z][a-z0-9-]*)\s+([^\s()]+)\)")
 SCHEMA = re.compile(r"\(schema\s+([a-z][a-z0-9-]*)\s+(.*?)\)\s*\Z", re.S)
 
 
-def parse(source: str) -> tuple[list[tuple[str, str]], dict[str, str]]:
+def parse(source: str) -> tuple[
+    list[tuple[str, str]], list[tuple[str, str, str, str]], dict[str, str]
+]:
     match = SCHEMA.fullmatch(source.strip())
     if match is None or match.group(1) != "frontend-program-envelope-v0":
         raise ValueError("invalid program-envelope schema")
@@ -30,6 +36,14 @@ def parse(source: str) -> tuple[list[tuple[str, str]], dict[str, str]]:
         "terminator-kind": "program",
     }:
         raise ValueError("program-envelope schema contains unexpected token values")
+    policies = POLICY.findall(body)
+    if policies != [
+        ("program", "program", "end", "program"),
+        ("module", "module", "end", "module"),
+        ("subroutine", "subroutine", "end", "subroutine"),
+        ("function", "function", "end", "function"),
+    ]:
+        raise ValueError("program-envelope schema has an invalid bounded policy table")
     witness = dict(WITNESS.findall(body))
     if set(witness) != {
         "id", "lhs", "origin", "resolution", "document", "clause", "rule",
@@ -40,14 +54,18 @@ def parse(source: str) -> tuple[list[tuple[str, str]], dict[str, str]]:
         raise ValueError("program-envelope schema contains unexpected witness")
     if witness["page"] != "53":
         raise ValueError("program-envelope schema contains unexpected witness page")
-    return tokens, witness
+    return tokens, policies, witness
 
 
 def quote(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
-def render(tokens: list[tuple[str, str]], witness: dict[str, str]) -> str:
+def render(
+    tokens: list[tuple[str, str]],
+    policies: list[tuple[str, str, str, str]],
+    witness: dict[str, str],
+) -> str:
     constants = {
         name.replace("-", "_"): index
         for index, (name, _) in enumerate(tokens, start=1)
@@ -80,6 +98,23 @@ def render(tokens: list[tuple[str, str]], witness: dict[str, str]) -> str:
         lines.append("        program_envelope_token_t(%s)%s" % (quote(value), comma))
     lines += [
         "",
+        "    type, public :: program_envelope_policy_t",
+        "        character(len=32) :: kind = ''",
+        "        character(len=32) :: header = ''",
+        "        character(len=32) :: terminator_keyword = ''",
+        "        character(len=32) :: terminator_kind = ''",
+        "    end type program_envelope_policy_t",
+        "",
+        "    type(program_envelope_policy_t), parameter, public :: &",
+        "        program_envelope_policy_table(%d) = [ &" % len(policies),
+    ]
+    for index, policy in enumerate(policies):
+        comma = ", &" if index < len(policies) - 1 else " ]"
+        lines.append("        program_envelope_policy_t(%s)%s" % (
+            ", ".join(quote(value) for value in policy), comma
+        ))
+    lines += [
+        "",
         "    type, public :: program_envelope_witness_t",
         "        character(len=64) :: id = ''",
         "        character(len=64) :: lhs = ''",
@@ -98,9 +133,50 @@ def render(tokens: list[tuple[str, str]], witness: dict[str, str]) -> str:
             witness_strings, witness["page"], quote(witness["source-hash"]),
         ),
         "",
+        "    public :: program_envelope_policy_lookup",
+        "    public :: program_envelope_policy_matches",
         "    public :: program_envelope_token_matches",
         "",
         "contains",
+        "",
+        "    logical function program_envelope_policy_lookup(token, policy_index, kind)",
+        "        character(len=*), intent(in) :: token",
+        "        integer, intent(out) :: policy_index",
+        "        character(len=*), intent(out) :: kind",
+        "        integer :: index",
+        "",
+        "        policy_index = 0",
+        "        kind = ''",
+        "        do index = 1, size(program_envelope_policy_table)",
+        "            if (lowercase(trim(token)) == lowercase(trim(program_envelope_policy_table(index)%header))) then",
+        "                policy_index = index",
+        "                kind = program_envelope_policy_table(index)%kind",
+        "                program_envelope_policy_lookup = .true.",
+        "                return",
+        "            end if",
+        "        end do",
+        "        program_envelope_policy_lookup = .false.",
+        "    end function program_envelope_policy_lookup",
+        "",
+        "    logical function program_envelope_policy_matches(policy_index, slot, token)",
+        "        integer, intent(in) :: policy_index",
+        "        integer, intent(in) :: slot",
+        "        character(len=*), intent(in) :: token",
+        "",
+        "        program_envelope_policy_matches = .false.",
+        "        if (policy_index < 1) return",
+        "        if (policy_index > size(program_envelope_policy_table)) return",
+        "        if (slot == 1) then",
+        "            program_envelope_policy_matches = lowercase(trim(token)) == &",
+        "                lowercase(trim(program_envelope_policy_table(policy_index)%header))",
+        "        else if (slot == 2) then",
+        "            program_envelope_policy_matches = lowercase(trim(token)) == &",
+        "                lowercase(trim(program_envelope_policy_table(policy_index)%terminator_keyword))",
+        "        else if (slot == 3) then",
+        "            program_envelope_policy_matches = lowercase(trim(token)) == &",
+        "                lowercase(trim(program_envelope_policy_table(policy_index)%terminator_kind))",
+        "        end if",
+        "    end function program_envelope_policy_matches",
         "",
         "    logical function program_envelope_token_matches(slot, token)",
         "        integer, intent(in) :: slot",

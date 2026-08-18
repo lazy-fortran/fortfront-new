@@ -1,5 +1,7 @@
 program test_frontend_generated_program_unit
     use, intrinsic :: iso_fortran_env, only: int64
+    use frontend_program_envelope_generated, only: &
+        program_envelope_policy_lookup, program_envelope_policy_matches
     use fortfront_frontend, only: declaration_kind_function, declaration_kind_module, &
         declaration_kind_program, declaration_kind_subroutine, &
         frontend_generated_program_unit_to_sx, &
@@ -13,8 +15,14 @@ program test_frontend_generated_program_unit
     character(len=16384) :: serialized
     character(len=128) :: message
     logical :: ok
+    integer :: policy_index
+    character(len=32) :: policy_kind
 
     call set_program_witness(syntax_item)
+    call assert_policy('PROGRAM', 'program')
+    call assert_policy('module', 'module')
+    call assert_policy('Subroutine', 'subroutine')
+    call assert_policy('function', 'function')
     call frontend_parse_generated_program_unit('unit.f90', &
         'program unit'//new_line('a')//'end', 'hash-positive', syntax_item, &
         unit, ok, message)
@@ -201,6 +209,21 @@ program test_frontend_generated_program_unit
     write (*, '(a)') 'frontend generated program-unit behavioral checks: ok'
 
 contains
+
+    subroutine assert_policy(header, expected_kind)
+        character(len=*), intent(in) :: header, expected_kind
+
+        call assert_true(program_envelope_policy_lookup(header, policy_index, &
+            policy_kind), 'declarative program policy lookup failed')
+        call assert_equal(trim(policy_kind), expected_kind, &
+            'declarative program policy returned the wrong kind')
+        call assert_true(program_envelope_policy_matches(policy_index, 2, 'END'), &
+            'declarative program policy rejected END')
+        call assert_true(program_envelope_policy_matches(policy_index, 3, &
+            expected_kind), 'declarative program policy rejected matching END kind')
+        call assert_true(.not. program_envelope_policy_matches(policy_index, 3, &
+            'other'), 'declarative program policy accepted a mismatched END kind')
+    end subroutine assert_policy
 
     subroutine set_program_witness(value)
         type(standardir_syntax_item_t), intent(out) :: value
