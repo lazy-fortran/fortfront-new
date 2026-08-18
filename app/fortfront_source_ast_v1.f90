@@ -2,6 +2,9 @@ program fortfront_source_ast_v1
     use, intrinsic :: iso_fortran_env, only: error_unit, int64
     use fortfront_frontend, only: frontend_parse_typed_program_unit, &
         frontend_typed_program_unit_to_sx, typed_program_unit_t
+    use fortfront_assignment_sequence, only: &
+        frontend_parse_typed_assignment_sequence, &
+        frontend_typed_assignment_sequence_to_sx, assignment_sequence_t
     implicit none
 
     character(len=*), parameter :: source_hash_x = 'l3-raw-program-v0'
@@ -15,7 +18,9 @@ program fortfront_source_ast_v1
     integer(int64) :: source_size
     integer :: argument_count, io_status, input_unit, output_unit
     logical :: ok
+    logical :: sequence_mode
     type(typed_program_unit_t) :: unit
+    type(assignment_sequence_t) :: sequence
 
     argument_count = command_argument_count()
     if (argument_count /= 2) call fail('usage: fortfront-source-ast-v1 <source> <output>')
@@ -40,8 +45,13 @@ program fortfront_source_ast_v1
     end if
     close (input_unit)
 
-    if (source == 'program p'//new_line('a')//'  integer :: x'// &
-        new_line('a')//'end program p'//new_line('a')) then
+    sequence_mode = source == 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'end program main'//new_line('a')
+    if (sequence_mode) then
+        source_hash = 'l3-raw-program-two-assignment-v1'
+    else if (source == 'program p'//new_line('a')//'  integer :: x'// &
+            new_line('a')//'end program p'//new_line('a')) then
         source_hash = source_hash_x
     else if (source == 'program p'//new_line('a')//'  integer :: z'// &
             new_line('a')//'end program p'//new_line('a')) then
@@ -55,10 +65,17 @@ program fortfront_source_ast_v1
     else
         source_hash = source_hash_y
     end if
-    call frontend_parse_typed_program_unit(trim(source_file), source, source_hash, &
-        unit, ok, message)
-    if (.not. ok) call fail('typed frontend rejected source: '//trim(message))
-    call frontend_typed_program_unit_to_sx(unit, serialized, ok, message)
+    if (sequence_mode) then
+        call frontend_parse_typed_assignment_sequence(trim(source_file), source, &
+            source_hash, sequence, ok, message)
+        if (.not. ok) call fail('assignment sequence rejected source: '//trim(message))
+        call frontend_typed_assignment_sequence_to_sx(sequence, serialized, ok, message)
+    else
+        call frontend_parse_typed_program_unit(trim(source_file), source, source_hash, &
+            unit, ok, message)
+        if (.not. ok) call fail('typed frontend rejected source: '//trim(message))
+        call frontend_typed_program_unit_to_sx(unit, serialized, ok, message)
+    end if
     if (.not. ok) call fail('typed AST could not be serialized: '//trim(message))
 
     open (newunit=output_unit, file=trim(output_file), status='replace', action='write', &

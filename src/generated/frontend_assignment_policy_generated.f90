@@ -12,6 +12,17 @@ module frontend_assignment_policy_generated
     character(len=*), parameter, public :: assignment_policy_variable_name = 'x'
     character(len=*), parameter, public :: assignment_policy_integer_literal_rule = &
         'R708'
+    character(len=*), parameter, public :: assignment_policy_sequence_name = 'two-assignment'
+    integer, parameter, public :: assignment_policy_sequence_count = 2
+    type, public :: assignment_policy_sequence_row_t
+        character(len=32) :: name
+        character(len=32) :: first_record
+        character(len=32) :: second_record
+    end type assignment_policy_sequence_row_t
+    type(assignment_policy_sequence_row_t), parameter, public :: &
+        assignment_policy_sequence_rows(1) = [ &
+        assignment_policy_sequence_row_t('two-assignment', 'assignment-stmt', 'assignment-stmt') &
+        ]
     integer, parameter, public :: assignment_policy_integer_literal_min = 0
     integer, parameter, public :: assignment_policy_integer_literal_max = 2047
     type, public :: assignment_policy_row_t

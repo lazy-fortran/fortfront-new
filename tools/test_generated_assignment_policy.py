@@ -31,6 +31,9 @@ def main() -> int:
         "'variable R902 R901 R903'",
         "assignment_policy_integer_literal_min = 0",
         "assignment_policy_integer_literal_max = 2047",
+        "assignment_policy_sequence_name = 'two-assignment'",
+        "assignment_policy_sequence_count = 2",
+        "assignment_policy_sequence_rows(1)",
     ):
         if required not in generated:
             raise AssertionError(f"generated policy omitted {required!r}")
