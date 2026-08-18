@@ -178,32 +178,50 @@ contains
         type(frontend_result_t) :: result
         type(standardir_syntax_item_t) :: witness
         type(typed_source_span_t) :: span
+        character(len=128) :: program_name
         character(len=128) :: variable_name
         integer(int64) :: declaration_end
         integer(int64) :: declaration_start
         integer(int64) :: unit_end
         integer(int64) :: unit_start
-        character(len=*), parameter :: source_prefix = &
-            'program p'//new_line('a')//'  integer :: '
-        character(len=*), parameter :: source_suffix = &
-            new_line('a')//'end program p'//new_line('a')
+        integer :: first_newline
+        integer :: second_newline
+        integer :: second_newline_relative
+        integer :: variable_start
+        integer :: variable_end
+        character(len=*), parameter :: variable_prefix = '  integer :: '
 
         unit = typed_program_unit_t()
         ok = .false.
         message = ''
-        if (len(source) <= len(source_prefix) + len(source_suffix) .or. &
-            source(:len(source_prefix)) /= source_prefix .or. &
-            source(len(source) - len(source_suffix) + 1:) /= source_suffix) then
+        first_newline = index(source, new_line('a'))
+        if (first_newline == 0) then
             message = 'unsupported-typed-program-unit'
             return
         end if
-        if (len(source) - len(source_prefix) - len(source_suffix) > &
-            len(variable_name)) then
+        second_newline_relative = index(source(first_newline + 1:), new_line('a'))
+        if (second_newline_relative == 0) then
             message = 'unsupported-typed-program-unit'
             return
         end if
-        variable_name = source(len(source_prefix) + 1:len(source) - len(source_suffix))
-        if (len_trim(variable_name) == 0) then
+        second_newline = first_newline + second_newline_relative
+        if (second_newline - first_newline - 1 <= len(variable_prefix)) then
+            message = 'unsupported-typed-program-unit'
+            return
+        end if
+        if (source(first_newline + 1:first_newline + len(variable_prefix)) /= &
+            variable_prefix) then
+            message = 'unsupported-typed-program-unit'
+            return
+        end if
+        variable_start = first_newline + len(variable_prefix) + 1
+        variable_end = second_newline - 1
+        if (variable_end - variable_start + 1 > len(variable_name)) then
+            message = 'unsupported-typed-program-unit'
+            return
+        end if
+        variable_name = source(variable_start:variable_end)
+        if (.not. valid_program_identifier(trim(variable_name))) then
             message = 'unsupported-typed-program-unit'
             return
         end if
@@ -224,23 +242,25 @@ contains
             declaration_start=declaration_start, declaration_end=declaration_end, &
             expected_kind=root_kind_program, expected_variable_name=variable_name)) return
 
+        program_name = unit%root%name
+
         span%file = file_name
         span%start_byte = unit_start
         span%end_byte = unit_end
         span%source_hash = source_hash
-        unit%root%name = 'p'
+        unit%root%name = trim(program_name)
         unit%root%span = span
         unit%declaration_count = 1_int64
         unit%declaration%declaration_kind = declaration_kind_program
-        unit%declaration%name = 'p'
+        unit%declaration%name = trim(program_name)
         unit%declaration%span = span
         unit%declaration%span%start_byte = declaration_start
         unit%declaration%span%end_byte = declaration_end
         unit%variable_count = 1_int64
         unit%variable%type_spec = 'integer'
-        unit%variable%name = variable_name
+        unit%variable%name = trim(variable_name)
         unit%variable%span = span
-        unit%variable%span%start_byte = len('program p'//new_line('a'))
+        unit%variable%span%start_byte = int(first_newline, int64)
         unit%variable%span%end_byte = unit%variable%span%start_byte + &
             len('  integer :: ') + len_trim(variable_name)
         ok = typed_program_unit_validate(unit, message)
