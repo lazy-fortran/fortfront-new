@@ -1,0 +1,5 @@
+(schema frontend-print-policy-v0
+  (statement print-stmt PRINT R1212)
+  (format default-char-expr * R1215)
+  (output-item integer-literal 7 R1217)
+  (source J3-24-007 12.6.1 12.6.2.2 12.6.3 242 244 248 7371e889f231cfb0316d30365d5083fb5af34cbb6d5f7cb1e01855c73021bfa2))

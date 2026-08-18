@@ -237,3 +237,8 @@ main = "test_frontend_program_unit_v2.f90"
 name = "test_frontend_program_unit_v2_stop"
 source-dir = "test"
 main = "test_frontend_program_unit_v2_stop.f90"
+
+[[test]]
+name = "test_frontend_program_unit_v2_print"
+source-dir = "test"
+main = "test_frontend_program_unit_v2_print.f90"

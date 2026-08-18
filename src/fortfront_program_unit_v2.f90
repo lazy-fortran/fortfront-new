@@ -15,6 +15,13 @@ module fortfront_program_unit_v2
         stop_policy_code_rule, stop_policy_clause, &
         stop_policy_document, stop_policy_page, stop_policy_source_hash, &
         stop_policy_statement_rule
+    use frontend_print_policy_generated, only: print_stmt_t, print_stmt_validate, &
+        print_stmt_to_sx, print_policy_format_kind, print_policy_format_value, &
+        print_policy_output_kind, print_policy_output_value, &
+        print_policy_statement_rule, print_policy_format_rule, print_policy_output_rule, &
+        print_policy_document, print_policy_statement_clause, print_policy_format_clause, &
+        print_policy_output_clause, print_policy_statement_page, &
+        print_policy_format_page, print_policy_output_page, print_policy_source_hash
     implicit none
     private
 
@@ -33,6 +40,8 @@ module fortfront_program_unit_v2
         type(assignment_sequence_t) :: sequence
         integer(int64) :: stop_count = 0_int64
         type(stop_stmt_t) :: stop
+        integer(int64) :: print_count = 0_int64
+        type(print_stmt_t) :: print
     end type execution_part_t
 
     type, public :: program_unit_v2_t
@@ -47,6 +56,7 @@ module fortfront_program_unit_v2
     public :: frontend_parse_program_unit_v2
     public :: frontend_program_unit_v2_to_sx
     public :: stop_stmt_validate
+    public :: print_stmt_validate
 
     character(len=*), parameter :: two_assignment_source = &
         'program main'//new_line('a')// &
@@ -76,6 +86,9 @@ module fortfront_program_unit_v2
     character(len=*), parameter :: stop_seven_source = &
         'program p'//new_line('a')//'  stop 7'//new_line('a')// &
         'end program p'//new_line('a')
+    character(len=*), parameter :: print_seven_source = &
+        'program p'//new_line('a')//'  print *, 7'//new_line('a')// &
+        'end program p'//new_line('a')
 
 contains
 
@@ -94,6 +107,34 @@ contains
         message = ''
         if (.not. program_unit_v2_execution_part_policy_matches('execution-part')) then
             message = 'execution-part-policy-mismatch'
+            return
+        end if
+        if (source == print_seven_source) then
+            unit%root%name = 'p'
+            unit%root%span%file = file_name
+            unit%root%span%start_byte = 0_int64
+            unit%root%span%end_byte = int(len(source), int64) - 1_int64
+            unit%root%span%source_hash = source_hash
+            unit%execution_part%print_count = 1_int64
+            unit%execution_part%print%format_kind = print_policy_format_kind
+            unit%execution_part%print%format_value = print_policy_format_value
+            unit%execution_part%print%output_kind = print_policy_output_kind
+            unit%execution_part%print%output_value = print_policy_output_value
+            unit%execution_part%print%span = unit%root%span
+            unit%execution_part%print%span%start_byte = 10_int64
+            unit%execution_part%print%span%end_byte = 21_int64
+            unit%execution_part%print%statement_rule = print_policy_statement_rule
+            unit%execution_part%print%format_rule = print_policy_format_rule
+            unit%execution_part%print%output_rule = print_policy_output_rule
+            unit%execution_part%print%source_document = print_policy_document
+            unit%execution_part%print%statement_clause = print_policy_statement_clause
+            unit%execution_part%print%format_clause = print_policy_format_clause
+            unit%execution_part%print%output_clause = print_policy_output_clause
+            unit%execution_part%print%statement_page = print_policy_statement_page
+            unit%execution_part%print%format_page = print_policy_format_page
+            unit%execution_part%print%output_page = print_policy_output_page
+            unit%execution_part%print%source_hash = print_policy_source_hash
+            ok = .true.
             return
         end if
         if (source == stop_seven_source) then
@@ -150,7 +191,7 @@ contains
         character(len=*), intent(out) :: output
         logical, intent(out) :: ok
         character(len=*), intent(out) :: message
-        character(len=65536) :: root_sx, declaration_sx, variable_sx, sequence_sx
+        character(len=65536) :: root_sx, declaration_sx, variable_sx, sequence_sx, print_sx
 
         output = ''
         ok = .false.
@@ -176,6 +217,21 @@ contains
                 '(source-clause '//trim(unit%execution_part%stop%source_clause)//') '// &
                 '(source-page '//trim(sequence_sx)//') '// &
                 '(source-hash '//trim(unit%execution_part%stop%source_hash)//'))))'
+            ok = .true.
+            return
+        end if
+        if (unit%execution_part%print_count == 1_int64) then
+            if (unit%declaration_count /= 0_int64 .or. unit%variable_count /= 0_int64) then
+                message = 'invalid-program-unit-v2-print-cardinality'
+                return
+            end if
+            call print_stmt_to_sx(unit%execution_part%print, print_sx, ok, message)
+            if (.not. ok) return
+            call program_root_to_sx(unit%root, root_sx, ok, message)
+            if (.not. ok) return
+            output = '(program-unit-v2 (root '//trim(root_sx)//') '// &
+                '(declaration-count 0) (declaration) (variable-count 0) (variable) '// &
+                '(execution-part '//trim(print_sx)//'))'
             ok = .true.
             return
         end if
