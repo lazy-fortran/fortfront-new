@@ -29,6 +29,22 @@ module fortfront_program_unit_v2
     public :: frontend_parse_program_unit_v2
     public :: frontend_program_unit_v2_to_sx
 
+    character(len=*), parameter :: two_assignment_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = 7'//new_line('a')// &
+        '  x = x + 1'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: five_assignment_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = 7'//new_line('a')// &
+        '  x = x + 1'//new_line('a')// &
+        '  x = x + 1'//new_line('a')// &
+        '  x = x + 1'//new_line('a')// &
+        '  x = x + 1'//new_line('a')// &
+        'end program main'//new_line('a')
+
 contains
 
     subroutine frontend_parse_program_unit_v2(file_name, source, source_hash, &
@@ -39,6 +55,7 @@ contains
         character(len=*), intent(out) :: message
         type(typed_program_unit_t) :: declaration_unit
         character(len=1024) :: declaration_source
+        character(len=128) :: execution_source_hash
 
         unit = program_unit_v2_t()
         ok = .false.
@@ -49,9 +66,11 @@ contains
         end if
         declaration_source = 'program main'//new_line('a')// &
             '  integer :: x'//new_line('a')//'end program main'//new_line('a')
-        if (source /= 'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = 7'//new_line('a')//'  x = x + 1'//new_line('a')// &
-                'end program main'//new_line('a')) then
+        if (source == two_assignment_source) then
+            execution_source_hash = assignment_sequence_source_hash
+        else if (source == five_assignment_source) then
+            execution_source_hash = 'l3-raw-program-five-assignment-v1'
+        else
             message = 'unsupported-program-unit-v2'
             return
         end if
@@ -59,7 +78,7 @@ contains
             source_hash, declaration_unit, ok, message)
         if (.not. ok) return
         call frontend_parse_typed_assignment_sequence(file_name, source, &
-            assignment_sequence_source_hash, unit%execution_part%sequence, ok, message)
+            trim(execution_source_hash), unit%execution_part%sequence, ok, message)
         if (.not. ok) return
 
         unit%root = declaration_unit%root

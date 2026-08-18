@@ -18,10 +18,16 @@ program test_frontend_program_unit_v2
     character(len=*), parameter :: wrong_order = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = x + 1'//new_line('a')// &
         '  x = 7'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: five_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
+        'end program main'//new_line('a')
     type(program_unit_v2_t) :: unit
     character(len=65536) :: serialized
     character(len=256) :: message
     character(len=65536) :: expected
+    integer :: i
     logical :: ok
 
     call frontend_parse_program_unit_v2('program.f90', source, 'v2-test', unit, ok, message)
@@ -47,6 +53,31 @@ program test_frontend_program_unit_v2
         '(source-hash l3-raw-program-two-assignment-v1))))))))'
     if (trim(serialized) /= trim(expected)) then
         error stop 'v2 envelope serialization changed'
+    end if
+    call frontend_parse_program_unit_v2('program-five.f90', five_source, 'v2-five-test', &
+        unit, ok, message)
+    if (.not. ok) error stop 'v2 envelope rejected five-assignment source: '//trim(message)
+    if (unit%execution_part%sequence%assignment_count /= 5 .or. &
+        trim(unit%execution_part%sequence%assignment(1)%expression%left_operand) /= '7') then
+        error stop 'v2 five-assignment count or initializer changed'
+    end if
+    do i = 2, 5
+        if (trim(unit%execution_part%sequence%assignment(i)%variable) /= 'x' .or. &
+            trim(unit%execution_part%sequence%assignment(i)%expression%operator) /= '+' .or. &
+            trim(unit%execution_part%sequence%assignment(i)%expression%left_operand) /= 'x' .or. &
+            trim(unit%execution_part%sequence%assignment(i)%expression%right_operand) /= '1' .or. &
+            trim(unit%execution_part%sequence%assignment(i)%span%source_hash) /= &
+            'l3-raw-program-five-assignment-v1') then
+            error stop 'v2 five-assignment record changed'
+        end if
+    end do
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok) error stop 'v2 five-assignment serialization failed'
+    if (index(trim(serialized), '(declaration-count 1)') == 0 .or. &
+        index(trim(serialized), '(variable-count 1)') == 0 .or. &
+        index(trim(serialized), '(assignment-count 5)') == 0 .or. &
+        index(trim(serialized), 'l3-raw-program-five-assignment-v1') == 0) then
+        error stop 'v2 five-assignment envelope changed'
     end if
     call check_rejected(wrong_name)
     call check_rejected(wrong_type)
