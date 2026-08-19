@@ -5,6 +5,7 @@
   (expression integer-literal R708)
   (binary-expression add R1007 R1010 1 2 +)
   (binary-expression add-variable R1007 R1010 x x +)
+  (binary-expression multiply-variable R1006 R1009 x x *)
   (binary-expression subtract R1006 R1010 5 3 –)
   (binary-expression multiply R1006 R1009 2 3 *)
   (binary-expression divide R1006 R1009 6 2 /)

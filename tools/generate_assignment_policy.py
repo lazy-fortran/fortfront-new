@@ -26,6 +26,13 @@ def main() -> int:
     if variable_add_match is None:
         raise SystemExit("assignment policy omitted its variable-add row")
     source = source.replace(variable_add_match.group(0), "", 1)
+    variable_multiply_match = re.search(
+        r"\(binary-expression (multiply-variable) (R\d+) (R\d+) (x) (x) (\*)\)",
+        source,
+    )
+    if variable_multiply_match is None:
+        raise SystemExit("assignment policy omitted its variable-multiply row")
+    source = source.replace(variable_multiply_match.group(0), "", 1)
     match = re.fullmatch(
         r"\(schema frontend-assignment-policy-v0\s+"
         r"\(policy assignment-stmt assignment-stmt (R\d+)\)\s+"
@@ -71,6 +78,11 @@ def main() -> int:
             f"{variable_add_match.group(4)} {variable_add_match.group(6)} "
             f"{variable_add_match.group(5)}", variable_add_match.group(4),
             variable_add_match.group(5), variable_add_match.group(6)),
+        (variable_multiply_match.group(1), variable_multiply_match.group(2),
+            variable_multiply_match.group(3), match.group(1),
+            f"{variable_multiply_match.group(4)} {variable_multiply_match.group(6)} "
+            f"{variable_multiply_match.group(5)}", variable_multiply_match.group(4),
+            variable_multiply_match.group(5), variable_multiply_match.group(6)),
         (match.group(97), match.group(98), match.group(99), match.group(1),
             f"{match.group(100)} {match.group(102)} {match.group(101)}", match.group(100),
             match.group(101), match.group(102)),
@@ -162,7 +174,7 @@ def main() -> int:
         f"    integer, parameter, public :: assignment_policy_signed_integer_literal_min = {signed_match.group(1)}\n"
         f"    integer, parameter, public :: assignment_policy_signed_integer_literal_max = {signed_match.group(2)}\n"
         "    type, public :: assignment_policy_row_t\n"
-        "        character(len=16) :: expression_kind\n"
+        "        character(len=24) :: expression_kind\n"
         "        character(len=16) :: expression_rule\n"
         "        character(len=16) :: operator_rule\n"
         "        character(len=16) :: source_rule\n"

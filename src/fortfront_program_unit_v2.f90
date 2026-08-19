@@ -1715,6 +1715,23 @@ contains
             end do
             return
         end if
+        if (operator == '*' .and. trim(token) == 'x') then
+            do position = 1, assignment_policy_row_count
+                if (trim(assignment_policy_rows(position)%expression_kind) /= &
+                    'multiply-variable') cycle
+                if (trim(assignment_policy_rows(position)%expression_rule) /= 'R1006') cycle
+                if (trim(assignment_policy_rows(position)%operator_rule) /= 'R1009') cycle
+                if (trim(assignment_policy_rows(position)%source_rule) /= 'R1033') cycle
+                if (trim(assignment_policy_rows(position)%source_spelling) /= 'x * x') cycle
+                if (trim(assignment_policy_rows(position)%left_operand) /= 'x') cycle
+                if (trim(assignment_policy_rows(position)%right_operand) /= 'x') cycle
+                if (trim(assignment_policy_rows(position)%operator) /= '*') cycle
+                variable_exponent = .true.
+                parse_generic_update_line = .true.
+                return
+            end do
+            return
+        end if
         do position = 1, len_trim(token)
             if (token(position:position) < '0' .or. token(position:position) > '9') return
         end do

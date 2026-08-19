@@ -78,7 +78,7 @@ module frontend_assignment_policy_generated
     integer, parameter, public :: assignment_policy_signed_integer_literal_min = -100
     integer, parameter, public :: assignment_policy_signed_integer_literal_max = -1
     type, public :: assignment_policy_row_t
-        character(len=16) :: expression_kind
+        character(len=24) :: expression_kind
         character(len=16) :: expression_rule
         character(len=16) :: operator_rule
         character(len=16) :: source_rule
@@ -89,15 +89,16 @@ module frontend_assignment_policy_generated
     end type assignment_policy_row_t
     character(len=*), parameter, public :: assignment_policy_variable_expression_row = &
         'variable R902 R901 R903'
-    type(assignment_policy_row_t), parameter, public :: assignment_policy_rows(7) = [ &
+    type(assignment_policy_row_t), parameter, public :: assignment_policy_rows(8) = [ &
         assignment_policy_row_t('integer-literal', 'R708', '', 'R1033', '', '', '', ''), &
         assignment_policy_row_t('add', 'R1007', 'R1010', 'R1033', '1 + 2', '1', '2', '+'), &
         assignment_policy_row_t('subtract', 'R1006', 'R1010', 'R1033', '5 – 3', '5', '3', '–'), &
         assignment_policy_row_t('multiply', 'R1006', 'R1009', 'R1033', '2 * 3', '2', '3', '*'), &
         assignment_policy_row_t('divide', 'R1006', 'R1009', 'R1033', '6 / 2', '6', '2', '/'), &
         assignment_policy_row_t('add-variable', 'R1007', 'R1010', 'R1033', 'x + x', 'x', 'x', '+'), &
+        assignment_policy_row_t('multiply-variable', 'R1006', 'R1009', 'R1033', 'x * x', 'x', 'x', '*'), &
         assignment_policy_row_t('power', 'R1006', 'R1008', 'R1033', '2 ** 3', '2', '3', '**') &
         ]
-    integer, parameter, public :: assignment_policy_row_count = 7
+    integer, parameter, public :: assignment_policy_row_count = 8
     integer, parameter, public :: assignment_policy_source_page = 155
 end module frontend_assignment_policy_generated
