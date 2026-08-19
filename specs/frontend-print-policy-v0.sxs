@@ -16,6 +16,7 @@
   (output-item integer-expression * x 2 R1217)
   (output-item integer-expression / x 2 R1217)
   (output-item integer-expression ** x 2 R1217)
+  (output-item integer-expression ** x 3 R1217)
   (variable-output variable x R901)
   (variable-value integer-literal 17 R1217)
   (variable-value integer-literal 23 R1217)
