@@ -11,9 +11,12 @@ program test_frontend_program_unit_v2_initialized_power
 
     call assert_accepted('3', '2')
     call assert_accepted('-3', '3')
+    call assert_accepted('3', '5')
+    call assert_accepted('-3', '10')
 
+    call assert_rejected('3', 'x = x ** 0')
     call assert_rejected('3', 'x = x ** 1')
-    call assert_rejected('3', 'x = x ** 5')
+    call assert_rejected('3', 'x = x ** 11')
     call assert_rejected('3', 'x = x ** 2.0')
     call assert_rejected('3', 'x = x @ 2')
     call assert_rejected('3', 'y = x ** 2')
