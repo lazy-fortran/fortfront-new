@@ -633,7 +633,28 @@ program test_frontend_program_unit_v2_print
         trim(unit%execution_part%print%output_items(3)%kind) /= 'variable') then
         error stop 'generic PRINT list-position subtraction witness was rejected'
     end if
-    call assert_rejected(generic_ascii_subtract_expression_source)
+    call frontend_parse_program_unit_v2('print-generic-ascii-subtract-expression.f90', &
+        generic_ascii_subtract_expression_source, 'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_count /= 2 .or. &
+        trim(unit%execution_part%print%output_items(1)%operator) /= '-' .or. &
+        trim(unit%execution_part%print%output_items(1)%left) /= 'x' .or. &
+        trim(unit%execution_part%print%output_items(1)%right) /= '2' .or. &
+        unit%execution_part%print%output_items(2)%value /= 7) then
+        error stop 'generic PRINT ASCII subtraction expression witness was rejected'
+    end if
+    call frontend_parse_program_unit_v2('print-generic-ascii-subtract-expression-list.f90', &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 5'//new_line('a')//'  print *, 7, x - 2, x'//new_line('a')// &
+        'end program main'//new_line('a'), 'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_count /= 3 .or. &
+        unit%execution_part%print%output_items(1)%value /= 7 .or. &
+        trim(unit%execution_part%print%output_items(2)%operator) /= '-' .or. &
+        trim(unit%execution_part%print%output_items(3)%kind) /= 'variable') then
+        error stop 'generic PRINT ASCII list-position subtraction witness was rejected'
+    end if
+    call assert_rejected('program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 5'//new_line('a')//'  print *, x - 3, 7'//new_line('a')// &
+        'end program main'//new_line('a'))
     call assert_rejected(generic_variable_expression_wrong_operator)
     call assert_rejected(generic_variable_expression_wrong_name)
     call assert_rejected(generic_variable_expression_missing_second)

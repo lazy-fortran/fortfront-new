@@ -30,6 +30,7 @@ SCHEMA = re.compile(
     r"\(output-item (integer-expression) (\*\*) (x) (x) (R\d+)\)\s+"
     r"\(output-item (integer-expression) (–) (x) (2) (R\d+)\)\s+"
     r"\(output-item (integer-expression) (\+) (x) (2) (R\d+)\)\s+"
+    r"\(output-item (integer-expression) (-) (x) (2) (R\d+)\)\s+"
     r"\(output-item (integer-expression-range) (\*\*) (x) (2) (10) (R\d+)\)\s+"
     r"\(variable-output (variable) (x) (R\d+)\)\s+"
     r"\(variable-value (integer-literal) (17) (R\d+)\)\s+"
@@ -111,7 +112,10 @@ def _replace_generated_routes(generated: str) -> str:
                         "                    trim(item%right) /= print_policy_expression_6_right) .and. &",
                         "                    (trim(item%operator) /= print_policy_expression_7_operator .or. &",
                         "                    trim(item%left) /= print_policy_expression_7_left .or. &",
-                        "                    trim(item%right) /= print_policy_expression_7_right))) .or. &",
+                        "                    trim(item%right) /= print_policy_expression_7_right) .and. &",
+                        "                    (trim(item%operator) /= print_policy_expression_8_operator .or. &",
+                        "                    trim(item%left) /= print_policy_expression_8_left .or. &",
+                        "                    trim(item%right) /= print_policy_expression_8_right))) .or. &",
         "                    (trim(item%kind) == 'variable' .and. &",
         "                    trim(item%name) /= 'x') .or. (trim(item%kind) == 'integer-literal' &",
         "                    .and. item%value < print_policy_integer_literal_min) .or. (trim(item%rule) /= 'R901' .and. &",
@@ -447,7 +451,9 @@ def render(source: str) -> str:
         expression_5_kind, expression_5_operator, expression_5_left, expression_5_right,
         expression_5_rule, expression_6_kind, expression_6_operator, expression_6_left,
         expression_6_right, expression_6_rule, expression_7_kind, expression_7_operator,
-        expression_7_left, expression_7_right, expression_7_rule, expression_power_kind,
+        expression_7_left, expression_7_right, expression_7_rule, expression_8_kind,
+        expression_8_operator, expression_8_left, expression_8_right, expression_8_rule,
+        expression_power_kind,
         expression_power_operator,
         expression_power_left,
         expression_power_min, expression_power_max, expression_power_rule,
@@ -526,6 +532,13 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_expression_7_rule = '{expression_7_rule}'
     character(len=*), parameter, public :: print_policy_expression_7_source = &
         '{expression_7_left} {expression_7_operator} {expression_7_right}'
+    character(len=*), parameter, public :: print_policy_expression_8_kind = '{expression_8_kind}'
+    character(len=*), parameter, public :: print_policy_expression_8_operator = '{expression_8_operator}'
+    character(len=*), parameter, public :: print_policy_expression_8_left = '{expression_8_left}'
+    character(len=*), parameter, public :: print_policy_expression_8_right = '{expression_8_right}'
+    character(len=*), parameter, public :: print_policy_expression_8_rule = '{expression_8_rule}'
+    character(len=*), parameter, public :: print_policy_expression_8_source = &
+        '{expression_8_left} {expression_8_operator} {expression_8_right}'
     character(len=*), parameter, public :: print_policy_power_kind = '{expression_power_kind}'
     character(len=*), parameter, public :: print_policy_power_operator = '{expression_power_operator}'
     character(len=*), parameter, public :: print_policy_power_left = '{expression_power_left}'
