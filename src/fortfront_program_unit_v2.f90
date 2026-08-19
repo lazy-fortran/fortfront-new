@@ -1358,7 +1358,7 @@ contains
             if (source == print_variable_negative_source) then
                 unit%execution_part%print%output_value = print_policy_variable_value
             else if (source == print_variable_negative_boundary_source) then
-                unit%execution_part%print%output_value = stored_value
+                unit%execution_part%print%output_value = print_policy_variable_value
             else
                 unit%execution_part%print%output_value = stored_value
             end if
