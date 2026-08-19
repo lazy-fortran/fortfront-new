@@ -52,6 +52,12 @@ program test_frontend_generic_print_list
     call check_variable_power_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, 7, x ** x, x'//new_line('a')//'end program main'//new_line('a'), 27_int64)
+    call check_variable_power_expression('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 4'//new_line('a')// &
+        '  print *, x ** x, 7'//new_line('a')//'end program main'//new_line('a'), 256_int64)
+    call check_variable_power_expression('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 4'//new_line('a')// &
+        '  print *, 7, x ** x, x'//new_line('a')//'end program main'//new_line('a'), 256_int64)
     call check_provenance_mutations('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x, 7, x'//new_line('a')//'end program main'//new_line('a'))
@@ -314,7 +320,8 @@ contains
         character(len=65536) :: serialized, message
         logical :: ok
 
-        if (expected_value /= 27_int64) error stop 'variable power oracle value changed'
+        if (expected_value /= 27_int64 .and. expected_value /= 256_int64) &
+            error stop 'variable power oracle value changed'
         call frontend_parse_program_unit_v2('l3_generic_print_expression_power.f90', source, &
             'generic-print-expression-test', unit, ok, message)
         if (.not. ok .or. unit%execution_part%print%output_count < 2_int64) &

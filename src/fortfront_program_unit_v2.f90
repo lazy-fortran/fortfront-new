@@ -1372,13 +1372,16 @@ contains
     logical function is_generic_print_list_source(source)
         character(len=*), intent(in) :: source
         integer :: print_start
-        character(len=*), parameter :: prefix = 'program main'//new_line('a')// &
+        character(len=*), parameter :: prefix_3 = 'program main'//new_line('a')// &
             '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')
+        character(len=*), parameter :: prefix_4 = 'program main'//new_line('a')// &
+            '  integer :: x'//new_line('a')//'  x = 4'//new_line('a')
         is_generic_print_list_source = .false.
         print_start = index(source, '  print *,')
         if (print_start == 0) return
-        is_generic_print_list_source = print_start == len(prefix) + 1 .and. &
-            index(source, prefix) == 1 .and. &
+        is_generic_print_list_source = (print_start == len(prefix_3) + 1 .and. &
+            index(source, prefix_3) == 1 .or. print_start == len(prefix_4) + 1 .and. &
+            index(source, prefix_4) == 1) .and. &
             index(source, new_line('a')//'end program main'//new_line('a')) > print_start
     end function is_generic_print_list_source
 
@@ -1455,9 +1458,15 @@ contains
         end do
         if (item_count /= 2 .and. item_count /= 3 .and. item_count /= 5) return
 
-        declaration_source = 'program main'//new_line('a')// &
-            '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
-            'end program main'//new_line('a')
+        if (index(source, '  x = 4'//new_line('a')) > 0) then
+            declaration_source = 'program main'//new_line('a')// &
+                '  integer :: x'//new_line('a')//'  x = 4'//new_line('a')// &
+                'end program main'//new_line('a')
+        else
+            declaration_source = 'program main'//new_line('a')// &
+                '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+                'end program main'//new_line('a')
+        end if
         call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
             assignment_sequence_source_hash, declaration_unit, ok, message)
         if (.not. ok) return
