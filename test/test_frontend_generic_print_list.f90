@@ -24,22 +24,34 @@ program test_frontend_generic_print_list
         '  print *, 7, x + 1, x'//new_line('a')//'end program main'//new_line('a'), 3)
     call check_add_constant_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
-        '  print *, x + 2, 7'//new_line('a')//'end program main'//new_line('a'), 1)
+        '  print *, x + 2, 7'//new_line('a')//'end program main'//new_line('a'), 1, '2')
     call check_add_constant_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
-        '  print *, 7, x + 2, x'//new_line('a')//'end program main'//new_line('a'), 2)
+        '  print *, 7, x + 2, x'//new_line('a')//'end program main'//new_line('a'), 2, '2')
+    call check_add_constant_expression('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, x + 3, 7'//new_line('a')//'end program main'//new_line('a'), 1, '3')
+    call check_add_constant_expression('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, 7, x + 4, x'//new_line('a')//'end program main'//new_line('a'), 2, '4')
     call check_subtract_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
-        '  print *, x – 2, 7'//new_line('a')//'end program main'//new_line('a'), 1, 2, '–')
+        '  print *, x – 2, 7'//new_line('a')//'end program main'//new_line('a'), 1, 2, '–', '2')
     call check_subtract_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
-        '  print *, 7, x – 2, x'//new_line('a')//'end program main'//new_line('a'), 2, 3, '–')
+        '  print *, 7, x – 2, x'//new_line('a')//'end program main'//new_line('a'), 2, 3, '–', '2')
     call check_subtract_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
-        '  print *, x - 2, 7'//new_line('a')//'end program main'//new_line('a'), 1, 2, '-')
+        '  print *, x - 2, 7'//new_line('a')//'end program main'//new_line('a'), 1, 2, '-', '2')
     call check_subtract_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
-        '  print *, 7, x - 2, x'//new_line('a')//'end program main'//new_line('a'), 2, 3, '-')
+        '  print *, 7, x - 2, x'//new_line('a')//'end program main'//new_line('a'), 2, 3, '-', '2')
+    call check_subtract_expression('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
+        '  print *, x - 3, 7'//new_line('a')//'end program main'//new_line('a'), 1, 2, '-', '3')
+    call check_subtract_expression('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
+        '  print *, 7, x - 4, x'//new_line('a')//'end program main'//new_line('a'), 2, 3, '-', '4')
     call check_multiply_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x * 2, 7'//new_line('a')//'end program main'//new_line('a'))
@@ -97,10 +109,10 @@ program test_frontend_generic_print_list
         '  print *, x + 1,'//new_line('a')//'end program main'//new_line('a'))
     call check_rejected('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
-        '  print *, x - 3, 7'//new_line('a')//'end program main'//new_line('a'))
+        '  print *, x - 11, 7'//new_line('a')//'end program main'//new_line('a'))
     call check_rejected('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
-        '  print *, x + 3, 7'//new_line('a')//'end program main'//new_line('a'))
+        '  print *, x + 11, 7'//new_line('a')//'end program main'//new_line('a'))
     call check_rejected('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  write *, x + 1, 7'//new_line('a')//'end program main'//new_line('a'))
@@ -121,7 +133,7 @@ program test_frontend_generic_print_list
         '  print *, x / 3, 7'//new_line('a')//'end program main'//new_line('a'))
     call check_rejected('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
-        '  print *, x - 3, 7'//new_line('a')//'end program main'//new_line('a'))
+        '  print *, x - 11, 7'//new_line('a')//'end program main'//new_line('a'))
     call check_rejected('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  write *, x / 2, 7'//new_line('a')//'end program main'//new_line('a'))
@@ -197,8 +209,8 @@ contains
             error stop 'generic PRINT expression serialization changed'
     end subroutine check_expression
 
-    subroutine check_add_constant_expression(source, expression_index)
-        character(len=*), intent(in) :: source
+    subroutine check_add_constant_expression(source, expression_index, expected_right)
+        character(len=*), intent(in) :: source, expected_right
         integer, intent(in) :: expression_index
         type(program_unit_v2_t) :: unit
         character(len=65536) :: serialized, message
@@ -210,21 +222,21 @@ contains
             'integer-expression' .or. &
             trim(unit%execution_part%print%output_items(expression_index)%operator) /= '+' .or. &
             trim(unit%execution_part%print%output_items(expression_index)%left) /= 'x' .or. &
-            trim(unit%execution_part%print%output_items(expression_index)%right) /= '2' .or. &
+            trim(unit%execution_part%print%output_items(expression_index)%right) /= expected_right .or. &
             trim(unit%root%span%source_hash) /= &
             'l3-raw-program-generic-print-expression-v0') then
             error stop 'generic PRINT x + 2 expression was rejected'
         end if
         call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
         if (.not. ok .or. index(serialized, &
-            '(output-item (kind integer-expression) (operator +) (left x) (right 2) '// &
+            '(output-item (kind integer-expression) (operator +) (left x) (right '//expected_right//') '// &
             '(rule R1217) (clause 12.6.3) (page 248))') == 0) then
             error stop 'generic PRINT x + 2 expression serialization changed'
         end if
     end subroutine check_add_constant_expression
 
-    subroutine check_subtract_expression(source, expression_index, expected_count, expected_operator)
-        character(len=*), intent(in) :: source, expected_operator
+    subroutine check_subtract_expression(source, expression_index, expected_count, expected_operator, expected_right)
+        character(len=*), intent(in) :: source, expected_operator, expected_right
         integer, intent(in) :: expression_index, expected_count
         type(program_unit_v2_t) :: unit
         character(len=65536) :: serialized, message
@@ -237,14 +249,14 @@ contains
             'integer-expression' .or. &
             trim(unit%execution_part%print%output_items(expression_index)%operator) /= expected_operator .or. &
             trim(unit%execution_part%print%output_items(expression_index)%left) /= 'x' .or. &
-            trim(unit%execution_part%print%output_items(expression_index)%right) /= '2' .or. &
+            trim(unit%execution_part%print%output_items(expression_index)%right) /= expected_right .or. &
             trim(unit%root%span%source_hash) /= &
             'l3-raw-program-generic-print-expression-v0') then
             error stop 'generic PRINT subtraction expression was rejected'
         end if
         call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
         if (.not. ok .or. index(serialized, '(operator '//expected_operator//')') == 0 .or. &
-            index(serialized, '(left x)') == 0 .or. index(serialized, '(right 2)') == 0) then
+            index(serialized, '(left x)') == 0 .or. index(serialized, '(right '//expected_right//')') == 0) then
             error stop 'generic PRINT subtraction expression serialization changed'
         end if
     end subroutine check_subtract_expression

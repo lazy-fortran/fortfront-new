@@ -653,7 +653,7 @@ program test_frontend_program_unit_v2_print
         error stop 'generic PRINT ASCII list-position subtraction witness was rejected'
     end if
     call assert_rejected('program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-        '  x = 5'//new_line('a')//'  print *, x - 3, 7'//new_line('a')// &
+        '  x = 5'//new_line('a')//'  print *, x - 11, 7'//new_line('a')// &
         'end program main'//new_line('a'))
     call assert_rejected(generic_variable_expression_wrong_operator)
     call assert_rejected(generic_variable_expression_wrong_name)

@@ -31,6 +31,10 @@ SCHEMA = re.compile(
     r"\(output-item (integer-expression) (–) (x) (2) (R\d+)\)\s+"
     r"\(output-item (integer-expression) (\+) (x) (2) (R\d+)\)\s+"
     r"\(output-item (integer-expression) (-) (x) (2) (R\d+)\)\s+"
+    r"\(output-item (integer-expression) (\+) (x) (3) (R\d+)\)\s+"
+    r"\(output-item (integer-expression) (-) (x) (3) (R\d+)\)\s+"
+    r"\(output-item (integer-expression) (\+) (x) (4) (R\d+)\)\s+"
+    r"\(output-item (integer-expression) (-) (x) (4) (R\d+)\)\s+"
     r"\(output-item (integer-expression-range) (\*\*) (x) (2) (10) (R\d+)\)\s+"
     r"\(variable-output (variable) (x) (R\d+)\)\s+"
     r"\(variable-value (integer-literal) (17) (R\d+)\)\s+"
@@ -115,7 +119,19 @@ def _replace_generated_routes(generated: str) -> str:
                         "                    trim(item%right) /= print_policy_expression_7_right) .and. &",
                         "                    (trim(item%operator) /= print_policy_expression_8_operator .or. &",
                         "                    trim(item%left) /= print_policy_expression_8_left .or. &",
-                        "                    trim(item%right) /= print_policy_expression_8_right))) .or. &",
+                        "                    trim(item%right) /= print_policy_expression_8_right) .and. &",
+                        "                    (trim(item%operator) /= print_policy_expression_9_operator .or. &",
+                        "                    trim(item%left) /= print_policy_expression_9_left .or. &",
+                        "                    trim(item%right) /= print_policy_expression_9_right) .and. &",
+                        "                    (trim(item%operator) /= print_policy_expression_10_operator .or. &",
+                        "                    trim(item%left) /= print_policy_expression_10_left .or. &",
+                        "                    trim(item%right) /= print_policy_expression_10_right) .and. &",
+                        "                    (trim(item%operator) /= print_policy_expression_11_operator .or. &",
+                        "                    trim(item%left) /= print_policy_expression_11_left .or. &",
+                        "                    trim(item%right) /= print_policy_expression_11_right) .and. &",
+                        "                    (trim(item%operator) /= print_policy_expression_12_operator .or. &",
+                        "                    trim(item%left) /= print_policy_expression_12_left .or. &",
+                        "                    trim(item%right) /= print_policy_expression_12_right))) .or. &",
         "                    (trim(item%kind) == 'variable' .and. &",
         "                    trim(item%name) /= 'x') .or. (trim(item%kind) == 'integer-literal' &",
         "                    .and. item%value < print_policy_integer_literal_min) .or. (trim(item%rule) /= 'R901' .and. &",
@@ -453,6 +469,11 @@ def render(source: str) -> str:
         expression_6_right, expression_6_rule, expression_7_kind, expression_7_operator,
         expression_7_left, expression_7_right, expression_7_rule, expression_8_kind,
         expression_8_operator, expression_8_left, expression_8_right, expression_8_rule,
+        expression_9_kind, expression_9_operator, expression_9_left, expression_9_right,
+        expression_9_rule, expression_10_kind, expression_10_operator, expression_10_left,
+        expression_10_right, expression_10_rule, expression_11_kind, expression_11_operator,
+        expression_11_left, expression_11_right, expression_11_rule, expression_12_kind,
+        expression_12_operator, expression_12_left, expression_12_right, expression_12_rule,
         expression_power_kind,
         expression_power_operator,
         expression_power_left,
@@ -539,6 +560,34 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_expression_8_rule = '{expression_8_rule}'
     character(len=*), parameter, public :: print_policy_expression_8_source = &
         '{expression_8_left} {expression_8_operator} {expression_8_right}'
+    character(len=*), parameter, public :: print_policy_expression_9_kind = '{expression_9_kind}'
+    character(len=*), parameter, public :: print_policy_expression_9_operator = '{expression_9_operator}'
+    character(len=*), parameter, public :: print_policy_expression_9_left = '{expression_9_left}'
+    character(len=*), parameter, public :: print_policy_expression_9_right = '{expression_9_right}'
+    character(len=*), parameter, public :: print_policy_expression_9_rule = '{expression_9_rule}'
+    character(len=*), parameter, public :: print_policy_expression_9_source = &
+        '{expression_9_left} {expression_9_operator} {expression_9_right}'
+    character(len=*), parameter, public :: print_policy_expression_10_kind = '{expression_10_kind}'
+    character(len=*), parameter, public :: print_policy_expression_10_operator = '{expression_10_operator}'
+    character(len=*), parameter, public :: print_policy_expression_10_left = '{expression_10_left}'
+    character(len=*), parameter, public :: print_policy_expression_10_right = '{expression_10_right}'
+    character(len=*), parameter, public :: print_policy_expression_10_rule = '{expression_10_rule}'
+    character(len=*), parameter, public :: print_policy_expression_10_source = &
+        '{expression_10_left} {expression_10_operator} {expression_10_right}'
+    character(len=*), parameter, public :: print_policy_expression_11_kind = '{expression_11_kind}'
+    character(len=*), parameter, public :: print_policy_expression_11_operator = '{expression_11_operator}'
+    character(len=*), parameter, public :: print_policy_expression_11_left = '{expression_11_left}'
+    character(len=*), parameter, public :: print_policy_expression_11_right = '{expression_11_right}'
+    character(len=*), parameter, public :: print_policy_expression_11_rule = '{expression_11_rule}'
+    character(len=*), parameter, public :: print_policy_expression_11_source = &
+        '{expression_11_left} {expression_11_operator} {expression_11_right}'
+    character(len=*), parameter, public :: print_policy_expression_12_kind = '{expression_12_kind}'
+    character(len=*), parameter, public :: print_policy_expression_12_operator = '{expression_12_operator}'
+    character(len=*), parameter, public :: print_policy_expression_12_left = '{expression_12_left}'
+    character(len=*), parameter, public :: print_policy_expression_12_right = '{expression_12_right}'
+    character(len=*), parameter, public :: print_policy_expression_12_rule = '{expression_12_rule}'
+    character(len=*), parameter, public :: print_policy_expression_12_source = &
+        '{expression_12_left} {expression_12_operator} {expression_12_right}'
     character(len=*), parameter, public :: print_policy_power_kind = '{expression_power_kind}'
     character(len=*), parameter, public :: print_policy_power_operator = '{expression_power_operator}'
     character(len=*), parameter, public :: print_policy_power_left = '{expression_power_left}'

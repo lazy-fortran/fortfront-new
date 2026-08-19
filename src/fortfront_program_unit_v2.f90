@@ -58,6 +58,14 @@ module fortfront_program_unit_v2
         print_policy_expression_7_right, print_policy_expression_7_source, &
         print_policy_expression_8_operator, print_policy_expression_8_left, &
         print_policy_expression_8_right, print_policy_expression_8_source, &
+        print_policy_expression_9_operator, print_policy_expression_9_left, &
+        print_policy_expression_9_right, print_policy_expression_9_source, &
+        print_policy_expression_10_operator, print_policy_expression_10_left, &
+        print_policy_expression_10_right, print_policy_expression_10_source, &
+        print_policy_expression_11_operator, print_policy_expression_11_left, &
+        print_policy_expression_11_right, print_policy_expression_11_source, &
+        print_policy_expression_12_operator, print_policy_expression_12_left, &
+        print_policy_expression_12_right, print_policy_expression_12_source, &
         print_policy_integer_literal_min
     implicit none
     private
@@ -1477,7 +1485,11 @@ contains
                 token == print_policy_expression_5_source .or. &
                 token == print_policy_expression_6_source .or. &
                 token == print_policy_expression_7_source .or. &
-                token == print_policy_expression_8_source) then
+                token == print_policy_expression_8_source .or. &
+                token == print_policy_expression_9_source .or. &
+                token == print_policy_expression_10_source .or. &
+                token == print_policy_expression_11_source .or. &
+                token == print_policy_expression_12_source) then
                 if (is_print_power_literal(token)) has_expression = .true.
                 cycle
             else if (is_print_nonnegative_decimal_integer(token)) then
@@ -1514,7 +1526,11 @@ contains
             any(parsed_items(:item_count) == print_policy_expression_5_source) .or. &
             any(parsed_items(:item_count) == print_policy_expression_6_source) .or. &
             any(parsed_items(:item_count) == print_policy_expression_7_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_8_source)) then
+            any(parsed_items(:item_count) == print_policy_expression_8_source) .or. &
+            any(parsed_items(:item_count) == print_policy_expression_9_source) .or. &
+            any(parsed_items(:item_count) == print_policy_expression_10_source) .or. &
+            any(parsed_items(:item_count) == print_policy_expression_11_source) .or. &
+            any(parsed_items(:item_count) == print_policy_expression_12_source)) then
             unit%root%span%source_hash = print_policy_expression_source_identity
         else
             unit%root%span%source_hash = print_policy_generic_source_identity
@@ -1546,7 +1562,11 @@ contains
                     token == print_policy_expression_5_source .or. &
                     token == print_policy_expression_6_source .or. &
                     token == print_policy_expression_7_source .or. &
-                    token == print_policy_expression_8_source) then
+                    token == print_policy_expression_8_source .or. &
+                    token == print_policy_expression_9_source .or. &
+                    token == print_policy_expression_10_source .or. &
+                    token == print_policy_expression_11_source .or. &
+                    token == print_policy_expression_12_source) then
                 unit%execution_part%print%output_items(item_index)%kind = 'integer-expression'
                 if (is_print_power_literal(token)) then
                     unit%execution_part%print%output_items(item_index)%operator = &
@@ -1603,6 +1623,34 @@ contains
                         print_policy_expression_8_left
                     unit%execution_part%print%output_items(item_index)%right = &
                         print_policy_expression_8_right
+                else if (token == print_policy_expression_9_source) then
+                    unit%execution_part%print%output_items(item_index)%operator = &
+                        print_policy_expression_9_operator
+                    unit%execution_part%print%output_items(item_index)%left = &
+                        print_policy_expression_9_left
+                    unit%execution_part%print%output_items(item_index)%right = &
+                        print_policy_expression_9_right
+                else if (token == print_policy_expression_10_source) then
+                    unit%execution_part%print%output_items(item_index)%operator = &
+                        print_policy_expression_10_operator
+                    unit%execution_part%print%output_items(item_index)%left = &
+                        print_policy_expression_10_left
+                    unit%execution_part%print%output_items(item_index)%right = &
+                        print_policy_expression_10_right
+                else if (token == print_policy_expression_11_source) then
+                    unit%execution_part%print%output_items(item_index)%operator = &
+                        print_policy_expression_11_operator
+                    unit%execution_part%print%output_items(item_index)%left = &
+                        print_policy_expression_11_left
+                    unit%execution_part%print%output_items(item_index)%right = &
+                        print_policy_expression_11_right
+                else if (token == print_policy_expression_12_source) then
+                    unit%execution_part%print%output_items(item_index)%operator = &
+                        print_policy_expression_12_operator
+                    unit%execution_part%print%output_items(item_index)%left = &
+                        print_policy_expression_12_left
+                    unit%execution_part%print%output_items(item_index)%right = &
+                        print_policy_expression_12_right
                 else
                     unit%execution_part%print%output_items(item_index)%operator = &
                         print_policy_expression_6_operator
