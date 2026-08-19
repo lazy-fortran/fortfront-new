@@ -441,7 +441,7 @@ contains
         integer(int64) :: stored_value
         integer :: stored_value_status
         integer :: batch_count
-        logical :: shape_matches, generic_assignment_shape
+        logical :: shape_matches, generic_assignment_shape, generic_variable_exponent
 
         unit = program_unit_v2_t()
         ok = .false.
@@ -456,7 +456,8 @@ contains
             return
         end if
         call parse_generic_initialized_add_source(source, declaration_source, generic_initializer, &
-            generic_operator, generic_addend, stored_value, ok, generic_assignment_shape)
+            generic_operator, generic_addend, stored_value, ok, &
+            generic_assignment_shape, generic_variable_exponent)
         if (generic_assignment_shape .and. .not. ok) then
             message = 'print-variable-value-rejected'
             return
@@ -1487,9 +1488,14 @@ contains
             end if
             unit%execution_part%sequence%assignment(1)%expression%left_operand = trim(generic_initializer)
             unit%execution_part%sequence%assignment(2)%expression%operator = trim(generic_operator)
-            write (generic_addend_text, '(i0)') generic_addend
-            unit%execution_part%sequence%assignment(2)%expression%right_operand = &
-                trim(generic_addend_text)
+            if (generic_variable_exponent) then
+                unit%execution_part%sequence%assignment(2)%expression%right_operand = &
+                    'x'
+            else
+                write (generic_addend_text, '(i0)') generic_addend
+                unit%execution_part%sequence%assignment(2)%expression%right_operand = &
+                    trim(generic_addend_text)
+            end if
             unit%root = declaration_unit%root
             unit%root%span%end_byte = int(len(source), int64) - 1_int64
             unit%declaration_count = declaration_unit%declaration_count
@@ -1582,12 +1588,13 @@ contains
     end subroutine frontend_parse_program_unit_v2
 
     subroutine parse_generic_initialized_add_source(source, declaration_source, &
-            initializer, operator, addend, stored_value, ok, matches_shape)
+            initializer, operator, addend, stored_value, ok, matches_shape, &
+            variable_exponent)
         character(len=*), intent(in) :: source
         character(len=*), intent(out) :: declaration_source, initializer, operator
         integer(int64), intent(out) :: addend
         integer(int64), intent(out) :: stored_value
-        logical, intent(out) :: ok, matches_shape
+        logical, intent(out) :: ok, matches_shape, variable_exponent
         character(len=*), parameter :: prefix = 'program main'//new_line('a')// &
             '  integer :: x'//new_line('a')//'  x = '
         character(len=*), parameter :: assignment_prefix = '  x = x '
@@ -1605,6 +1612,7 @@ contains
         stored_value = 0_int64
         ok = .false.
         matches_shape = .false.
+        variable_exponent = .false.
         if (len(source) <= len(prefix) + len(print_suffix) + len(assignment_prefix)) return
         if (source(:len(prefix)) /= prefix) return
         tail = source(len(prefix) + 1:)
@@ -1620,7 +1628,8 @@ contains
         assignment_line(:assignment_end - 1) = tail(:assignment_end - 1)
         if (tail(assignment_end:) /= print_suffix) return
         matches_shape = .true.
-        if (.not. parse_generic_update_line(assignment_line(:assignment_end - 1), operator, addend)) return
+        if (.not. parse_generic_update_line(assignment_line(:assignment_end - 1), &
+                operator, addend, variable_exponent)) return
         initializer_source = prefix//trim(initializer)//new_line('a')// &
             '  print *, x'//new_line('a')//'end program main'//new_line('a')
         call parse_stored_variable_initializer_source(trim(initializer_source), parsed_declaration_source, &
@@ -1630,19 +1639,26 @@ contains
             return
         end if
         if (.not. ok) return
+        if (variable_exponent) then
+            if (stored_value < initialized_power_min .or. &
+                stored_value > initialized_power_max) return
+        end if
         declaration_source = parsed_declaration_source
     end subroutine parse_generic_initialized_add_source
 
-    logical function parse_generic_update_line(line, operator, addend)
+    logical function parse_generic_update_line(line, operator, addend, &
+            variable_exponent)
         character(len=*), intent(in) :: line
         character(len=*), intent(out) :: operator
         integer(int64), intent(out) :: addend
+        logical, intent(out) :: variable_exponent
         character(len=32) :: token
         integer :: status, position
 
         parse_generic_update_line = .false.
         operator = ''
         addend = 0_int64
+        variable_exponent = .false.
         if (len_trim(line) <= len('  x = x ')) return
         if (len_trim(line) >= len('  x = x + ')) then
             if (line(:len('  x = x + ')) == '  x = x + ') then
@@ -1676,6 +1692,11 @@ contains
         end if
         if (len_trim(operator) == 0) return
         if (len_trim(token) == 0) return
+        if (operator == '**' .and. trim(token) == 'x') then
+            variable_exponent = .true.
+            parse_generic_update_line = .true.
+            return
+        end if
         do position = 1, len_trim(token)
             if (token(position:position) < '0' .or. token(position:position) > '9') return
         end do

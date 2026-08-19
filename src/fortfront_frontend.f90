@@ -3239,6 +3239,11 @@ contains
         if (line(:len_trim(prefix)) /= trim(prefix)) return
         token = adjustl(line(len_trim(prefix) + 1:))
         if (len_trim(token) == 0 .or. len_trim(token) > len(exponent)) return
+        if (trim(token) == trim(variable_name)) then
+            exponent = trim(variable_name)
+            parse_variable_power_assignment = .true.
+            return
+        end if
         do index = 1, len_trim(token)
             if (token(index:index) < '0' .or. token(index:index) > '9') return
         end do
