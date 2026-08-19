@@ -429,11 +429,12 @@ contains
         character(len=*), intent(out) :: message
         type(typed_program_unit_t) :: declaration_unit
         character(len=1024) :: declaration_source
+        character(len=64) :: generic_initializer
         character(len=128) :: execution_source_hash
         integer(int64) :: stored_value
         integer :: stored_value_status
         integer :: batch_count
-        logical :: shape_matches
+        logical :: shape_matches, generic_assignment_shape
 
         unit = program_unit_v2_t()
         ok = .false.
@@ -444,6 +445,12 @@ contains
         end if
         call parse_stored_variable_initializer_source(source, declaration_source, stored_value, ok, shape_matches)
         if (shape_matches .and. .not. ok) then
+            message = 'print-variable-value-rejected'
+            return
+        end if
+        call parse_generic_initialized_add_source(source, declaration_source, generic_initializer, &
+            stored_value, ok, generic_assignment_shape)
+        if (generic_assignment_shape .and. .not. ok) then
             message = 'print-variable-value-rejected'
             return
         end if
@@ -1417,8 +1424,10 @@ contains
             ok = .true.
             return
         end if
-        call parse_stored_variable_initializer_source(source, declaration_source, stored_value, ok, shape_matches)
-        if (ok) then
+        if (.not. generic_assignment_shape) then
+            call parse_stored_variable_initializer_source(source, declaration_source, stored_value, ok, shape_matches)
+        end if
+        if (ok .and. .not. generic_assignment_shape) then
             call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
                 source_hash, declaration_unit, ok, message)
             if (.not. ok .or. declaration_unit%assignment_count /= 1_int64) then
@@ -1443,6 +1452,57 @@ contains
             unit%execution_part%print%span = unit%root%span
             unit%execution_part%print%span%start_byte = 34_int64
             unit%execution_part%print%span%end_byte = 45_int64
+            unit%execution_part%print%statement_rule = print_policy_statement_rule
+            unit%execution_part%print%format_rule = print_policy_format_rule
+            unit%execution_part%print%output_rule = print_policy_variable_output_rule
+            unit%execution_part%print%source_document = print_policy_document
+            unit%execution_part%print%statement_clause = print_policy_statement_clause
+            unit%execution_part%print%format_clause = print_policy_format_clause
+            unit%execution_part%print%output_clause = print_policy_output_clause
+            unit%execution_part%print%statement_page = print_policy_statement_page
+            unit%execution_part%print%format_page = print_policy_format_page
+            unit%execution_part%print%output_page = print_policy_output_page
+            unit%execution_part%print%source_hash = print_policy_source_hash
+            ok = .true.
+            message = ''
+            return
+        end if
+        if (generic_assignment_shape) then
+            call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
+                source_hash, declaration_unit, ok, message)
+            if (.not. ok) return
+            call frontend_parse_typed_assignment_sequence(file_name, assignment_sequence_two_23_source, &
+                assignment_sequence_source_hash, unit%execution_part%sequence, ok, message)
+            if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 2_int64) then
+                message = 'print-variable-expression-assignment-rejected'
+                return
+            end if
+            unit%execution_part%sequence%assignment(1)%expression%left_operand = trim(generic_initializer)
+            unit%root = declaration_unit%root
+            unit%root%span%end_byte = int(len(source), int64) - 1_int64
+            unit%declaration_count = declaration_unit%declaration_count
+            unit%declaration = declaration_unit%declaration
+            unit%variable_count = declaration_unit%variable_count
+            unit%variable = declaration_unit%variable
+            unit%execution_part%sequence%assignment(1)%span%start_byte = &
+                int(index(source, '  x = ') - 1, int64)
+            unit%execution_part%sequence%assignment(1)%span%end_byte = &
+                unit%execution_part%sequence%assignment(1)%span%start_byte + &
+                int(len_trim(generic_initializer) + 5, int64)
+            unit%execution_part%sequence%assignment(2)%span%start_byte = &
+                int(index(source, '  x = x + 1') - 1, int64)
+            unit%execution_part%sequence%assignment(2)%span%end_byte = &
+                unit%execution_part%sequence%assignment(2)%span%start_byte + 10_int64
+            unit%execution_part%print_count = 1_int64
+            unit%execution_part%print%format_kind = print_policy_format_kind
+            unit%execution_part%print%format_value = print_policy_format_value
+            unit%execution_part%print%output_kind = print_policy_variable_output_kind
+            unit%execution_part%print%output_name = print_policy_variable_output_name
+            unit%execution_part%print%output_value = print_policy_variable_value_2
+            unit%execution_part%print%output_count = 1_int64
+            unit%execution_part%print%span = unit%root%span
+            unit%execution_part%print%span%start_byte = int(index(source, '  print *, x') - 1, int64)
+            unit%execution_part%print%span%end_byte = unit%execution_part%print%span%start_byte + 11_int64
             unit%execution_part%print%statement_rule = print_policy_statement_rule
             unit%execution_part%print%format_rule = print_policy_format_rule
             unit%execution_part%print%output_rule = print_policy_variable_output_rule
@@ -1506,6 +1566,44 @@ contains
         ok = .true.
         message = ''
     end subroutine frontend_parse_program_unit_v2
+
+    subroutine parse_generic_initialized_add_source(source, declaration_source, &
+            initializer, stored_value, ok, matches_shape)
+        character(len=*), intent(in) :: source
+        character(len=*), intent(out) :: declaration_source, initializer
+        integer(int64), intent(out) :: stored_value
+        logical, intent(out) :: ok, matches_shape
+        character(len=*), parameter :: prefix = 'program main'//new_line('a')// &
+            '  integer :: x'//new_line('a')//'  x = '
+        character(len=*), parameter :: suffix = new_line('a')//'  x = x + 1'// &
+            new_line('a')//'  print *, x'//new_line('a')//'end program main'//new_line('a')
+        character(len=1024) :: initializer_source, parsed_declaration_source
+        integer :: token_end, token_length
+
+        declaration_source = ''
+        initializer = ''
+        stored_value = 0_int64
+        ok = .false.
+        matches_shape = .false.
+        if (len(source) <= len(prefix) + len(suffix)) return
+        if (source(:len(prefix)) /= prefix) return
+        token_end = len(source) - len(suffix)
+        if (token_end <= len(prefix)) return
+        if (source(token_end + 1:) /= suffix) return
+        token_length = token_end - len(prefix)
+        if (token_length > len(initializer)) return
+        initializer = source(len(prefix) + 1:token_end)
+        initializer_source = prefix//trim(initializer)//new_line('a')// &
+            '  print *, x'//new_line('a')//'end program main'//new_line('a')
+        call parse_stored_variable_initializer_source(trim(initializer_source), parsed_declaration_source, &
+            stored_value, ok, matches_shape)
+        if (.not. matches_shape) then
+            matches_shape = .true.
+            return
+        end if
+        if (.not. ok) return
+        declaration_source = parsed_declaration_source
+    end subroutine parse_generic_initialized_add_source
 
     subroutine parse_stored_variable_initializer_source(source, declaration_source, stored_value, ok, matches_shape)
         character(len=*), intent(in) :: source
