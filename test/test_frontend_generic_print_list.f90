@@ -22,6 +22,12 @@ program test_frontend_generic_print_list
     call check_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, 7, x + 1, x'//new_line('a')//'end program main'//new_line('a'), 3)
+    call check_add_constant_expression('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, x + 2, 7'//new_line('a')//'end program main'//new_line('a'), 1)
+    call check_add_constant_expression('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, 7, x + 2, x'//new_line('a')//'end program main'//new_line('a'), 2)
     call check_subtract_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
         '  print *, x – 2, 7'//new_line('a')//'end program main'//new_line('a'), 1, 2)
@@ -86,6 +92,9 @@ program test_frontend_generic_print_list
     call check_rejected('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x - 1, 7'//new_line('a')//'end program main'//new_line('a'))
+    call check_rejected('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, x + 3, 7'//new_line('a')//'end program main'//new_line('a'))
     call check_rejected('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  write *, x + 1, 7'//new_line('a')//'end program main'//new_line('a'))
@@ -181,6 +190,32 @@ contains
             '(rule R1217) (clause 12.6.3) (page 248))') == 0) &
             error stop 'generic PRINT expression serialization changed'
     end subroutine check_expression
+
+    subroutine check_add_constant_expression(source, expression_index)
+        character(len=*), intent(in) :: source
+        integer, intent(in) :: expression_index
+        type(program_unit_v2_t) :: unit
+        character(len=65536) :: serialized, message
+        logical :: ok
+
+        call frontend_parse_program_unit_v2('generic-print-expression-add-constant.f90', &
+            source, 'generic-print-expression-test', unit, ok, message)
+        if (.not. ok .or. unit%execution_part%print%output_items(expression_index)%kind /= &
+            'integer-expression' .or. &
+            trim(unit%execution_part%print%output_items(expression_index)%operator) /= '+' .or. &
+            trim(unit%execution_part%print%output_items(expression_index)%left) /= 'x' .or. &
+            trim(unit%execution_part%print%output_items(expression_index)%right) /= '2' .or. &
+            trim(unit%root%span%source_hash) /= &
+            'l3-raw-program-generic-print-expression-v0') then
+            error stop 'generic PRINT x + 2 expression was rejected'
+        end if
+        call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+        if (.not. ok .or. index(serialized, &
+            '(output-item (kind integer-expression) (operator +) (left x) (right 2) '// &
+            '(rule R1217) (clause 12.6.3) (page 248))') == 0) then
+            error stop 'generic PRINT x + 2 expression serialization changed'
+        end if
+    end subroutine check_add_constant_expression
 
     subroutine check_subtract_expression(source, expression_index, expected_count)
         character(len=*), intent(in) :: source

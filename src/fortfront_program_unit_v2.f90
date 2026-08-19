@@ -54,6 +54,8 @@ module fortfront_program_unit_v2
         print_policy_expression_5_right, print_policy_expression_5_source, &
         print_policy_expression_6_operator, print_policy_expression_6_left, &
         print_policy_expression_6_right, print_policy_expression_6_source, &
+        print_policy_expression_7_operator, print_policy_expression_7_left, &
+        print_policy_expression_7_right, print_policy_expression_7_source, &
         print_policy_integer_literal_min
     implicit none
     private
@@ -1471,7 +1473,8 @@ contains
                 token == print_policy_expression_3_source .or. &
                 token == print_policy_expression_4_source .or. &
                 token == print_policy_expression_5_source .or. &
-                token == print_policy_expression_6_source) then
+                token == print_policy_expression_6_source .or. &
+                token == print_policy_expression_7_source) then
                 if (is_print_power_literal(token)) has_expression = .true.
                 cycle
             else if (is_print_nonnegative_decimal_integer(token)) then
@@ -1506,7 +1509,8 @@ contains
             any(parsed_items(:item_count) == print_policy_expression_3_source) .or. &
             any(parsed_items(:item_count) == print_policy_expression_4_source) .or. &
             any(parsed_items(:item_count) == print_policy_expression_5_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_6_source)) then
+            any(parsed_items(:item_count) == print_policy_expression_6_source) .or. &
+            any(parsed_items(:item_count) == print_policy_expression_7_source)) then
             unit%root%span%source_hash = print_policy_expression_source_identity
         else
             unit%root%span%source_hash = print_policy_generic_source_identity
@@ -1536,7 +1540,8 @@ contains
                     token == print_policy_expression_3_source .or. &
                     token == print_policy_expression_4_source .or. &
                     token == print_policy_expression_5_source .or. &
-                    token == print_policy_expression_6_source) then
+                    token == print_policy_expression_6_source .or. &
+                    token == print_policy_expression_7_source) then
                 unit%execution_part%print%output_items(item_index)%kind = 'integer-expression'
                 if (is_print_power_literal(token)) then
                     unit%execution_part%print%output_items(item_index)%operator = &
@@ -1579,6 +1584,13 @@ contains
                         print_policy_expression_5_left
                     unit%execution_part%print%output_items(item_index)%right = &
                         print_policy_expression_5_right
+                else if (token == print_policy_expression_7_source) then
+                    unit%execution_part%print%output_items(item_index)%operator = &
+                        print_policy_expression_7_operator
+                    unit%execution_part%print%output_items(item_index)%left = &
+                        print_policy_expression_7_left
+                    unit%execution_part%print%output_items(item_index)%right = &
+                        print_policy_expression_7_right
                 else
                     unit%execution_part%print%output_items(item_index)%operator = &
                         print_policy_expression_6_operator
