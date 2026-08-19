@@ -48,13 +48,8 @@ module fortfront_program_unit_v2
         print_policy_expression_3_left, print_policy_expression_3_right, &
         print_policy_expression_3_source, print_policy_expression_4_operator, &
         print_policy_expression_4_left, print_policy_expression_4_right, &
-        print_policy_expression_4_source, print_policy_expression_5_operator, &
-        print_policy_expression_5_left, print_policy_expression_5_right, &
-        print_policy_expression_5_source, print_policy_expression_6_operator, &
-        print_policy_expression_6_left, print_policy_expression_6_right, &
-        print_policy_expression_6_source, print_policy_expression_7_operator, &
-        print_policy_expression_7_left, print_policy_expression_7_right, &
-        print_policy_expression_7_source
+        print_policy_expression_4_source, print_policy_power_operator, &
+        print_policy_power_left, print_policy_power_min, print_policy_power_max
     implicit none
     private
 
@@ -1385,6 +1380,23 @@ contains
             index(source, new_line('a')//'end program main'//new_line('a')) > print_start
     end function is_generic_print_list_source
 
+    logical function is_print_power_literal(token)
+        character(len=*), intent(in) :: token
+        integer(int64) :: exponent
+        integer :: index, status, token_length
+
+        is_print_power_literal = .false.
+        token_length = len_trim(token)
+        if (token_length < 6 .or. token(:5) /= 'x ** ') return
+        do index = 6, token_length
+            if (token(index:index) < '0' .or. token(index:index) > '9') return
+        end do
+        read (token(6:token_length), *, iostat=status) exponent
+        if (status /= 0) return
+        if (exponent < print_policy_power_min .or. exponent > print_policy_power_max) return
+        is_print_power_literal = .true.
+    end function is_print_power_literal
+
     subroutine parse_generic_print_list(file_name, source, source_hash, unit, ok, message)
         character(len=*), intent(in) :: file_name, source, source_hash
         type(program_unit_v2_t), intent(out) :: unit
@@ -1395,6 +1407,7 @@ contains
         character(len=256) :: line, rest, token
         character(len=32) :: parsed_items(16)
         integer :: print_start, line_end, token_end, item_count, item_index
+        logical :: has_expression
         integer(int64) :: source_start, source_end
 
         unit = program_unit_v2_t()
@@ -1409,6 +1422,7 @@ contains
         if (len_trim(rest) == 0) return
 
         item_count = 0
+        has_expression = .false.
         parsed_items = ''
         do while (len_trim(rest) > 0)
             item_count = item_count + 1
@@ -1423,13 +1437,12 @@ contains
                 if (len_trim(rest) == 0) return
             end if
             parsed_items(item_count) = token
-            if (token == 'x' .or. token == print_policy_expression_source .or. &
+            if (token == 'x' .or. is_print_power_literal(token) .or. &
+                token == print_policy_expression_source .or. &
                 token == print_policy_expression_2_source .or. &
                 token == print_policy_expression_3_source .or. &
-                token == print_policy_expression_4_source .or. &
-                token == print_policy_expression_5_source .or. &
-                token == print_policy_expression_6_source .or. &
-                token == print_policy_expression_7_source) then
+                token == print_policy_expression_4_source) then
+                if (is_print_power_literal(token)) has_expression = .true.
                 cycle
             else if (token == '7' .or. token == '8') then
                 cycle
@@ -1448,13 +1461,10 @@ contains
         unit%root = declaration_unit%root
         unit%root%span%file = file_name
         unit%root%span%end_byte = int(len(source), int64) - 1_int64
-        if (any(parsed_items(:item_count) == print_policy_expression_source) .or. &
+        if (has_expression .or. any(parsed_items(:item_count) == print_policy_expression_source) .or. &
             any(parsed_items(:item_count) == print_policy_expression_2_source) .or. &
             any(parsed_items(:item_count) == print_policy_expression_3_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_4_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_5_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_6_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_7_source)) then
+            any(parsed_items(:item_count) == print_policy_expression_4_source)) then
             unit%root%span%source_hash = print_policy_expression_source_identity
         else
             unit%root%span%source_hash = print_policy_generic_source_identity
@@ -1479,15 +1489,18 @@ contains
                 unit%execution_part%print%output_items(item_index)%kind = 'variable'
                 unit%execution_part%print%output_items(item_index)%name = 'x'
                 unit%execution_part%print%output_items(item_index)%rule = 'R901'
-            else if (token == print_policy_expression_source .or. &
+            else if (is_print_power_literal(token) .or. token == print_policy_expression_source .or. &
                     token == print_policy_expression_2_source .or. &
                     token == print_policy_expression_3_source .or. &
-                    token == print_policy_expression_4_source .or. &
-                    token == print_policy_expression_5_source .or. &
-                    token == print_policy_expression_6_source .or. &
-                    token == print_policy_expression_7_source) then
+                    token == print_policy_expression_4_source) then
                 unit%execution_part%print%output_items(item_index)%kind = 'integer-expression'
-                if (token == print_policy_expression_source) then
+                if (is_print_power_literal(token)) then
+                    unit%execution_part%print%output_items(item_index)%operator = &
+                        print_policy_power_operator
+                    unit%execution_part%print%output_items(item_index)%left = &
+                        print_policy_power_left
+                    unit%execution_part%print%output_items(item_index)%right = token(6:)
+                else if (token == print_policy_expression_source) then
                     unit%execution_part%print%output_items(item_index)%operator = &
                         print_policy_expression_operator
                     unit%execution_part%print%output_items(item_index)%left = &
@@ -1515,28 +1528,6 @@ contains
                         print_policy_expression_4_left
                     unit%execution_part%print%output_items(item_index)%right = &
                         print_policy_expression_4_right
-                    if (token == print_policy_expression_5_source) then
-                        unit%execution_part%print%output_items(item_index)%operator = &
-                            print_policy_expression_5_operator
-                        unit%execution_part%print%output_items(item_index)%left = &
-                            print_policy_expression_5_left
-                        unit%execution_part%print%output_items(item_index)%right = &
-                            print_policy_expression_5_right
-                    else if (token == print_policy_expression_6_source) then
-                        unit%execution_part%print%output_items(item_index)%operator = &
-                            print_policy_expression_6_operator
-                        unit%execution_part%print%output_items(item_index)%left = &
-                            print_policy_expression_6_left
-                        unit%execution_part%print%output_items(item_index)%right = &
-                            print_policy_expression_6_right
-                    else if (token == print_policy_expression_7_source) then
-                        unit%execution_part%print%output_items(item_index)%operator = &
-                            print_policy_expression_7_operator
-                        unit%execution_part%print%output_items(item_index)%left = &
-                            print_policy_expression_7_left
-                        unit%execution_part%print%output_items(item_index)%right = &
-                            print_policy_expression_7_right
-                    end if
                 end if
                 unit%execution_part%print%output_items(item_index)%rule = 'R1217'
             else

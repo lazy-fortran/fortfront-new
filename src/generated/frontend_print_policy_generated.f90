@@ -42,27 +42,12 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_expression_4_rule = 'R1217'
     character(len=*), parameter, public :: print_policy_expression_4_source = &
         'x / 2'
-    character(len=*), parameter, public :: print_policy_expression_5_kind = 'integer-expression'
-    character(len=*), parameter, public :: print_policy_expression_5_operator = '**'
-    character(len=*), parameter, public :: print_policy_expression_5_left = 'x'
-    character(len=*), parameter, public :: print_policy_expression_5_right = '2'
-    character(len=*), parameter, public :: print_policy_expression_5_rule = 'R1217'
-    character(len=*), parameter, public :: print_policy_expression_5_source = &
-        'x ** 2'
-    character(len=*), parameter, public :: print_policy_expression_6_kind = 'integer-expression'
-    character(len=*), parameter, public :: print_policy_expression_6_operator = '**'
-    character(len=*), parameter, public :: print_policy_expression_6_left = 'x'
-    character(len=*), parameter, public :: print_policy_expression_6_right = '3'
-    character(len=*), parameter, public :: print_policy_expression_6_rule = 'R1217'
-    character(len=*), parameter, public :: print_policy_expression_6_source = &
-        'x ** 3'
-    character(len=*), parameter, public :: print_policy_expression_7_kind = 'integer-expression'
-    character(len=*), parameter, public :: print_policy_expression_7_operator = '**'
-    character(len=*), parameter, public :: print_policy_expression_7_left = 'x'
-    character(len=*), parameter, public :: print_policy_expression_7_right = '4'
-    character(len=*), parameter, public :: print_policy_expression_7_rule = 'R1217'
-    character(len=*), parameter, public :: print_policy_expression_7_source = &
-        'x ** 4'
+    character(len=*), parameter, public :: print_policy_power_kind = 'integer-expression-range'
+    character(len=*), parameter, public :: print_policy_power_operator = '**'
+    character(len=*), parameter, public :: print_policy_power_left = 'x'
+    integer(int64), parameter, public :: print_policy_power_min = 2_int64
+    integer(int64), parameter, public :: print_policy_power_max = 10_int64
+    character(len=*), parameter, public :: print_policy_power_rule = 'R1217'
     character(len=*), parameter, public :: print_policy_variable_output_kind = 'variable'
     character(len=*), parameter, public :: print_policy_variable_output_name = 'x'
     character(len=*), parameter, public :: print_policy_variable_output_rule = 'R901'
@@ -221,6 +206,22 @@ module frontend_print_policy_generated
 
 contains
 
+    logical function print_policy_power_literal_valid(text)
+        character(len=*), intent(in) :: text
+        integer(int64) :: value
+        integer :: status, index
+
+        print_policy_power_literal_valid = .false.
+        if (len_trim(text) == 0) return
+        do index = 1, len_trim(text)
+            if (text(index:index) < '0' .or. text(index:index) > '9') return
+        end do
+        read (text, *, iostat=status) value
+        if (status /= 0) return
+        if (value < print_policy_power_min .or. value > print_policy_power_max) return
+        print_policy_power_literal_valid = .true.
+    end function print_policy_power_literal_valid
+
     logical function print_stmt_validate(value, message)
         type(print_stmt_t), intent(in) :: value
         character(len=*), intent(out) :: message
@@ -250,15 +251,9 @@ contains
                     (trim(item%operator) /= print_policy_expression_3_operator .or. &
                     trim(item%left) /= print_policy_expression_3_left .or. &
                     trim(item%right) /= print_policy_expression_3_right) .and. &
-                    (trim(item%operator) /= print_policy_expression_5_operator .or. &
-                    trim(item%left) /= print_policy_expression_5_left .or. &
-                    trim(item%right) /= print_policy_expression_5_right) .and. &
-                    (trim(item%operator) /= print_policy_expression_6_operator .or. &
-                    trim(item%left) /= print_policy_expression_6_left .or. &
-                    trim(item%right) /= print_policy_expression_6_right) .and. &
-                    (trim(item%operator) /= print_policy_expression_7_operator .or. &
-                    trim(item%left) /= print_policy_expression_7_left .or. &
-                    trim(item%right) /= print_policy_expression_7_right) .and. &
+                    (.not. print_policy_power_literal_valid(item%right) .or. &
+                    trim(item%operator) /= print_policy_power_operator .or. &
+                    trim(item%left) /= print_policy_power_left) .and. &
                     (trim(item%operator) /= print_policy_expression_4_operator .or. &
                     trim(item%left) /= print_policy_expression_4_left .or. &
                     trim(item%right) /= print_policy_expression_4_right))) .or. &

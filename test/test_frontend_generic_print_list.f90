@@ -1,4 +1,5 @@
 program test_frontend_generic_print_list
+    use, intrinsic :: iso_fortran_env, only: int64
     use fortfront_program_unit_v2, only: frontend_parse_program_unit_v2, &
         frontend_program_unit_v2_to_sx, program_unit_v2_t
     use frontend_print_policy_generated, only: print_stmt_validate
@@ -42,6 +43,9 @@ program test_frontend_generic_print_list
     call check_power_expression_four('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, 7, x ** 4, x'//new_line('a')//'end program main'//new_line('a'), 3)
+    call check_dynamic_power_expression('x ** 5', 243_int64)
+    call check_dynamic_power_expression('x ** 7', 2187_int64)
+    call check_dynamic_power_expression('x ** 10', 59049_int64)
     call check_provenance_mutations('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x, 7, x'//new_line('a')//'end program main'//new_line('a'))
@@ -93,13 +97,19 @@ program test_frontend_generic_print_list
         '  print *, y / 2, 7'//new_line('a')//'end program main'//new_line('a'))
     call check_rejected('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
-        '  print *, x ** 5, 7'//new_line('a')//'end program main'//new_line('a'))
-    call check_rejected('program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  write *, x ** 2, 7'//new_line('a')//'end program main'//new_line('a'))
     call check_rejected('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, y ** 2, 7'//new_line('a')//'end program main'//new_line('a'))
+    call check_rejected('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, x ** y, 7'//new_line('a')//'end program main'//new_line('a'))
+    call check_rejected('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, x ** -1, 7'//new_line('a')//'end program main'//new_line('a'))
+    call check_rejected('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, x ** 2.0, 7'//new_line('a')//'end program main'//new_line('a'))
 
 contains
 
@@ -260,6 +270,36 @@ contains
             'l3-raw-program-generic-print-expression-v0') &
             error stop 'generic PRINT power-four expression shape or provenance changed'
     end subroutine check_power_expression_four
+
+    subroutine check_dynamic_power_expression(expression, expected_value)
+        character(len=*), intent(in) :: expression
+        integer(int64), intent(in) :: expected_value
+        type(program_unit_v2_t) :: unit
+        character(len=65536) :: serialized, message
+        character(len=256) :: expected_item
+        logical :: ok
+
+        if ((trim(expression) == 'x ** 5' .and. expected_value /= 243_int64) .or. &
+            (trim(expression) == 'x ** 7' .and. expected_value /= 2187_int64) .or. &
+            (trim(expression) == 'x ** 10' .and. expected_value /= 59049_int64)) &
+            error stop 'generic PRINT dynamic power oracle value changed'
+
+        call frontend_parse_program_unit_v2('generic-print-expression-power-dynamic.f90', &
+            'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+            '  x = 3'//new_line('a')//'  print *, '//trim(expression)//', 7'// &
+            new_line('a')//'end program main'//new_line('a'), &
+            'generic-print-expression-test', unit, ok, message)
+        if (.not. ok .or. unit%execution_part%print%output_count /= 2_int64) &
+            error stop 'generic PRINT dynamic power expression was rejected'
+        write (expected_item, '(a)') '(output-item (kind integer-expression) (operator **) '// &
+            '(left x) (right '//trim(expression(index(expression, '**') + 3:))// &
+            ') (rule R1217) (clause 12.6.3) (page 248))'
+        call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+        if (.not. ok .or. index(serialized, trim(expected_item)) == 0 .or. &
+            trim(unit%execution_part%print%output_items(1)%right) /= &
+            trim(expression(index(expression, '**') + 3:))) &
+            error stop 'generic PRINT dynamic power expression shape changed'
+    end subroutine check_dynamic_power_expression
 
     subroutine check_provenance_mutations(source)
         character(len=*), intent(in) :: source
