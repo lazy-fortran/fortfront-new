@@ -1385,7 +1385,8 @@ contains
             unit%execution_part%print%format_value = print_policy_format_value
             unit%execution_part%print%output_kind = print_policy_variable_output_kind
             unit%execution_part%print%output_name = print_policy_variable_output_name
-            if (source == print_variable_negative_source) then
+            if (source == print_variable_zero_source .or. source == print_variable_2047_source .or. &
+                    source == print_variable_negative_source) then
                 unit%execution_part%print%output_value = print_policy_variable_value
             else if (source == print_variable_negative_boundary_source) then
                 unit%execution_part%print%output_value = print_policy_variable_value

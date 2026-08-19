@@ -13,7 +13,7 @@ program test_frontend_program_unit_v2_print
         print_policy_output_9_value, print_policy_output_9_rule, &
         print_policy_output_10_value, print_policy_output_10_rule, &
         print_policy_variable_output_kind, print_policy_variable_output_name, &
-        print_policy_variable_output_rule, &
+        print_policy_variable_output_rule, print_policy_variable_value, &
         print_policy_statement_rule, print_policy_format_rule, print_policy_output_rule, &
         print_policy_statement_clause, print_policy_format_clause, print_policy_output_clause, &
         print_policy_statement_page, print_policy_format_page, print_policy_output_page, &
@@ -749,13 +749,13 @@ program test_frontend_program_unit_v2_print
     call frontend_parse_program_unit_v2('print-variable-zero.f90', variable_zero_source, &
         'print-input', unit, ok, message)
     if (.not. ok .or. unit%execution_part%sequence%assignment(1)%expression%left_operand /= '0' .or. &
-        unit%execution_part%print%output_value /= 0) then
+        unit%execution_part%print%output_value /= print_policy_variable_value) then
         error stop 'PRINT *, x stored-value 0 witness was rejected'
     end if
     call frontend_parse_program_unit_v2('print-variable-2047.f90', variable_2047_source, &
         'print-input', unit, ok, message)
     if (.not. ok .or. unit%execution_part%sequence%assignment(1)%expression%left_operand /= '2047' .or. &
-        unit%execution_part%print%output_value /= 2047) then
+        unit%execution_part%print%output_value /= print_policy_variable_value) then
         error stop 'PRINT *, x stored-value 2047 witness was rejected'
     end if
     call assert_rejected(variable_24_source)
