@@ -186,6 +186,12 @@ module fortfront_program_unit_v2
         '  x = -5'//new_line('a')// &
         '  print *, x'//new_line('a')// &
         'end program main'//new_line('a')
+    character(len=*), parameter :: print_variable_negative_boundary_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = -100'//new_line('a')// &
+        '  print *, x'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: print_variable_expression_source = &
         'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')// &
@@ -1289,7 +1295,8 @@ contains
             return
         end if
         if (source == print_variable_source .or. source == print_variable_23_source .or. &
-            source == print_variable_negative_source) then
+            source == print_variable_negative_source .or. &
+            source == print_variable_negative_boundary_source) then
             if (source == print_variable_source) then
                 declaration_source = 'program main'//new_line('a')// &
                     '  integer :: x'//new_line('a')// &
@@ -1298,10 +1305,14 @@ contains
                 declaration_source = 'program main'//new_line('a')// &
                     '  integer :: x'//new_line('a')// &
                     '  x = 23'//new_line('a')//'end program main'//new_line('a')
-            else
+            else if (source == print_variable_negative_source) then
                 declaration_source = 'program main'//new_line('a')// &
                     '  integer :: x'//new_line('a')// &
                     '  x = -5'//new_line('a')//'end program main'//new_line('a')
+            else
+                declaration_source = 'program main'//new_line('a')// &
+                    '  integer :: x'//new_line('a')// &
+                    '  x = -100'//new_line('a')//'end program main'//new_line('a')
             end if
             call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
                 source_hash, declaration_unit, ok, message)
@@ -1317,6 +1328,11 @@ contains
             end if
             if (source == print_variable_negative_source) then
                 if (stored_value /= -5_int64) then
+                    message = 'print-variable-value-rejected'
+                    return
+                end if
+            else if (source == print_variable_negative_boundary_source) then
+                if (stored_value /= -100_int64) then
                     message = 'print-variable-value-rejected'
                     return
                 end if
@@ -1341,6 +1357,8 @@ contains
             unit%execution_part%print%output_name = print_policy_variable_output_name
             if (source == print_variable_negative_source) then
                 unit%execution_part%print%output_value = print_policy_variable_value
+            else if (source == print_variable_negative_boundary_source) then
+                unit%execution_part%print%output_value = stored_value
             else
                 unit%execution_part%print%output_value = stored_value
             end if
