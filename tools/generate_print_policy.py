@@ -12,6 +12,7 @@ SCHEMA = re.compile(
     r"\(schema frontend-print-policy-v0\s+"
     r"\(statement (print-stmt) (PRINT) (R\d+)\)\s+"
     r"\(format (default-char-expr) (\*) (R\d+)\)\s+"
+    r"\(output-count-range (\d+) (\d+)\)\s+"
     r"\(output-item (integer-literal) (7) (R\d+)\)\s+"
     r"\(output-item (integer-literal) (8) (R\d+)\)\s+"
     r"\(output-item (integer-literal) (9) (R\d+)\)\s+"
@@ -86,7 +87,8 @@ def _replace_generated_routes(generated: str) -> str:
         "        message = ''",
         "        if (allocated(value%output_items)) then",
         "            if (value%output_count /= int(size(value%output_items), int64) .or. &",
-        "                value%output_count < 1_int64 .or. &",
+        "                value%output_count < print_policy_output_count_min .or. &",
+        "                value%output_count > print_policy_output_count_max .or. &",
         "                (trim(value%source_identity) /= trim(print_policy_generic_source_identity) .and. &",
         "                trim(value%source_identity) /= trim(print_policy_expression_source_identity))) then",
         "                message = 'invalid-print-policy-output-list'",
@@ -170,7 +172,8 @@ def _replace_generated_routes(generated: str) -> str:
         "        end if",
         "        if (trim(value%format_kind) /= trim(print_policy_format_kind) .or. &",
         "            trim(value%format_value) /= trim(print_policy_format_value) .or. &",
-        "            value%output_count < 1_int64 .or. value%output_count > 100_int64 .or. &",
+        "            value%output_count < print_policy_output_count_min .or. &",
+        "            value%output_count > 100_int64 .or. &",
         "            (value%output_sequence_length > 0_int64 .and. &",
         "            value%output_count /= value%output_sequence_length) .or. &",
         "            (value%output_sequence_start /= 7_int64 .and. &",
@@ -464,7 +467,7 @@ def render(source: str) -> str:
         raise ValueError("invalid print policy schema")
     (
         statement_kind, statement_token, statement_rule, format_kind, format_value,
-        format_rule, output_kind, output_value, output_rule, output_2_kind,
+        format_rule, output_count_min, output_count_max, output_kind, output_value, output_rule, output_2_kind,
         output_2_value, output_2_rule, output_3_kind, output_3_value, output_3_rule,
         output_4_kind, output_4_value, output_4_rule,
         output_5_kind, output_5_value, output_5_rule,
@@ -519,6 +522,8 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_output_kind = '{output_kind}'
     integer(int64), parameter, public :: print_policy_output_value = {output_value}_int64
     character(len=*), parameter, public :: print_policy_output_rule = '{output_rule}'
+    integer(int64), parameter, public :: print_policy_output_count_min = {output_count_min}_int64
+    integer(int64), parameter, public :: print_policy_output_count_max = {output_count_max}_int64
     character(len=*), parameter, public :: print_policy_expression_kind = '{expression_kind}'
     character(len=*), parameter, public :: print_policy_expression_operator = '{expression_operator}'
     character(len=*), parameter, public :: print_policy_expression_left = '{expression_left}'
@@ -809,7 +814,8 @@ contains
             print_stmt_validate = .false.
             return
         end if
-        if (value%output_count < 1_int64 .or. value%output_count > 10_int64) then
+        if (value%output_count < print_policy_output_count_min .or. &
+            value%output_count > print_policy_output_count_max) then
             message = 'invalid-print-policy-output-count'
             print_stmt_validate = .false.
             return

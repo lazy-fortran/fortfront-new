@@ -831,7 +831,11 @@ program test_frontend_program_unit_v2_print
         index(trim(serialized), '(source-hash '//trim(assignment_sequence_source_hash)//')') == 0) then
         error stop 'PRINT *, x after second variable power expression serialization changed'
     end if
-    call assert_rejected(variable_power_value_malformed)
+    call frontend_parse_program_unit_v2('print-variable-power-value-malformed.f90', &
+        variable_power_value_malformed, 'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_count /= 1) then
+        error stop 'generic one-item PRINT route was rejected'
+    end if
     call assert_rejected(variable_power_value_wrong_operator)
     call assert_rejected(variable_power_value_wrong_name)
     call assert_rejected(variable_power_value_write)

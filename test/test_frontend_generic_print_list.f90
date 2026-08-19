@@ -16,6 +16,22 @@ program test_frontend_generic_print_list
         'end program main'//new_line('a'), 5, &
         '(output-item (kind integer-literal) (value 8) (rule R1217) (clause 12.6.3) (page 248))', &
         '(source-identity l3-raw-program-generic-print-list-v0)')
+    call check_positive('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a'), 1, &
+        '(output-item (kind variable) (name x) (rule R901) (clause 12.6.3) (page 248))', &
+        '(source-identity l3-raw-program-generic-print-list-v0)')
+    call check_positive('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, x, 7, x, 8'//new_line('a')//'end program main'//new_line('a'), 4, &
+        '(output-item (kind integer-literal) (value 8) (rule R1217) (clause 12.6.3) (page 248))', &
+        '(source-identity l3-raw-program-generic-print-list-v0)')
+    call check_positive('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, x, 7, x, 8, x, 9, x, 10, x, 11'//new_line('a')// &
+        'end program main'//new_line('a'), 10, &
+        '(output-item (kind integer-literal) (value 11) (rule R1217) (clause 12.6.3) (page 248))', &
+        '(source-identity l3-raw-program-generic-print-list-v0)')
     call check_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x + 1, 7'//new_line('a')//'end program main'//new_line('a'), 2)
@@ -125,6 +141,10 @@ program test_frontend_generic_print_list
     call check_rejected('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x + 1,'//new_line('a')//'end program main'//new_line('a'))
+    call check_rejected('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, x, 7, x, 8, x, 9, x, 10, x, 11, x'//new_line('a')// &
+        'end program main'//new_line('a'))
     call check_rejected('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x - 101, 7'//new_line('a')//'end program main'//new_line('a'))

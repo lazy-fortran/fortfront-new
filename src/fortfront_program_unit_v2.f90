@@ -66,7 +66,8 @@ module fortfront_program_unit_v2
         print_policy_expression_11_right, print_policy_expression_11_source, &
         print_policy_expression_12_operator, print_policy_expression_12_left, &
         print_policy_expression_12_right, print_policy_expression_12_source, &
-        print_policy_integer_literal_min, print_policy_decimal_expression_valid
+        print_policy_integer_literal_min, print_policy_decimal_expression_valid, &
+        print_policy_output_count_min, print_policy_output_count_max
     implicit none
     private
 
@@ -1506,7 +1507,10 @@ contains
                 return
             end if
         end do
-        if (item_count /= 2 .and. item_count /= 3 .and. item_count /= 5) return
+        if (item_count < print_policy_output_count_min .or. &
+            item_count > print_policy_output_count_max) return
+        if (index(source, '  x = ') == 0) return
+        if (index(source, '  x = x ') > 0) return
 
         if (index(source, '  x = 5'//new_line('a')) > 0) then
             declaration_source = 'program main'//new_line('a')// &

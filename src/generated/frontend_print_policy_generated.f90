@@ -14,6 +14,8 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_output_kind = 'integer-literal'
     integer(int64), parameter, public :: print_policy_output_value = 7_int64
     character(len=*), parameter, public :: print_policy_output_rule = 'R1217'
+    integer(int64), parameter, public :: print_policy_output_count_min = 1_int64
+    integer(int64), parameter, public :: print_policy_output_count_max = 10_int64
     character(len=*), parameter, public :: print_policy_expression_kind = 'integer-expression'
     character(len=*), parameter, public :: print_policy_expression_operator = '+'
     character(len=*), parameter, public :: print_policy_expression_left = 'x'
@@ -315,7 +317,8 @@ contains
         message = ''
         if (allocated(value%output_items)) then
             if (value%output_count /= int(size(value%output_items), int64) .or. &
-                value%output_count < 1_int64 .or. &
+                value%output_count < print_policy_output_count_min .or. &
+                value%output_count > print_policy_output_count_max .or. &
                 (trim(value%source_identity) /= trim(print_policy_generic_source_identity) .and. &
                 trim(value%source_identity) /= trim(print_policy_expression_source_identity))) then
                 message = 'invalid-print-policy-output-list'
@@ -399,7 +402,8 @@ contains
         end if
         if (trim(value%format_kind) /= trim(print_policy_format_kind) .or. &
             trim(value%format_value) /= trim(print_policy_format_value) .or. &
-            value%output_count < 1_int64 .or. value%output_count > 100_int64 .or. &
+            value%output_count < print_policy_output_count_min .or. &
+            value%output_count > 100_int64 .or. &
             (value%output_sequence_length > 0_int64 .and. &
             value%output_count /= value%output_sequence_length) .or. &
             (value%output_sequence_start /= 7_int64 .and. &
