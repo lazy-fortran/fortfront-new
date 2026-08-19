@@ -27,9 +27,11 @@ module fortfront_program_unit_v2
         print_stmt_to_sx, print_policy_format_kind, print_policy_format_value, &
         print_policy_output_kind, print_policy_output_value, &
         print_policy_variable_output_kind, print_policy_variable_output_name, &
+        print_policy_variable_output_name_3, &
         print_policy_variable_output_rule, &
         print_policy_variable_value, print_policy_variable_value_2, &
         print_policy_variable_value_5, print_policy_variable_value_6, &
+        print_policy_variable_value_9, print_policy_variable_value_10, &
         print_policy_output_2_kind, print_policy_output_2_value, &
         print_policy_output_3_kind, print_policy_output_3_value, print_policy_output_3_rule, &
         print_policy_output_4_kind, print_policy_output_4_value, print_policy_output_4_rule, &
@@ -1461,6 +1463,10 @@ contains
             if (index(declaration_source, '  integer :: y') == 1 + len('program main') + 1) then
                 unit%execution_part%print%output_name = 'y'
                 unit%execution_part%print%output_value = stored_value
+            else if (index(declaration_source, '  integer :: z') == &
+                    1 + len('program main') + 1) then
+                unit%execution_part%print%output_name = print_policy_variable_output_name_3
+                unit%execution_part%print%output_value = stored_value
             else
                 unit%execution_part%print%output_name = print_policy_variable_output_name
                 unit%execution_part%print%output_value = print_policy_variable_value
@@ -1810,15 +1816,20 @@ contains
             '  integer :: y'//new_line('a')//'  y = '
         character(len=*), parameter :: y_suffix = new_line('a')//'  print *, y'//new_line('a')// &
             'end program main'//new_line('a')
+        character(len=*), parameter :: z_prefix = 'program main'//new_line('a')// &
+            '  integer :: z'//new_line('a')//'  z = '
+        character(len=*), parameter :: z_suffix = new_line('a')//'  print *, z'//new_line('a')// &
+            'end program main'//new_line('a')
         character(len=64) :: token
         integer :: token_start, token_end, token_length, position, status
-        logical :: is_y_shape
+        logical :: is_y_shape, is_z_shape
 
         declaration_source = ''
         stored_value = 0_int64
         ok = .false.
         matches_shape = .false.
         is_y_shape = .false.
+        is_z_shape = .false.
         if (len(source) > len(prefix) + len(suffix)) then
             if (source(:len(prefix)) == prefix) then
                 token_start = len(prefix) + 1
@@ -1827,6 +1838,10 @@ contains
                 is_y_shape = .true.
                 token_start = len(y_prefix) + 1
                 token_end = len(source) - len(y_suffix)
+            else if (source(:len(z_prefix)) == z_prefix) then
+                is_z_shape = .true.
+                token_start = len(z_prefix) + 1
+                token_end = len(source) - len(z_suffix)
             else
                 return
             end if
@@ -1836,6 +1851,8 @@ contains
         if (token_end < token_start) return
         if (is_y_shape) then
             if (source(token_end + 1:) /= y_suffix) return
+        else if (is_z_shape) then
+            if (source(token_end + 1:) /= z_suffix) return
         else if (source(token_end + 1:) /= suffix) then
             return
         end if
@@ -1858,6 +1875,8 @@ contains
         read (token(:token_length), *, iostat=status) stored_value
         if (status /= 0) return
         if (is_y_shape .and. stored_value /= 3_int64 .and. stored_value /= -4_int64) return
+        if (is_z_shape .and. stored_value /= print_policy_variable_value_9 .and. &
+                stored_value /= print_policy_variable_value_10) return
         if (token(1:1) == '-') then
             if (stored_value < int(assignment_policy_signed_integer_literal_min, int64) .or. &
                 stored_value > int(assignment_policy_signed_integer_literal_max, int64)) return
@@ -1867,6 +1886,8 @@ contains
         end if
         if (is_y_shape) then
             declaration_source = y_prefix//trim(token)//new_line('a')//'end program main'//new_line('a')
+        else if (is_z_shape) then
+            declaration_source = z_prefix//trim(token)//new_line('a')//'end program main'//new_line('a')
         else
             declaration_source = prefix//trim(token)//new_line('a')//'end program main'//new_line('a')
         end if

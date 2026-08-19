@@ -112,6 +112,9 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_variable_output_kind_2 = 'variable'
     character(len=*), parameter, public :: print_policy_variable_output_name_2 = 'y'
     character(len=*), parameter, public :: print_policy_variable_output_rule_2 = 'R901'
+    character(len=*), parameter, public :: print_policy_variable_output_kind_3 = 'variable'
+    character(len=*), parameter, public :: print_policy_variable_output_name_3 = 'z'
+    character(len=*), parameter, public :: print_policy_variable_output_rule_3 = 'R901'
     character(len=*), parameter, public :: print_policy_variable_value_kind = 'integer-literal'
     integer(int64), parameter, public :: print_policy_variable_value = 17_int64
     character(len=*), parameter, public :: print_policy_variable_value_rule = 'R1217'
@@ -136,6 +139,12 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_variable_value_8_kind = 'integer-literal'
     integer(int64), parameter, public :: print_policy_variable_value_8 = -4_int64
     character(len=*), parameter, public :: print_policy_variable_value_8_rule = 'R1217'
+    character(len=*), parameter, public :: print_policy_variable_value_9_kind = 'integer-literal'
+    integer(int64), parameter, public :: print_policy_variable_value_9 = 5_int64
+    character(len=*), parameter, public :: print_policy_variable_value_9_rule = 'R1217'
+    character(len=*), parameter, public :: print_policy_variable_value_10_kind = 'integer-literal'
+    integer(int64), parameter, public :: print_policy_variable_value_10 = -6_int64
+    character(len=*), parameter, public :: print_policy_variable_value_10_rule = 'R1217'
     character(len=*), parameter, public :: print_policy_output_2_kind = 'integer-literal'
     integer(int64), parameter, public :: print_policy_output_2_value = 8_int64
     character(len=*), parameter, public :: print_policy_output_2_rule = 'R1217'
@@ -390,7 +399,8 @@ contains
                     trim(item%operator)//' '//trim(item%right))))) .or. &
                     (trim(item%kind) == 'variable' .and. &
                     trim(item%name) /= print_policy_variable_output_name .and. &
-                    trim(item%name) /= print_policy_variable_output_name_2) .or. &
+                    trim(item%name) /= print_policy_variable_output_name_2 .and. &
+                    trim(item%name) /= print_policy_variable_output_name_3) .or. &
                     (trim(item%kind) == 'integer-literal' &
                     .and. item%value < print_policy_integer_literal_min .and. &
                     (item%value < print_policy_signed_integer_literal_min .or. &
@@ -445,7 +455,8 @@ contains
             else if (trim(item%kind) == trim(print_policy_variable_output_kind)) then
                 if (index < 1 .or. index > 100 .or. &
                     trim(item%name) /= trim(print_policy_variable_output_name) .and. &
-                    trim(item%name) /= trim(print_policy_variable_output_name_2) .or. &
+                    trim(item%name) /= trim(print_policy_variable_output_name_2) .and. &
+                    trim(item%name) /= trim(print_policy_variable_output_name_3) .or. &
                     (item%value /= print_policy_variable_value .and. &
                     item%value /= print_policy_variable_value_2 .and. &
                     item%value /= print_policy_variable_value_3 .and. &
@@ -453,7 +464,9 @@ contains
                     item%value /= print_policy_variable_value_5 .and. &
                     item%value /= print_policy_variable_value_6 .and. &
                     item%value /= print_policy_variable_value_7 .and. &
-                    item%value /= print_policy_variable_value_8)) then
+                    item%value /= print_policy_variable_value_8 .and. &
+                    item%value /= print_policy_variable_value_9 .and. &
+                    item%value /= print_policy_variable_value_10)) then
                     message = 'invalid-print-policy-value'
                     print_stmt_validate = .false.
                     return
