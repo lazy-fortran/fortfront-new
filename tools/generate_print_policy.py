@@ -47,6 +47,11 @@ SCHEMA = re.compile(
     r"(242) (244) (248) ([^\s()]+)\)\)"
 )
 
+DECIMAL_EXPRESSION = re.compile(
+    r"\(output-item integer-expression-range ([+-]) x "
+    r"(\d+) (\d+) (R\d+)\)\s*"
+)
+
 
 def _replace_generated_routes(generated: str) -> str:
     generated = generated.replace(
@@ -131,7 +136,9 @@ def _replace_generated_routes(generated: str) -> str:
                         "                    trim(item%right) /= print_policy_expression_11_right) .and. &",
                         "                    (trim(item%operator) /= print_policy_expression_12_operator .or. &",
                         "                    trim(item%left) /= print_policy_expression_12_left .or. &",
-                        "                    trim(item%right) /= print_policy_expression_12_right))) .or. &",
+                        "                    trim(item%right) /= print_policy_expression_12_right) .and. &",
+                        "                    (.not. print_policy_decimal_expression_valid(trim(item%left)//' '// &",
+                        "                    trim(item%operator)//' '//trim(item%right))))) .or. &",
         "                    (trim(item%kind) == 'variable' .and. &",
         "                    trim(item%name) /= 'x') .or. (trim(item%kind) == 'integer-literal' &",
         "                    .and. item%value < print_policy_integer_literal_min) .or. (trim(item%rule) /= 'R901' .and. &",
@@ -444,7 +451,15 @@ def _replace_generated_routes(generated: str) -> str:
 
 
 def render(source: str) -> str:
-    match = SCHEMA.fullmatch(source.strip())
+    decimal_matches = DECIMAL_EXPRESSION.findall(source)
+    if len(decimal_matches) != 2 or {item[0] for item in decimal_matches} != {"+", "-"}:
+        raise ValueError("print policy needs plus and minus decimal expression ranges")
+    decimal_min = {item[0]: item[1] for item in decimal_matches}["+"]
+    decimal_max = {item[0]: item[2] for item in decimal_matches}["+"]
+    if any(item[1] != decimal_min or item[2] != decimal_max for item in decimal_matches):
+        raise ValueError("decimal expression ranges disagree")
+    source_without_decimal_ranges = DECIMAL_EXPRESSION.sub("", source.strip())
+    match = SCHEMA.fullmatch(source_without_decimal_ranges)
     if match is None:
         raise ValueError("invalid print policy schema")
     (
@@ -649,6 +664,8 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_integer_literal_rule = &
         '{integer_literal_rule}'
     integer(int64), parameter, public :: print_policy_integer_literal_min = 0_int64
+    integer(int64), parameter, public :: print_policy_decimal_expression_min = {decimal_min}_int64
+    integer(int64), parameter, public :: print_policy_decimal_expression_max = {decimal_max}_int64
     character(len=*), parameter, public :: print_policy_document = '{document}'
     character(len=*), parameter, public :: print_policy_statement_clause = '{statement_clause}'
     character(len=*), parameter, public :: print_policy_format_clause = '{format_clause}'
@@ -740,8 +757,28 @@ module frontend_print_policy_generated
 
     public :: print_stmt_validate
     public :: print_stmt_to_sx
+    public :: print_policy_decimal_expression_valid
 
 contains
+
+    logical function print_policy_decimal_expression_valid(text)
+        character(len=*), intent(in) :: text
+        integer(int64) :: value
+        integer :: index, status, text_length
+
+        print_policy_decimal_expression_valid = .false.
+        text_length = len_trim(text)
+        if (text_length < 5) return
+        if (text(:4) /= 'x + ' .and. text(:4) /= 'x - ') return
+        do index = 5, text_length
+            if (text(index:index) < '0' .or. text(index:index) > '9') return
+        end do
+        read (text(5:text_length), *, iostat=status) value
+        if (status /= 0) return
+        if (value < print_policy_decimal_expression_min .or. &
+            value > print_policy_decimal_expression_max) return
+        print_policy_decimal_expression_valid = .true.
+    end function print_policy_decimal_expression_valid
 
     logical function print_policy_power_literal_valid(text)
         character(len=*), intent(in) :: text

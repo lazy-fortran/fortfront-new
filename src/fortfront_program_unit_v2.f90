@@ -66,7 +66,7 @@ module fortfront_program_unit_v2
         print_policy_expression_11_right, print_policy_expression_11_source, &
         print_policy_expression_12_operator, print_policy_expression_12_left, &
         print_policy_expression_12_right, print_policy_expression_12_source, &
-        print_policy_integer_literal_min
+        print_policy_integer_literal_min, print_policy_decimal_expression_valid
     implicit none
     private
 
@@ -1437,6 +1437,12 @@ contains
         is_print_nonnegative_decimal_integer = .true.
     end function is_print_nonnegative_decimal_integer
 
+    logical function is_print_decimal_expression(token)
+        character(len=*), intent(in) :: token
+
+        is_print_decimal_expression = print_policy_decimal_expression_valid(token)
+    end function is_print_decimal_expression
+
     subroutine parse_generic_print_list(file_name, source, source_hash, unit, ok, message)
         character(len=*), intent(in) :: file_name, source, source_hash
         type(program_unit_v2_t), intent(out) :: unit
@@ -1478,6 +1484,7 @@ contains
             end if
             parsed_items(item_count) = token
             if (token == 'x' .or. is_print_power_literal(token) .or. &
+                is_print_decimal_expression(token) .or. &
                 token == print_policy_expression_source .or. &
                 token == print_policy_expression_2_source .or. &
                 token == print_policy_expression_3_source .or. &
@@ -1490,7 +1497,8 @@ contains
                 token == print_policy_expression_10_source .or. &
                 token == print_policy_expression_11_source .or. &
                 token == print_policy_expression_12_source) then
-                if (is_print_power_literal(token)) has_expression = .true.
+                if (is_print_power_literal(token) .or. is_print_decimal_expression(token)) &
+                    has_expression = .true.
                 cycle
             else if (is_print_nonnegative_decimal_integer(token)) then
                 cycle
@@ -1555,7 +1563,8 @@ contains
                 unit%execution_part%print%output_items(item_index)%kind = 'variable'
                 unit%execution_part%print%output_items(item_index)%name = 'x'
                 unit%execution_part%print%output_items(item_index)%rule = 'R901'
-            else if (is_print_power_literal(token) .or. token == print_policy_expression_source .or. &
+            else if (is_print_power_literal(token) .or. is_print_decimal_expression(token) .or. &
+                    token == print_policy_expression_source .or. &
                     token == print_policy_expression_2_source .or. &
                     token == print_policy_expression_3_source .or. &
                     token == print_policy_expression_4_source .or. &
@@ -1568,7 +1577,11 @@ contains
                     token == print_policy_expression_11_source .or. &
                     token == print_policy_expression_12_source) then
                 unit%execution_part%print%output_items(item_index)%kind = 'integer-expression'
-                if (is_print_power_literal(token)) then
+                if (is_print_decimal_expression(token)) then
+                    unit%execution_part%print%output_items(item_index)%operator = token(3:3)
+                    unit%execution_part%print%output_items(item_index)%left = 'x'
+                    unit%execution_part%print%output_items(item_index)%right = token(5:)
+                else if (is_print_power_literal(token)) then
                     unit%execution_part%print%output_items(item_index)%operator = &
                         print_policy_power_operator
                     unit%execution_part%print%output_items(item_index)%left = &

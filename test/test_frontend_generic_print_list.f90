@@ -34,6 +34,18 @@ program test_frontend_generic_print_list
     call check_add_constant_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, 7, x + 4, x'//new_line('a')//'end program main'//new_line('a'), 2, '4')
+    call check_add_constant_expression('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
+        '  print *, x + 0, x - 0, 7'//new_line('a')//'end program main'//new_line('a'), 1, '0')
+    call check_add_constant_expression('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
+        '  print *, 7, x + 10, x - 10'//new_line('a')//'end program main'//new_line('a'), 2, '10')
+    call check_subtract_expression('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
+        '  print *, x - 0, 7'//new_line('a')//'end program main'//new_line('a'), 1, 2, '-', '0')
+    call check_subtract_expression('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
+        '  print *, 7, x - 10, x'//new_line('a')//'end program main'//new_line('a'), 2, 3, '-', '10')
     call check_subtract_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
         '  print *, x – 2, 7'//new_line('a')//'end program main'//new_line('a'), 1, 2, '–', '2')
@@ -110,6 +122,9 @@ program test_frontend_generic_print_list
     call check_rejected('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x - 11, 7'//new_line('a')//'end program main'//new_line('a'))
+    call check_rejected('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
+        '  print *, x + 0.0, 7'//new_line('a')//'end program main'//new_line('a'))
     call check_rejected('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x + 11, 7'//new_line('a')//'end program main'//new_line('a'))
