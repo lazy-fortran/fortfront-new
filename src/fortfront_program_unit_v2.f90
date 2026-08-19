@@ -13,6 +13,8 @@ module fortfront_program_unit_v2
         assignment_sequence_two_negative_source
     use fortfront_frontend, only: frontend_parse_typed_program_unit, &
         typed_program_unit_t
+    use frontend_assignment_policy_generated, only: assignment_policy_integer_literal_min, &
+        assignment_policy_integer_literal_max
     use frontend_program_unit_v2_envelope_generated, only: &
         program_unit_v2_execution_part_policy_matches
     use frontend_stop_policy_generated, only: stop_policy_code, &
@@ -178,6 +180,18 @@ module fortfront_program_unit_v2
         'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')// &
         '  x = 23'//new_line('a')// &
+        '  print *, x'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: print_variable_zero_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = 0'//new_line('a')// &
+        '  print *, x'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: print_variable_2047_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = 2047'//new_line('a')// &
         '  print *, x'//new_line('a')// &
         'end program main'//new_line('a')
     character(len=*), parameter :: print_variable_negative_source = &
@@ -1295,6 +1309,7 @@ contains
             return
         end if
         if (source == print_variable_source .or. source == print_variable_23_source .or. &
+            source == print_variable_zero_source .or. source == print_variable_2047_source .or. &
             source == print_variable_negative_source .or. &
             source == print_variable_negative_boundary_source) then
             if (source == print_variable_source) then
@@ -1305,6 +1320,14 @@ contains
                 declaration_source = 'program main'//new_line('a')// &
                     '  integer :: x'//new_line('a')// &
                     '  x = 23'//new_line('a')//'end program main'//new_line('a')
+            else if (source == print_variable_zero_source) then
+                declaration_source = 'program main'//new_line('a')// &
+                    '  integer :: x'//new_line('a')// &
+                    '  x = 0'//new_line('a')//'end program main'//new_line('a')
+            else if (source == print_variable_2047_source) then
+                declaration_source = 'program main'//new_line('a')// &
+                    '  integer :: x'//new_line('a')// &
+                    '  x = 2047'//new_line('a')//'end program main'//new_line('a')
             else if (source == print_variable_negative_source) then
                 declaration_source = 'program main'//new_line('a')// &
                     '  integer :: x'//new_line('a')// &
@@ -1333,6 +1356,13 @@ contains
                 end if
             else if (source == print_variable_negative_boundary_source) then
                 if (stored_value /= -100_int64) then
+                    message = 'print-variable-value-rejected'
+                    return
+                end if
+            else if (source == print_variable_zero_source .or. &
+                    source == print_variable_2047_source) then
+                if (stored_value < int(assignment_policy_integer_literal_min, int64) .or. &
+                    stored_value > int(assignment_policy_integer_literal_max, int64)) then
                     message = 'print-variable-value-rejected'
                     return
                 end if

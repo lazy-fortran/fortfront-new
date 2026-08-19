@@ -130,6 +130,12 @@ program test_frontend_program_unit_v2_print
     character(len=*), parameter :: variable_23_source = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 23'//new_line('a')// &
         '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_zero_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 0'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_2047_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 2047'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_expression_source = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 23'//new_line('a')//'  x = x + 1'//new_line('a')// &
@@ -739,6 +745,18 @@ program test_frontend_program_unit_v2_print
     if (.not. ok .or. index(trim(serialized), '(output-kind variable)') == 0 .or. &
         index(trim(serialized), '(output-name x)') == 0) then
         error stop 'PRINT *, x stored-value 23 serialization changed'
+    end if
+    call frontend_parse_program_unit_v2('print-variable-zero.f90', variable_zero_source, &
+        'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%sequence%assignment(1)%expression%left_operand /= '0' .or. &
+        unit%execution_part%print%output_value /= 0) then
+        error stop 'PRINT *, x stored-value 0 witness was rejected'
+    end if
+    call frontend_parse_program_unit_v2('print-variable-2047.f90', variable_2047_source, &
+        'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%sequence%assignment(1)%expression%left_operand /= '2047' .or. &
+        unit%execution_part%print%output_value /= 2047) then
+        error stop 'PRINT *, x stored-value 2047 witness was rejected'
     end if
     call assert_rejected(variable_24_source)
     call frontend_parse_program_unit_v2('print-variable-expression.f90', &
