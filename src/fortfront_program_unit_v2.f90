@@ -1592,6 +1592,7 @@ contains
         character(len=1024) :: initializer_source, parsed_declaration_source, tail
         character(len=64) :: assignment_line
         integer :: initializer_end, assignment_end, token_length
+        logical :: initializer_shape_matches
 
         declaration_source = ''
         initializer = ''
@@ -1613,14 +1614,15 @@ contains
         if (assignment_end <= len(assignment_prefix) + 1 .or. assignment_end > len(assignment_line)) return
         assignment_line = ''
         assignment_line(:assignment_end - 1) = tail(:assignment_end - 1)
-        if (.not. parse_generic_update_line(assignment_line(:assignment_end - 1), operator, addend)) return
         if (tail(assignment_end:) /= print_suffix) return
+        matches_shape = .true.
+        if (.not. parse_generic_update_line(assignment_line(:assignment_end - 1), operator, addend)) return
         initializer_source = prefix//trim(initializer)//new_line('a')// &
             '  print *, x'//new_line('a')//'end program main'//new_line('a')
         call parse_stored_variable_initializer_source(trim(initializer_source), parsed_declaration_source, &
-            stored_value, ok, matches_shape)
-        if (.not. matches_shape) then
-            matches_shape = .true.
+            stored_value, ok, initializer_shape_matches)
+        if (.not. initializer_shape_matches) then
+            ok = .false.
             return
         end if
         if (.not. ok) return

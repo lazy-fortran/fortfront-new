@@ -17,7 +17,7 @@ program test_frontend_program_unit_v2_initialized_multiplier
     call assert_rejected('42.0', 'x = x * 3')
     call assert_rejected('42', 'x = x * 3.0')
     call assert_rejected('42', 'y = x * 3')
-    call assert_rejected('42', 'x = x + 3')
+    call assert_rejected('42', 'x = x + 11')
     call assert_rejected('42', 'x = y * 3')
     call assert_rejected('42', 'x = x *')
 
