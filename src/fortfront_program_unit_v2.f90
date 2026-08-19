@@ -1658,6 +1658,12 @@ contains
                 token = adjustl(line(len('  x = x * ') + 1:))
             end if
         end if
+        if (len_trim(operator) == 0 .and. len_trim(line) >= len('  x = x / ')) then
+            if (line(:len('  x = x / ')) == '  x = x / ') then
+                operator = '/'
+                token = adjustl(line(len('  x = x / ') + 1:))
+            end if
+        end if
         if (len_trim(operator) == 0) return
         if (len_trim(token) == 0) return
         do position = 1, len_trim(token)
