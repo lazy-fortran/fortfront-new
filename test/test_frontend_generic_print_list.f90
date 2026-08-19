@@ -36,6 +36,12 @@ program test_frontend_generic_print_list
     call check_power_expression_three('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, 7, x ** 3, x'//new_line('a')//'end program main'//new_line('a'), 3)
+    call check_power_expression_four('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, x ** 4, 7'//new_line('a')//'end program main'//new_line('a'), 2)
+    call check_power_expression_four('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, 7, x ** 4, x'//new_line('a')//'end program main'//new_line('a'), 3)
     call check_provenance_mutations('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x, 7, x'//new_line('a')//'end program main'//new_line('a'))
@@ -87,7 +93,7 @@ program test_frontend_generic_print_list
         '  print *, y / 2, 7'//new_line('a')//'end program main'//new_line('a'))
     call check_rejected('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
-        '  print *, x ** 4, 7'//new_line('a')//'end program main'//new_line('a'))
+        '  print *, x ** 5, 7'//new_line('a')//'end program main'//new_line('a'))
     call check_rejected('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  write *, x ** 2, 7'//new_line('a')//'end program main'//new_line('a'))
@@ -232,6 +238,28 @@ contains
             'l3-raw-program-generic-print-expression-v0') &
             error stop 'generic PRINT power-three expression shape or provenance changed'
     end subroutine check_power_expression_three
+
+    subroutine check_power_expression_four(source, expected_count)
+        character(len=*), intent(in) :: source
+        integer, intent(in) :: expected_count
+        type(program_unit_v2_t) :: unit
+        character(len=65536) :: serialized, message
+        logical :: ok
+
+        call frontend_parse_program_unit_v2('generic-print-expression-power-four.f90', source, &
+            'generic-print-expression-test', unit, ok, message)
+        if (.not. ok .or. unit%execution_part%print%output_count /= expected_count) &
+            error stop 'generic PRINT power-four expression was rejected'
+        call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+        if (.not. ok .or. index(serialized, &
+            '(output-item (kind integer-expression) (operator **) (left x) (right 4) '// &
+            '(rule R1217) (clause 12.6.3) (page 248))') == 0 .or. &
+            trim(unit%root%span%source_hash) /= &
+            'l3-raw-program-generic-print-expression-v0' .or. &
+            trim(unit%execution_part%print%source_identity) /= &
+            'l3-raw-program-generic-print-expression-v0') &
+            error stop 'generic PRINT power-four expression shape or provenance changed'
+    end subroutine check_power_expression_four
 
     subroutine check_provenance_mutations(source)
         character(len=*), intent(in) :: source
