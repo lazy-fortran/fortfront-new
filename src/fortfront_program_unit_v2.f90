@@ -77,6 +77,9 @@ module fortfront_program_unit_v2
     implicit none
     private
 
+    integer(int64), parameter :: initialized_power_min = 2_int64
+    integer(int64), parameter :: initialized_power_max = 4_int64
+
     type, public :: stop_stmt_t
         integer(int64) :: code = 0_int64
         type(source_span_t) :: span
@@ -1664,6 +1667,12 @@ contains
                 token = adjustl(line(len('  x = x / ') + 1:))
             end if
         end if
+        if (len_trim(operator) == 0 .and. len_trim(line) >= len('  x = x ** ')) then
+            if (line(:len('  x = x ** ')) == '  x = x ** ') then
+                operator = '**'
+                token = adjustl(line(len('  x = x ** ') + 1:))
+            end if
+        end if
         if (len_trim(operator) == 0) return
         if (len_trim(token) == 0) return
         do position = 1, len_trim(token)
@@ -1671,8 +1680,13 @@ contains
         end do
         read (token(:len_trim(token)), *, iostat=status) addend
         if (status /= 0) return
-        if (addend < print_policy_output_count_min .or. &
-            addend > print_policy_output_count_max) return
+        if (operator == '**') then
+            if (addend < initialized_power_min .or. &
+                addend > initialized_power_max) return
+        else if (addend < print_policy_output_count_min .or. &
+                addend > print_policy_output_count_max) then
+            return
+        end if
         parse_generic_update_line = .true.
     end function parse_generic_update_line
 

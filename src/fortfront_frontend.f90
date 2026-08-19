@@ -42,6 +42,9 @@ module fortfront_frontend
     implicit none
     private
 
+    integer(int64), parameter :: assignment_power_min = 2_int64
+    integer(int64), parameter :: assignment_power_max = 4_int64
+
     character(len=*), parameter, public :: frontend_accepted = 'accepted'
     character(len=*), parameter, public :: frontend_rejected = 'rejected'
     character(len=*), parameter, public :: severity_note = 'note'
@@ -3126,16 +3129,13 @@ contains
                 if (trim(assignment_policy_rows(row_index)%expression_kind) /= 'power') cycle
                 if (trim(assignment_policy_rows(row_index)%operator_rule) /= 'R1008') return
                 if (trim(assignment_policy_rows(row_index)%operator) /= '**') return
-                if (source(second_newline + 1:third_newline - 1) /= '  x = x ** 3' .and. &
-                    source(second_newline + 1:third_newline - 1) /= '  x = x ** 2') cycle
+                if (.not. parse_variable_power_assignment( &
+                    source(second_newline + 1:third_newline - 1), &
+                    assignment_policy_variable_name, integer_literal)) cycle
                 expression%kind = 'binary-expression'
                 expression%operator = trim(assignment_policy_rows(row_index)%operator)
                 expression%left_operand = trim(assignment_policy_variable_name)
-                if (source(second_newline + 1:third_newline - 1) == '  x = x ** 3') then
-                    expression%right_operand = '3'
-                else
-                    expression%right_operand = '2'
-                end if
+                expression%right_operand = trim(integer_literal)
                 program_name = 'main'
                 assignment_start = int(second_newline, int64)
                 assignment_end = int(third_newline - 2, int64)
@@ -3221,6 +3221,31 @@ contains
         message = ''
         parse_integer_assignment_witness = .true.
     end function parse_integer_assignment_witness
+
+    logical function parse_variable_power_assignment(line, variable_name, exponent)
+        character(len=*), intent(in) :: line, variable_name
+        character(len=*), intent(out) :: exponent
+
+        character(len=256) :: prefix, token
+        integer(int64) :: value
+        integer :: index, status
+
+        parse_variable_power_assignment = .false.
+        exponent = ''
+        prefix = '  '//trim(variable_name)//' = '//trim(variable_name)//' ** '
+        if (len_trim(line) <= len_trim(prefix)) return
+        if (line(:len_trim(prefix)) /= trim(prefix)) return
+        token = adjustl(line(len_trim(prefix) + 1:))
+        if (len_trim(token) == 0 .or. len_trim(token) > len(exponent)) return
+        do index = 1, len_trim(token)
+            if (token(index:index) < '0' .or. token(index:index) > '9') return
+        end do
+        read (token(:len_trim(token)), *, iostat=status) value
+        if (status /= 0) return
+        if (value < assignment_power_min .or. value > assignment_power_max) return
+        exponent(:len_trim(token)) = token(:len_trim(token))
+        parse_variable_power_assignment = .true.
+    end function parse_variable_power_assignment
 
     logical function parse_bounded_decimal_integer_literal(source_line, variable_name, &
             literal)
