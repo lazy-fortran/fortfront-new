@@ -40,6 +40,13 @@ def main() -> int:
     if variable_divide_match is None:
         raise SystemExit("assignment policy omitted its variable-divide row")
     source = source.replace(variable_divide_match.group(0), "", 1)
+    variable_subtract_match = re.search(
+        r"\(binary-expression (subtract-variable) (R\d+) (R\d+) (x) (x) (-)\)",
+        source,
+    )
+    if variable_subtract_match is None:
+        raise SystemExit("assignment policy omitted its variable-subtract row")
+    source = source.replace(variable_subtract_match.group(0), "", 1)
     match = re.fullmatch(
         r"\(schema frontend-assignment-policy-v0\s+"
         r"\(policy assignment-stmt assignment-stmt (R\d+)\)\s+"
@@ -95,6 +102,11 @@ def main() -> int:
             f"{variable_divide_match.group(4)} {variable_divide_match.group(6)} "
             f"{variable_divide_match.group(5)}", variable_divide_match.group(4),
             variable_divide_match.group(5), variable_divide_match.group(6)),
+        (variable_subtract_match.group(1), variable_subtract_match.group(2),
+            variable_subtract_match.group(3), match.group(1),
+            f"{variable_subtract_match.group(4)} {variable_subtract_match.group(6)} "
+            f"{variable_subtract_match.group(5)}", variable_subtract_match.group(4),
+            variable_subtract_match.group(5), variable_subtract_match.group(6)),
         (match.group(97), match.group(98), match.group(99), match.group(1),
             f"{match.group(100)} {match.group(102)} {match.group(101)}", match.group(100),
             match.group(101), match.group(102)),

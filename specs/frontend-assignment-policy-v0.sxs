@@ -8,6 +8,7 @@
   (binary-expression multiply-variable R1006 R1009 x x *)
   (binary-expression divide-variable R1006 R1009 x x /)
   (binary-expression subtract R1006 R1010 5 3 –)
+  (binary-expression subtract-variable R1006 R1010 x x -)
   (binary-expression multiply R1006 R1009 2 3 *)
   (binary-expression divide R1006 R1009 6 2 /)
   (sequence two-assignment assignment-stmt assignment-stmt)
