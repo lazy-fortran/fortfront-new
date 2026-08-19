@@ -9,7 +9,8 @@ module fortfront_program_unit_v2
         frontend_typed_assignment_sequence_to_sx, assignment_sequence_source_hash, &
         assignment_sequence_two_23_source, assignment_sequence_two_23_multiply_source, &
         assignment_sequence_two_23_subtract_source, assignment_sequence_two_24_divide_source, &
-        assignment_sequence_two_2_power_source, assignment_sequence_two_3_power_source
+        assignment_sequence_two_2_power_source, assignment_sequence_two_3_power_source, &
+        assignment_sequence_two_negative_source
     use fortfront_frontend, only: frontend_parse_typed_program_unit, &
         typed_program_unit_t
     use frontend_program_unit_v2_envelope_generated, only: &
@@ -177,6 +178,12 @@ module fortfront_program_unit_v2
         'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')// &
         '  x = 23'//new_line('a')// &
+        '  print *, x'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: print_variable_negative_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = -5'//new_line('a')// &
         '  print *, x'//new_line('a')// &
         'end program main'//new_line('a')
     character(len=*), parameter :: print_variable_expression_source = &
@@ -1281,15 +1288,20 @@ contains
             message = ''
             return
         end if
-        if (source == print_variable_source .or. source == print_variable_23_source) then
+        if (source == print_variable_source .or. source == print_variable_23_source .or. &
+            source == print_variable_negative_source) then
             if (source == print_variable_source) then
                 declaration_source = 'program main'//new_line('a')// &
                     '  integer :: x'//new_line('a')// &
                     '  x = 17'//new_line('a')//'end program main'//new_line('a')
-            else
+            else if (source == print_variable_23_source) then
                 declaration_source = 'program main'//new_line('a')// &
                     '  integer :: x'//new_line('a')// &
                     '  x = 23'//new_line('a')//'end program main'//new_line('a')
+            else
+                declaration_source = 'program main'//new_line('a')// &
+                    '  integer :: x'//new_line('a')// &
+                    '  x = -5'//new_line('a')//'end program main'//new_line('a')
             end if
             call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
                 source_hash, declaration_unit, ok, message)
@@ -1299,9 +1311,17 @@ contains
             end if
             read (declaration_unit%assignment%expression%left_operand, *, iostat=stored_value_status) &
                 stored_value
-            if (stored_value_status /= 0 .or. &
-                (stored_value /= print_policy_variable_value .and. &
-                stored_value /= print_policy_variable_value_2)) then
+            if (stored_value_status /= 0) then
+                message = 'print-variable-value-rejected'
+                return
+            end if
+            if (source == print_variable_negative_source) then
+                if (stored_value /= -5_int64) then
+                    message = 'print-variable-value-rejected'
+                    return
+                end if
+            else if (stored_value /= print_policy_variable_value .and. &
+                    stored_value /= print_policy_variable_value_2) then
                 message = 'print-variable-value-rejected'
                 return
             end if
@@ -1319,7 +1339,11 @@ contains
             unit%execution_part%print%format_value = print_policy_format_value
             unit%execution_part%print%output_kind = print_policy_variable_output_kind
             unit%execution_part%print%output_name = print_policy_variable_output_name
-            unit%execution_part%print%output_value = stored_value
+            if (source == print_variable_negative_source) then
+                unit%execution_part%print%output_value = print_policy_variable_value
+            else
+                unit%execution_part%print%output_value = stored_value
+            end if
             unit%execution_part%print%output_count = 1_int64
             unit%execution_part%print%span = unit%root%span
             unit%execution_part%print%span%start_byte = 34_int64

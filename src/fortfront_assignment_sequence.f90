@@ -61,6 +61,12 @@ module fortfront_assignment_sequence
         '  x = 3'//new_line('a')// &
         '  x = x ** 2'//new_line('a')// &
         'end program main'//new_line('a')
+    character(len=*), parameter, public :: assignment_sequence_two_negative_source = &
+        'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')// &
+        '  x = -5'//new_line('a')// &
+        '  x = x + 1'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: three_sequence_source = &
         'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')// &
@@ -185,6 +191,7 @@ contains
             source /= assignment_sequence_two_24_divide_source .and. &
             source /= assignment_sequence_two_2_power_source .and. &
             source /= assignment_sequence_two_3_power_source .and. &
+            source /= assignment_sequence_two_negative_source .and. &
             source /= three_sequence_source .and. &
             source /= four_sequence_source .and. source /= five_sequence_source .and. &
             source /= six_sequence_source .and. source /= seven_sequence_source .and. &
@@ -193,8 +200,13 @@ contains
             message = 'unsupported-assignment-sequence'
             return
         end if
-        if (source == assignment_sequence_two_2_power_source .or. &
-            source == assignment_sequence_two_3_power_source) then
+        if (source == assignment_sequence_two_negative_source) then
+            call frontend_parse_typed_program_unit(file_name, &
+                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+                '  x = -5'//new_line('a')//'end program main'//new_line('a'), &
+                source_hash, first_unit, ok, message)
+        else if (source == assignment_sequence_two_2_power_source .or. &
+                source == assignment_sequence_two_3_power_source) then
             call frontend_parse_typed_program_unit(file_name, &
                 'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
                 merge('  x = 3', '  x = 2', source == assignment_sequence_two_3_power_source)// &
@@ -219,7 +231,12 @@ contains
                 source_hash, first_unit, ok, message)
         end if
         if (.not. ok) return
-        if (source == assignment_sequence_two_23_multiply_source) then
+        if (source == assignment_sequence_two_negative_source) then
+            call frontend_parse_typed_program_unit(file_name, &
+                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+                '  x = x + 1'//new_line('a')//'end program main'//new_line('a'), &
+                source_hash, second_unit, ok, message)
+        else if (source == assignment_sequence_two_23_multiply_source) then
             call frontend_parse_typed_program_unit(file_name, &
                 'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
                 '  x = x * 2'//new_line('a')//'end program main'//new_line('a'), &
@@ -350,12 +367,14 @@ contains
         end if
         sequence%assignment(1) = first_unit%assignment
         sequence%assignment(2) = second_unit%assignment
-        if (source == assignment_sequence_two_23_source .or. &
-            source == assignment_sequence_two_23_multiply_source .or. &
-            source == assignment_sequence_two_23_subtract_source .or. &
-            source == assignment_sequence_two_24_divide_source .or. &
-            source == assignment_sequence_two_2_power_source .or. &
-            source == assignment_sequence_two_3_power_source) then
+        if (source == assignment_sequence_two_negative_source) then
+            first_start = index(source, '  x = -5') - 1
+        else if (source == assignment_sequence_two_23_source .or. &
+                source == assignment_sequence_two_23_multiply_source .or. &
+                source == assignment_sequence_two_23_subtract_source .or. &
+                source == assignment_sequence_two_24_divide_source .or. &
+                source == assignment_sequence_two_2_power_source .or. &
+                source == assignment_sequence_two_3_power_source) then
             if (source == assignment_sequence_two_24_divide_source) then
                 first_start = index(source, '  x = 24') - 1
             else if (source == assignment_sequence_two_2_power_source .or. &
@@ -386,7 +405,11 @@ contains
         sequence%assignment(1)%span%file = file_name
         sequence%assignment(1)%span%source_hash = source_hash
         sequence%assignment(1)%span%start_byte = int(first_start, int64)
-        sequence%assignment(1)%span%end_byte = int(first_start + 6, int64)
+        if (source == assignment_sequence_two_negative_source) then
+            sequence%assignment(1)%span%end_byte = int(first_start + 7, int64)
+        else
+            sequence%assignment(1)%span%end_byte = int(first_start + 6, int64)
+        end if
         sequence%assignment(2)%span%file = file_name
         sequence%assignment(2)%span%source_hash = source_hash
         sequence%assignment(2)%span%start_byte = int(second_start, int64)

@@ -4,7 +4,8 @@ program test_frontend_typed_assignment_v1
         frontend_typed_program_unit_to_sx, typed_program_unit_t, &
         assignment_policy_source_rule
     use frontend_assignment_policy_generated, only: &
-        assignment_policy_integer_literal_min, assignment_policy_integer_literal_max
+        assignment_policy_integer_literal_min, assignment_policy_integer_literal_max, &
+        assignment_policy_signed_integer_literal_min, assignment_policy_signed_integer_literal_max
     implicit none
 
     character(len=*), parameter :: source_hash = 'l3-raw-program-integer-assignment-v1'
@@ -25,6 +26,9 @@ program test_frontend_typed_assignment_v1
         'end program main'//new_line('a')
     character(len=*), parameter :: source_literal_2048 = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 2048'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: source_literal_minus_101 = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = -101'//new_line('a')// &
         'end program main'//new_line('a')
     character(len=*), parameter :: source_real_literal = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 7.0'//new_line('a')// &
@@ -89,7 +93,9 @@ program test_frontend_typed_assignment_v1
 
     if (trim(assignment_policy_source_rule) /= 'R1033') error stop 'source rule changed'
     if (assignment_policy_integer_literal_min /= 0 .or. &
-        assignment_policy_integer_literal_max /= 2047) error stop 'literal range changed'
+        assignment_policy_integer_literal_max /= 2047 .or. &
+        assignment_policy_signed_integer_literal_min /= -100 .or. &
+        assignment_policy_signed_integer_literal_max /= -1) error stop 'literal range changed'
 
     call frontend_parse_typed_program_unit('assignment.f90', source, source_hash, &
         unit, ok, message)
@@ -125,6 +131,18 @@ program test_frontend_typed_assignment_v1
         source_literal_2047, source_hash, unit, ok, message)
     if (.not. ok .or. trim(unit%assignment%expression%left_operand) /= '2047') &
         error stop 'maximum decimal integer literal was rejected'
+
+    call frontend_parse_typed_program_unit('assignment-literal-minus-1.f90', &
+        source_literal_minus_1, source_hash, unit, ok, message)
+    if (.not. ok .or. trim(unit%assignment%expression%left_operand) /= '-1' .or. &
+        unit%assignment%span%start_byte /= 28_int64 .or. &
+        unit%assignment%span%end_byte /= 35_int64 .or. &
+        trim(unit%assignment%span%source_hash) /= source_hash) &
+        error stop 'signed decimal integer literal assignment changed'
+
+    call frontend_parse_typed_program_unit('assignment-literal-minus-101.f90', &
+        source_literal_minus_101, source_hash, unit, ok, message)
+    if (ok) error stop 'out-of-range signed literal was accepted'
 
     call frontend_parse_typed_program_unit('assignment-variable-add.f90', &
         source_variable_add, source_hash, unit, ok, message)
@@ -218,7 +236,6 @@ program test_frontend_typed_assignment_v1
     call check_rejected(missing_subtract_left)
     call check_rejected(missing_subtract_right)
     call check_rejected(source_literal_2048)
-    call check_rejected(source_literal_minus_1)
     call check_rejected(source_real_literal)
     call check_rejected(source_variable_multiply)
     call check_rejected(source_variable_add_2)

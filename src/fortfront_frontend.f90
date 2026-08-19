@@ -34,6 +34,8 @@ module fortfront_frontend
         assignment_policy_variable_name_rule, assignment_policy_variable_name, &
         assignment_policy_integer_literal_rule, &
         assignment_policy_integer_literal_min, assignment_policy_integer_literal_max, &
+        assignment_policy_signed_integer_literal_min, &
+        assignment_policy_signed_integer_literal_max, &
         assignment_policy_rows, assignment_policy_row_count, &
         assignment_policy_source_page
     use, intrinsic :: iso_fortran_env, only: int64
@@ -3231,6 +3233,8 @@ contains
         integer :: digit
         integer :: index_value
         integer :: value
+        integer :: sign
+        integer :: digit_start
 
         literal = ''
         parse_bounded_decimal_integer_literal = .false.
@@ -3240,15 +3244,30 @@ contains
         if (candidate(:len_trim(prefix)) /= trim(prefix)) return
         literal = trim(candidate(len_trim(prefix) + 2:))
         if (len_trim(literal) == 0) return
-        if (len_trim(literal) > 4) return
+        sign = 1
+        digit_start = 1
+        if (literal(1:1) == '-') then
+            sign = -1
+            digit_start = 2
+            if (len_trim(literal) == 1) return
+        else if (literal(1:1) == '+') then
+            return
+        end if
+        if (len_trim(literal) - digit_start + 1 > 4) return
         value = 0
-        do index_value = 1, len_trim(literal)
+        do index_value = digit_start, len_trim(literal)
             digit = iachar(literal(index_value:index_value)) - iachar('0')
             if (digit < 0 .or. digit > 9) return
             value = value*10 + digit
         end do
-        if (value < assignment_policy_integer_literal_min) return
-        if (value > assignment_policy_integer_literal_max) return
+        value = sign*value
+        if (sign < 0) then
+            if (value < assignment_policy_signed_integer_literal_min) return
+            if (value > assignment_policy_signed_integer_literal_max) return
+        else
+            if (value < assignment_policy_integer_literal_min) return
+            if (value > assignment_policy_integer_literal_max) return
+        end if
         parse_bounded_decimal_integer_literal = .true.
     end function parse_bounded_decimal_integer_literal
 

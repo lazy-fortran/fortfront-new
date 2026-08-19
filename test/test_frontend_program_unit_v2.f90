@@ -29,6 +29,9 @@ program test_frontend_program_unit_v2
         '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
         '  x = x + 1'//new_line('a')// &
         'end program main'//new_line('a')
+    character(len=*), parameter :: negative_print_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = -5'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: six_wrong_operator = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
@@ -119,6 +122,18 @@ program test_frontend_program_unit_v2
         index(trim(serialized), 'l3-raw-program-six-assignment-v1') == 0) then
         error stop 'v2 six-assignment envelope changed'
     end if
+    call frontend_parse_program_unit_v2('negative-print.f90', negative_print_source, &
+        'l3-raw-program-v2', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 1 .or. &
+        trim(unit%execution_part%sequence%assignment(1)%expression%left_operand) /= '-5' .or. &
+        trim(unit%execution_part%sequence%assignment(1)%span%source_hash) /= 'l3-raw-program-v2') &
+        error stop 'v2 signed initializer witness was rejected'
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok) error stop 'v2 signed initializer serialization failed'
+    if (index(trim(serialized), '(left-operand -5)') == 0) &
+        error stop 'v2 signed initializer value serialization changed'
+    if (index(trim(serialized), 'l3-raw-program-v2') == 0) &
+        error stop 'v2 signed initializer identity serialization changed'
     call check_rejected(wrong_name)
     call check_rejected(wrong_type)
     call check_rejected(wrong_operator)

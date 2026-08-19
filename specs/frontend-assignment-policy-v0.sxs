@@ -17,4 +17,5 @@
   (sequence nine-assignment assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt)
   (sequence ten-assignment assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt assignment-stmt)
   (literal-range integer-literal 0 2047)
+  (literal-range integer-literal signed-decimal -100 -1)
   (binary-expression power R1006 R1008 2 3 **))

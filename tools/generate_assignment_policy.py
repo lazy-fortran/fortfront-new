@@ -8,6 +8,17 @@ import sys
 
 def main() -> int:
     source = Path(sys.argv[1]).read_text(encoding="utf-8").strip()
+    signed_match = re.search(
+        r"\(literal-range integer-literal signed-decimal (-?\d+) (-?\d+)\)",
+        source,
+    )
+    if signed_match is None:
+        raise SystemExit("assignment policy omitted its signed literal range")
+    source = re.sub(
+        r"\s*\(literal-range integer-literal signed-decimal -?\d+ -?\d+\)",
+        "",
+        source,
+    )
     match = re.fullmatch(
         r"\(schema frontend-assignment-policy-v0\s+"
         r"\(policy assignment-stmt assignment-stmt (R\d+)\)\s+"
@@ -136,6 +147,8 @@ def main() -> int:
         "        ]\n"
         f"    integer, parameter, public :: assignment_policy_integer_literal_min = {match.group(95)}\n"
         f"    integer, parameter, public :: assignment_policy_integer_literal_max = {match.group(96)}\n"
+        f"    integer, parameter, public :: assignment_policy_signed_integer_literal_min = {signed_match.group(1)}\n"
+        f"    integer, parameter, public :: assignment_policy_signed_integer_literal_max = {signed_match.group(2)}\n"
         "    type, public :: assignment_policy_row_t\n"
         "        character(len=16) :: expression_kind\n"
         "        character(len=16) :: expression_rule\n"

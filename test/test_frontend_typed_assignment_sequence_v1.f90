@@ -2,7 +2,7 @@ program test_frontend_typed_assignment_sequence_v1
     use fortfront_assignment_sequence, only: &
         assignment_sequence_t, frontend_parse_typed_assignment_sequence, &
         frontend_typed_assignment_sequence_to_sx, &
-        assignment_sequence_source_hash
+        assignment_sequence_source_hash, assignment_sequence_two_negative_source
     implicit none
 
     character(len=*), parameter :: source = 'program main'//new_line('a')// &
@@ -131,6 +131,19 @@ program test_frontend_typed_assignment_sequence_v1
         index(trim(serialized), '(left-operand 7)') == 0 .or. &
         index(trim(serialized), '(left-operand x)') == 0) &
         error stop 'sequence serialization changed'
+
+    call frontend_parse_typed_assignment_sequence('negative-initializer.f90', &
+        assignment_sequence_two_negative_source, 'l3-raw-program-v2', sequence, ok, message)
+    if (.not. ok .or. sequence%assignment_count /= 2 .or. &
+        trim(sequence%assignment(1)%expression%left_operand) /= '-5' .or. &
+        sequence%assignment(1)%span%end_byte - sequence%assignment(1)%span%start_byte /= 7 .or. &
+        trim(sequence%assignment(1)%span%source_hash) /= 'l3-raw-program-v2' .or. &
+        trim(sequence%assignment(2)%expression%operator) /= '+') &
+        error stop 'signed initializer sequence changed'
+    call frontend_typed_assignment_sequence_to_sx(sequence, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(left-operand -5)') == 0 .or. &
+        index(trim(serialized), 'l3-raw-program-v2') == 0) &
+        error stop 'signed initializer sequence serialization changed'
 
     call frontend_parse_typed_assignment_sequence('three-sequence.f90', three_source, &
         'l3-raw-program-three-assignment-v1', sequence, ok, message)

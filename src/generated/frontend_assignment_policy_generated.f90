@@ -75,6 +75,8 @@ module frontend_assignment_policy_generated
         ]
     integer, parameter, public :: assignment_policy_integer_literal_min = 0
     integer, parameter, public :: assignment_policy_integer_literal_max = 2047
+    integer, parameter, public :: assignment_policy_signed_integer_literal_min = -100
+    integer, parameter, public :: assignment_policy_signed_integer_literal_max = -1
     type, public :: assignment_policy_row_t
         character(len=16) :: expression_kind
         character(len=16) :: expression_rule

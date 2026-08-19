@@ -16,6 +16,8 @@ def main() -> int:
     schema = SCHEMA.read_text(encoding="utf-8")
     if "(literal-range integer-literal 0 2047)" not in schema:
         raise AssertionError("assignment policy omitted its source literal range")
+    if "(literal-range integer-literal signed-decimal -100 -1)" not in schema:
+        raise AssertionError("assignment policy omitted its signed literal range")
 
     with tempfile.TemporaryDirectory(prefix="fortfront-assignment-policy-") as directory:
         subprocess.run(
@@ -31,6 +33,8 @@ def main() -> int:
         "'variable R902 R901 R903'",
         "assignment_policy_integer_literal_min = 0",
         "assignment_policy_integer_literal_max = 2047",
+        "assignment_policy_signed_integer_literal_min = -100",
+        "assignment_policy_signed_integer_literal_max = -1",
         "assignment_policy_sequence_name = 'two-assignment'",
         "assignment_policy_sequence_count = 2",
         "assignment_policy_three_sequence_name = 'three-assignment'",
