@@ -14,7 +14,8 @@ module fortfront_program_unit_v2
     use fortfront_frontend, only: frontend_parse_typed_program_unit, &
         typed_program_unit_t
     use frontend_assignment_policy_generated, only: assignment_policy_integer_literal_min, &
-        assignment_policy_integer_literal_max
+        assignment_policy_integer_literal_max, assignment_policy_signed_integer_literal_min, &
+        assignment_policy_signed_integer_literal_max
     use frontend_program_unit_v2_envelope_generated, only: &
         program_unit_v2_execution_part_policy_matches
     use frontend_stop_policy_generated, only: stop_policy_code, &
@@ -430,6 +431,7 @@ contains
         type(typed_program_unit_t) :: declaration_unit
         character(len=1024) :: declaration_source
         character(len=64) :: generic_initializer
+        character(len=8) :: generic_operator
         character(len=16) :: generic_addend_text
         integer(int64) :: generic_addend
         character(len=128) :: execution_source_hash
@@ -451,7 +453,7 @@ contains
             return
         end if
         call parse_generic_initialized_add_source(source, declaration_source, generic_initializer, &
-            generic_addend, stored_value, ok, generic_assignment_shape)
+            generic_operator, generic_addend, stored_value, ok, generic_assignment_shape)
         if (generic_assignment_shape .and. .not. ok) then
             message = 'print-variable-value-rejected'
             return
@@ -1480,6 +1482,7 @@ contains
                 return
             end if
             unit%execution_part%sequence%assignment(1)%expression%left_operand = trim(generic_initializer)
+            unit%execution_part%sequence%assignment(2)%expression%operator = trim(generic_operator)
             write (generic_addend_text, '(i0)') generic_addend
             unit%execution_part%sequence%assignment(2)%expression%right_operand = &
                 trim(generic_addend_text)
@@ -1495,7 +1498,7 @@ contains
                 unit%execution_part%sequence%assignment(1)%span%start_byte + &
                 int(len_trim(generic_initializer) + 5, int64)
             unit%execution_part%sequence%assignment(2)%span%start_byte = &
-                int(index(source, '  x = x + ') - 1, int64)
+                int(index(source, '  x = x '//trim(generic_operator)//' ') - 1, int64)
             unit%execution_part%sequence%assignment(2)%span%end_byte = &
                 unit%execution_part%sequence%assignment(2)%span%start_byte + &
                 int(index(source(unit%execution_part%sequence%assignment(2)%span%start_byte + 1:), &
@@ -1575,15 +1578,15 @@ contains
     end subroutine frontend_parse_program_unit_v2
 
     subroutine parse_generic_initialized_add_source(source, declaration_source, &
-            initializer, addend, stored_value, ok, matches_shape)
+            initializer, operator, addend, stored_value, ok, matches_shape)
         character(len=*), intent(in) :: source
-        character(len=*), intent(out) :: declaration_source, initializer
+        character(len=*), intent(out) :: declaration_source, initializer, operator
         integer(int64), intent(out) :: addend
         integer(int64), intent(out) :: stored_value
         logical, intent(out) :: ok, matches_shape
         character(len=*), parameter :: prefix = 'program main'//new_line('a')// &
             '  integer :: x'//new_line('a')//'  x = '
-        character(len=*), parameter :: assignment_prefix = '  x = x + '
+        character(len=*), parameter :: assignment_prefix = '  x = x '
         character(len=*), parameter :: print_suffix = new_line('a')// &
             '  print *, x'//new_line('a')//'end program main'//new_line('a')
         character(len=1024) :: initializer_source, parsed_declaration_source, tail
@@ -1592,6 +1595,7 @@ contains
 
         declaration_source = ''
         initializer = ''
+        operator = ''
         addend = 0_int64
         stored_value = 0_int64
         ok = .false.
@@ -1609,7 +1613,7 @@ contains
         if (assignment_end <= len(assignment_prefix) + 1 .or. assignment_end > len(assignment_line)) return
         assignment_line = ''
         assignment_line(:assignment_end - 1) = tail(:assignment_end - 1)
-        if (.not. parse_generic_addend_line(assignment_line(:assignment_end - 1), addend)) return
+        if (.not. parse_generic_update_line(assignment_line(:assignment_end - 1), operator, addend)) return
         if (tail(assignment_end:) /= print_suffix) return
         initializer_source = prefix//trim(initializer)//new_line('a')// &
             '  print *, x'//new_line('a')//'end program main'//new_line('a')
@@ -1623,26 +1627,40 @@ contains
         declaration_source = parsed_declaration_source
     end subroutine parse_generic_initialized_add_source
 
-    logical function parse_generic_addend_line(line, addend)
+    logical function parse_generic_update_line(line, operator, addend)
         character(len=*), intent(in) :: line
+        character(len=*), intent(out) :: operator
         integer(int64), intent(out) :: addend
         character(len=32) :: token
         integer :: status, position
 
-        parse_generic_addend_line = .false.
+        parse_generic_update_line = .false.
+        operator = ''
         addend = 0_int64
-        if (len_trim(line) <= len('  x = x + ')) return
-        if (line(:len('  x = x + ')) /= '  x = x + ') return
-        token = adjustl(line(len('  x = x + ') + 1:))
+        if (len_trim(line) <= len('  x = x ')) return
+        if (len_trim(line) >= len('  x = x + ')) then
+            if (line(:len('  x = x + ')) == '  x = x + ') then
+                operator = '+'
+                token = adjustl(line(len('  x = x + ') + 1:))
+            end if
+        end if
+        if (len_trim(operator) == 0 .and. len_trim(line) >= len('  x = x - ')) then
+            if (line(:len('  x = x - ')) == '  x = x - ') then
+                operator = '-'
+                token = adjustl(line(len('  x = x - ') + 1:))
+            end if
+        end if
+        if (len_trim(operator) == 0) return
         if (len_trim(token) == 0) return
         do position = 1, len_trim(token)
             if (token(position:position) < '0' .or. token(position:position) > '9') return
         end do
         read (token(:len_trim(token)), *, iostat=status) addend
         if (status /= 0) return
-        if (addend < 1_int64 .or. addend > 10_int64) return
-        parse_generic_addend_line = .true.
-    end function parse_generic_addend_line
+        if (addend < print_policy_output_count_min .or. &
+            addend > print_policy_output_count_max) return
+        parse_generic_update_line = .true.
+    end function parse_generic_update_line
 
     subroutine parse_stored_variable_initializer_source(source, declaration_source, stored_value, ok, matches_shape)
         character(len=*), intent(in) :: source
@@ -1686,7 +1704,8 @@ contains
         read (token(:token_length), *, iostat=status) stored_value
         if (status /= 0) return
         if (token(1:1) == '-') then
-            if (stored_value < -100_int64 .or. stored_value > -1_int64) return
+            if (stored_value < int(assignment_policy_signed_integer_literal_min, int64) .or. &
+                stored_value > int(assignment_policy_signed_integer_literal_max, int64)) return
         else if (stored_value < int(assignment_policy_integer_literal_min, int64) .or. &
                 stored_value > int(assignment_policy_integer_literal_max, int64)) then
             return
