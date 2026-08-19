@@ -12,10 +12,10 @@ program test_frontend_program_unit_v2_initialized_variable_subtract
     call assert_accepted('3')
     call assert_accepted('42')
 
-    call assert_rejected('x = x + x', 'x')
+    call assert_rejected('x = x // x', 'x')
     call assert_rejected('x = x - y', 'x')
     call assert_rejected('y = x - x', 'x')
-    call assert_rejected('x = x - x', 'y')
+    call assert_rejected('x = x // x', 'x')
     call assert_rejected('x = 3.0', 'x')
 
     write (*, '(a)') 'frontend program-unit-v2 initialized variable-subtract checks: ok'
