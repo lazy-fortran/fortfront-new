@@ -46,6 +46,26 @@ program test_frontend_program_unit_v2_print
         '  print *, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16'//new_line('a')//'end program p'//new_line('a')
     character(len=*), parameter :: generic_item_source = 'program p'//new_line('a')// &
         '  print *, 17, 18, 19'//new_line('a')//'end program p'//new_line('a')
+    character(len=*), parameter :: generic_twenty_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  print *, 20, 21, 22'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: generic_hundred_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  print *, 100, 200, 300, 400, 500'// &
+        new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: generic_trailing_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  print *, 20, 21, 22,'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: generic_real_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  print *, 20.0, 21, 22'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: generic_undeclared_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  print *, 20, y, 22'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: generic_variable_expression_item_source = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 3'//new_line('a')//'  print *, x + x, x + 1'//new_line('a')// &
@@ -536,6 +556,25 @@ program test_frontend_program_unit_v2_print
     if (print_stmt_validate(unit%execution_part%print, message)) then
         error stop 'mutated generic PRINT cardinality passed validation'
     end if
+    call frontend_parse_program_unit_v2('print-generic-twenty.f90', generic_twenty_source, &
+        'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_count /= 3 .or. &
+        unit%execution_part%print%output_items(1)%value /= 20 .or. &
+        unit%execution_part%print%output_items(3)%value /= 22 .or. &
+        trim(unit%root%span%source_hash) /= 'l3-raw-program-generic-print-list-v0') then
+        error stop 'generic PRINT *, 20, 21, 22 witness was rejected'
+    end if
+    call frontend_parse_program_unit_v2('print-generic-hundred.f90', generic_hundred_source, &
+        'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_count /= 5 .or. &
+        unit%execution_part%print%output_items(1)%value /= 100 .or. &
+        unit%execution_part%print%output_items(5)%value /= 500 .or. &
+        trim(unit%root%span%source_hash) /= 'l3-raw-program-generic-print-list-v0') then
+        error stop 'generic PRINT five-item literal witness was rejected'
+    end if
+    call assert_rejected(generic_trailing_source)
+    call assert_rejected(generic_real_source)
+    call assert_rejected(generic_undeclared_source)
     call assert_rejected(generic_missing_third)
     call assert_rejected(generic_wrong_third)
     call assert_rejected(generic_write)

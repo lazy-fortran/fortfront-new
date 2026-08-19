@@ -103,6 +103,13 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_output_10_kind = 'integer-literal'
     integer(int64), parameter, public :: print_policy_output_10_value = 16_int64
     character(len=*), parameter, public :: print_policy_output_10_rule = 'R1217'
+    character(len=*), parameter, public :: print_policy_integer_literal_kind = &
+        'integer-literal'
+    character(len=*), parameter, public :: print_policy_integer_literal_form = &
+        'nonnegative-decimal'
+    character(len=*), parameter, public :: print_policy_integer_literal_rule = &
+        'R1217'
+    integer(int64), parameter, public :: print_policy_integer_literal_min = 0_int64
     character(len=*), parameter, public :: print_policy_document = 'J3-24-007'
     character(len=*), parameter, public :: print_policy_statement_clause = '12.6.1'
     character(len=*), parameter, public :: print_policy_format_clause = '12.6.2.2'
@@ -269,7 +276,7 @@ contains
                     trim(item%right) /= print_policy_expression_5_right))) .or. &
                     (trim(item%kind) == 'variable' .and. &
                     trim(item%name) /= 'x') .or. (trim(item%kind) == 'integer-literal' &
-                    .and. item%value < 0_int64) .or. (trim(item%rule) /= 'R901' .and. &
+                    .and. item%value < print_policy_integer_literal_min) .or. (trim(item%rule) /= 'R901' .and. &
                     trim(item%rule) /= 'R1217') .or. trim(item%clause) /= &
                     trim(print_policy_output_clause) .or. item%page /= &
                     print_policy_output_page) then

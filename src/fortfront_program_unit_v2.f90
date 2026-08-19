@@ -51,7 +51,8 @@ module fortfront_program_unit_v2
         print_policy_expression_4_source, print_policy_power_operator, &
         print_policy_power_left, print_policy_power_min, print_policy_power_max, &
         print_policy_expression_5_operator, print_policy_expression_5_left, &
-        print_policy_expression_5_right, print_policy_expression_5_source
+        print_policy_expression_5_right, print_policy_expression_5_source, &
+        print_policy_integer_literal_min
     implicit none
     private
 
@@ -1402,6 +1403,23 @@ contains
         is_print_power_literal = .true.
     end function is_print_power_literal
 
+    logical function is_print_nonnegative_decimal_integer(token)
+        character(len=*), intent(in) :: token
+        integer(int64) :: value
+        integer :: index, status, token_length
+
+        is_print_nonnegative_decimal_integer = .false.
+        token_length = len_trim(token)
+        if (token_length == 0) return
+        do index = 1, token_length
+            if (token(index:index) < '0' .or. token(index:index) > '9') return
+        end do
+        read (token(:token_length), *, iostat=status) value
+        if (status /= 0) return
+        if (value < print_policy_integer_literal_min) return
+        is_print_nonnegative_decimal_integer = .true.
+    end function is_print_nonnegative_decimal_integer
+
     subroutine parse_generic_print_list(file_name, source, source_hash, unit, ok, message)
         character(len=*), intent(in) :: file_name, source, source_hash
         type(program_unit_v2_t), intent(out) :: unit
@@ -1450,7 +1468,7 @@ contains
                 token == print_policy_expression_5_source) then
                 if (is_print_power_literal(token)) has_expression = .true.
                 cycle
-            else if (token == '7' .or. token == '8') then
+            else if (is_print_nonnegative_decimal_integer(token)) then
                 cycle
             else
                 return
@@ -1552,8 +1570,7 @@ contains
                 end if
                 unit%execution_part%print%output_items(item_index)%rule = 'R1217'
             else
-                if (index(token, '+') > 0 .or. index(token, '*') > 0 .or. &
-                    index(token, '/') > 0 .or. index(token, '-') > 0) return
+                if (.not. is_print_nonnegative_decimal_integer(token)) return
                 read (token, *) unit%execution_part%print%output_items(item_index)%value
                 unit%execution_part%print%output_items(item_index)%kind = 'integer-literal'
                 unit%execution_part%print%output_items(item_index)%rule = 'R1217'

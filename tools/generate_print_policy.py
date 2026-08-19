@@ -22,6 +22,7 @@ SCHEMA = re.compile(
     r"\(output-item (integer-literal) (14) (R\d+)\)\s+"
     r"\(output-item (integer-literal) (15) (R\d+)\)\s+"
     r"\(output-item (integer-literal) (16) (R\d+)\)\s+"
+    r"\(output-item (integer-literal) (nonnegative-decimal) (R\d+)\)\s+"
     r"\(output-item (integer-expression) (\+) (x) (1) (R\d+)\)\s+"
     r"\(output-item (integer-expression) (\+) (x) (x) (R\d+)\)\s+"
     r"\(output-item (integer-expression) (\*) (x) (2) (R\d+)\)\s+"
@@ -105,7 +106,7 @@ def _replace_generated_routes(generated: str) -> str:
                         "                    trim(item%right) /= print_policy_expression_5_right))) .or. &",
         "                    (trim(item%kind) == 'variable' .and. &",
         "                    trim(item%name) /= 'x') .or. (trim(item%kind) == 'integer-literal' &",
-        "                    .and. item%value < 0_int64) .or. (trim(item%rule) /= 'R901' .and. &",
+        "                    .and. item%value < print_policy_integer_literal_min) .or. (trim(item%rule) /= 'R901' .and. &",
         "                    trim(item%rule) /= 'R1217') .or. trim(item%clause) /= &",
         "                    trim(print_policy_output_clause) .or. item%page /= &",
         "                    print_policy_output_page) then",
@@ -429,6 +430,7 @@ def render(source: str) -> str:
         output_8_kind, output_8_value, output_8_rule,
         output_9_kind, output_9_value, output_9_rule,
         output_10_kind, output_10_value, output_10_rule,
+        integer_literal_kind, integer_literal_form, integer_literal_rule,
         expression_kind, expression_operator, expression_left, expression_right,
         expression_rule, expression_2_kind, expression_2_operator, expression_2_left,
         expression_2_right, expression_2_rule, expression_3_kind, expression_3_operator,
@@ -552,6 +554,13 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_output_10_kind = '{output_10_kind}'
     integer(int64), parameter, public :: print_policy_output_10_value = {output_10_value}_int64
     character(len=*), parameter, public :: print_policy_output_10_rule = '{output_10_rule}'
+    character(len=*), parameter, public :: print_policy_integer_literal_kind = &
+        '{integer_literal_kind}'
+    character(len=*), parameter, public :: print_policy_integer_literal_form = &
+        '{integer_literal_form}'
+    character(len=*), parameter, public :: print_policy_integer_literal_rule = &
+        '{integer_literal_rule}'
+    integer(int64), parameter, public :: print_policy_integer_literal_min = 0_int64
     character(len=*), parameter, public :: print_policy_document = '{document}'
     character(len=*), parameter, public :: print_policy_statement_clause = '{statement_clause}'
     character(len=*), parameter, public :: print_policy_format_clause = '{format_clause}'
