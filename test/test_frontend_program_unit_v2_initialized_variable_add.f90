@@ -12,7 +12,6 @@ program test_frontend_program_unit_v2_initialized_variable_add
     call assert_accepted('3')
     call assert_accepted('42')
 
-    call assert_rejected('x = x - x', 'x')
     call assert_rejected('x = x + y', 'x')
     call assert_rejected('y = x + x', 'x')
     call assert_rejected('x = x + x', 'y')

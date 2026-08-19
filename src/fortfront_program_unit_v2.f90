@@ -441,7 +441,9 @@ contains
         character(len=128) :: execution_source_hash
         integer(int64) :: stored_value
         integer :: stored_value_status
+        integer :: print_position
         integer :: batch_count
+        character(len=64) :: print_source
         logical :: shape_matches, generic_assignment_shape, generic_variable_exponent
 
         unit = program_unit_v2_t()
@@ -1465,8 +1467,16 @@ contains
             end if
             unit%execution_part%print%output_count = 1_int64
             unit%execution_part%print%span = unit%root%span
-            unit%execution_part%print%span%start_byte = 34_int64
-            unit%execution_part%print%span%end_byte = 45_int64
+            print_source = '  print *, '//trim(unit%execution_part%print%output_name)
+            print_position = index(source, trim(print_source))
+            if (print_position == 0) then
+                ok = .false.
+                message = 'print-variable-assignment-rejected'
+                return
+            end if
+            unit%execution_part%print%span%start_byte = int(print_position - 1, int64)
+            unit%execution_part%print%span%end_byte = &
+                unit%execution_part%print%span%start_byte + int(len_trim(print_source) - 1, int64)
             unit%execution_part%print%statement_rule = print_policy_statement_rule
             unit%execution_part%print%format_rule = print_policy_format_rule
             unit%execution_part%print%output_rule = print_policy_variable_output_rule

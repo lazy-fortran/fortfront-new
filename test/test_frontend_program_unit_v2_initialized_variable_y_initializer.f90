@@ -63,8 +63,9 @@ contains
             source_file, source_hash, 0_int64, int(index(trim(source), new_line('a')) - 1, int64))
         call assert_span(unit%variable%span%file, unit%variable%span%source_hash, &
             unit%variable%span%start_byte, unit%variable%span%end_byte, 'variable', source_file, &
-            source_hash, int(index(trim(source), '  integer :: y') - 1, int64), &
-            int(index(trim(source), '  integer :: y') + len('  integer :: y') - 2, int64))
+            source_hash, int(index(trim(source), new_line('a')), int64), &
+            int(index(trim(source), new_line('a')), int64) + &
+            int(len('  integer :: y'), int64))
         call assert_span(unit%execution_part%sequence%assignment(1)%span%file, &
             unit%execution_part%sequence%assignment(1)%span%source_hash, &
             unit%execution_part%sequence%assignment(1)%span%start_byte, &

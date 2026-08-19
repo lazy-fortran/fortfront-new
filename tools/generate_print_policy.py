@@ -38,12 +38,15 @@ SCHEMA = re.compile(
     r"\(output-item (integer-expression) (-) (x) (4) (R\d+)\)\s+"
     r"\(output-item (integer-expression-range) (\*\*) (x) (2) (10) (R\d+)\)\s+"
     r"\(variable-output (variable) (x) (R\d+)\)\s+"
+    r"\(variable-output (variable) (y) (R\d+)\)\s+"
     r"\(variable-value (integer-literal) (17) (R\d+)\)\s+"
     r"\(variable-value (integer-literal) (23) (R\d+)\)\s+"
     r"\(variable-value (integer-literal) (21) (R\d+)\)\s+"
     r"\(variable-value (integer-literal) (12) (R\d+)\)\s+"
     r"\(variable-value (integer-literal) (8) (R\d+)\)\s+"
     r"\(variable-value (integer-literal) (9) (R\d+)\)\s+"
+    r"\(variable-value (integer-literal) (3) (R\d+)\)\s+"
+    r"\(variable-value (integer-literal) (-4) (R\d+)\)\s+"
     r"\(source (J3-24-007) ([^\s()]+) ([^\s()]+) ([^\s()]+) "
     r"(242) (244) (248) ([^\s()]+)\)\)"
 )
@@ -147,7 +150,9 @@ def _replace_generated_routes(generated: str) -> str:
                         "                    (.not. print_policy_decimal_expression_valid(trim(item%left)//' '// &",
                         "                    trim(item%operator)//' '//trim(item%right))))) .or. &",
         "                    (trim(item%kind) == 'variable' .and. &",
-        "                    trim(item%name) /= 'x') .or. (trim(item%kind) == 'integer-literal' &",
+        "                    trim(item%name) /= print_policy_variable_output_name .and. &",
+        "                    trim(item%name) /= print_policy_variable_output_name_2) .or. &",
+        "                    (trim(item%kind) == 'integer-literal' &",
         "                    .and. item%value < print_policy_integer_literal_min .and. &",
         "                    (item%value < print_policy_signed_integer_literal_min .or. &",
         "                    item%value > print_policy_signed_integer_literal_max)) .or. &",
@@ -200,13 +205,16 @@ def _replace_generated_routes(generated: str) -> str:
         "                end if",
         "            else if (trim(item%kind) == trim(print_policy_variable_output_kind)) then",
         "                if (index < 1 .or. index > 100 .or. &",
-        "                    trim(item%name) /= trim(print_policy_variable_output_name) .or. &",
+        "                    trim(item%name) /= trim(print_policy_variable_output_name) .and. &",
+        "                    trim(item%name) /= trim(print_policy_variable_output_name_2) .or. &",
         "                    (item%value /= print_policy_variable_value .and. &",
         "                    item%value /= print_policy_variable_value_2 .and. &",
         "                    item%value /= print_policy_variable_value_3 .and. &",
         "                    item%value /= print_policy_variable_value_4 .and. &",
         "                    item%value /= print_policy_variable_value_5 .and. &",
-        "                    item%value /= print_policy_variable_value_6)) then",
+        "                    item%value /= print_policy_variable_value_6 .and. &",
+        "                    item%value /= print_policy_variable_value_7 .and. &",
+        "                    item%value /= print_policy_variable_value_8)) then",
         "                    message = 'invalid-print-policy-value'",
         "                    print_stmt_validate = .false.",
         "                    return",
@@ -513,13 +521,15 @@ def render(source: str) -> str:
         expression_power_operator,
         expression_power_left,
         expression_power_min, expression_power_max, expression_power_rule,
-        variable_kind, variable_name, variable_rule, variable_value_kind,
+        variable_kind, variable_name, variable_rule, variable_kind_2, variable_name_2, variable_rule_2, variable_value_kind,
         variable_value, variable_value_rule, variable_value_2_kind,
         variable_value_2, variable_value_2_rule, variable_value_3_kind,
         variable_value_3, variable_value_3_rule, variable_value_4_kind,
         variable_value_4, variable_value_4_rule, variable_value_5_kind,
         variable_value_5, variable_value_5_rule, variable_value_6_kind,
-        variable_value_6, variable_value_6_rule, document,
+        variable_value_6, variable_value_6_rule, variable_value_7_kind,
+        variable_value_7, variable_value_7_rule, variable_value_8_kind,
+        variable_value_8, variable_value_8_rule, document,
         statement_clause, format_clause, output_clause, statement_page,
         format_page, output_page, source_hash,
     ) = match.groups()
@@ -634,6 +644,9 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_variable_output_kind = '{variable_kind}'
     character(len=*), parameter, public :: print_policy_variable_output_name = '{variable_name}'
     character(len=*), parameter, public :: print_policy_variable_output_rule = '{variable_rule}'
+    character(len=*), parameter, public :: print_policy_variable_output_kind_2 = '{variable_kind_2}'
+    character(len=*), parameter, public :: print_policy_variable_output_name_2 = '{variable_name_2}'
+    character(len=*), parameter, public :: print_policy_variable_output_rule_2 = '{variable_rule_2}'
     character(len=*), parameter, public :: print_policy_variable_value_kind = '{variable_value_kind}'
     integer(int64), parameter, public :: print_policy_variable_value = {variable_value}_int64
     character(len=*), parameter, public :: print_policy_variable_value_rule = '{variable_value_rule}'
@@ -652,6 +665,12 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_variable_value_6_kind = '{variable_value_6_kind}'
     integer(int64), parameter, public :: print_policy_variable_value_6 = {variable_value_6}_int64
     character(len=*), parameter, public :: print_policy_variable_value_6_rule = '{variable_value_6_rule}'
+    character(len=*), parameter, public :: print_policy_variable_value_7_kind = '{variable_value_7_kind}'
+    integer(int64), parameter, public :: print_policy_variable_value_7 = {variable_value_7}_int64
+    character(len=*), parameter, public :: print_policy_variable_value_7_rule = '{variable_value_7_rule}'
+    character(len=*), parameter, public :: print_policy_variable_value_8_kind = '{variable_value_8_kind}'
+    integer(int64), parameter, public :: print_policy_variable_value_8 = {variable_value_8}_int64
+    character(len=*), parameter, public :: print_policy_variable_value_8_rule = '{variable_value_8_rule}'
     character(len=*), parameter, public :: print_policy_output_2_kind = '{output_2_kind}'
     integer(int64), parameter, public :: print_policy_output_2_value = {output_2_value}_int64
     character(len=*), parameter, public :: print_policy_output_2_rule = '{output_2_rule}'
