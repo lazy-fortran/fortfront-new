@@ -3170,7 +3170,7 @@ contains
                     trim(assignment_policy_rows(row_index)%operator)//' '// &
                     trim(assignment_policy_rows(row_index)%left_operand)
                 if (source(second_newline + 1:third_newline - 1) /= &
-                    variable_assignment) exit
+                    variable_assignment) cycle
                 expression%kind = 'binary-expression'
                 expression%operator = trim(assignment_policy_rows(row_index)%operator)
                 expression%left_operand = trim(assignment_policy_variable_name)

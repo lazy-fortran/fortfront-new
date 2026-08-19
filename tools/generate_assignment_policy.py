@@ -19,6 +19,13 @@ def main() -> int:
         "",
         source,
     )
+    variable_add_match = re.search(
+        r"\(binary-expression (add-variable) (R\d+) (R\d+) (x) (x) (\+)\)",
+        source,
+    )
+    if variable_add_match is None:
+        raise SystemExit("assignment policy omitted its variable-add row")
+    source = source.replace(variable_add_match.group(0), "", 1)
     match = re.fullmatch(
         r"\(schema frontend-assignment-policy-v0\s+"
         r"\(policy assignment-stmt assignment-stmt (R\d+)\)\s+"
@@ -59,6 +66,11 @@ def main() -> int:
         ("divide", match.group(27), match.group(28), match.group(1),
             f"{match.group(29)} {match.group(31)} {match.group(30)}", match.group(29),
             match.group(30), match.group(31)),
+        (variable_add_match.group(1), variable_add_match.group(2),
+            variable_add_match.group(3), match.group(1),
+            f"{variable_add_match.group(4)} {variable_add_match.group(6)} "
+            f"{variable_add_match.group(5)}", variable_add_match.group(4),
+            variable_add_match.group(5), variable_add_match.group(6)),
         (match.group(97), match.group(98), match.group(99), match.group(1),
             f"{match.group(100)} {match.group(102)} {match.group(101)}", match.group(100),
             match.group(101), match.group(102)),
@@ -161,10 +173,10 @@ def main() -> int:
         "    end type assignment_policy_row_t\n"
         "    character(len=*), parameter, public :: assignment_policy_variable_expression_row = &\n"
         f"        'variable {match.group(4)} {match.group(5)} {match.group(6)}'\n"
-        "    type(assignment_policy_row_t), parameter, public :: assignment_policy_rows(6) = [ &\n"
+        f"    type(assignment_policy_row_t), parameter, public :: assignment_policy_rows({len(rows)}) = [ &\n"
         f"{row_text} &\n"
         "        ]\n"
-        "    integer, parameter, public :: assignment_policy_row_count = 6\n"
+        f"    integer, parameter, public :: assignment_policy_row_count = {len(rows)}\n"
         "    integer, parameter, public :: assignment_policy_source_page = 155\n"
         "end module frontend_assignment_policy_generated\n",
         encoding="utf-8",

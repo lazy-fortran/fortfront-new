@@ -15,7 +15,8 @@ module fortfront_program_unit_v2
         typed_program_unit_t
     use frontend_assignment_policy_generated, only: assignment_policy_integer_literal_min, &
         assignment_policy_integer_literal_max, assignment_policy_signed_integer_literal_min, &
-        assignment_policy_signed_integer_literal_max
+        assignment_policy_signed_integer_literal_max, assignment_policy_rows, &
+        assignment_policy_row_count
     use frontend_program_unit_v2_envelope_generated, only: &
         program_unit_v2_execution_part_policy_matches
     use frontend_stop_policy_generated, only: stop_policy_code, &
@@ -1639,7 +1640,7 @@ contains
             return
         end if
         if (.not. ok) return
-        if (variable_exponent) then
+        if (variable_exponent .and. operator == '**') then
             if (stored_value < initialized_power_min .or. &
                 stored_value > initialized_power_max) return
         end if
@@ -1695,6 +1696,23 @@ contains
         if (operator == '**' .and. trim(token) == 'x') then
             variable_exponent = .true.
             parse_generic_update_line = .true.
+            return
+        end if
+        if (operator == '+' .and. trim(token) == 'x') then
+            do position = 1, assignment_policy_row_count
+                if (trim(assignment_policy_rows(position)%expression_kind) /= &
+                    'add-variable') cycle
+                if (trim(assignment_policy_rows(position)%expression_rule) /= 'R1007') cycle
+                if (trim(assignment_policy_rows(position)%operator_rule) /= 'R1010') cycle
+                if (trim(assignment_policy_rows(position)%source_rule) /= 'R1033') cycle
+                if (trim(assignment_policy_rows(position)%source_spelling) /= 'x + x') cycle
+                if (trim(assignment_policy_rows(position)%left_operand) /= 'x') cycle
+                if (trim(assignment_policy_rows(position)%right_operand) /= 'x') cycle
+                if (trim(assignment_policy_rows(position)%operator) /= '+') cycle
+                variable_exponent = .true.
+                parse_generic_update_line = .true.
+                return
+            end do
             return
         end if
         do position = 1, len_trim(token)
