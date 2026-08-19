@@ -12,14 +12,14 @@ program test_frontend_program_unit_v2_initialized_divisor
     call assert_accepted('42', '2')
     call assert_accepted('-42', '10')
 
-    call assert_rejected('42', 'x = x / 0')
-    call assert_rejected('42', 'x = x / 11')
-    call assert_rejected('42.0', 'x = x / 2')
-    call assert_rejected('42', 'x = x / 2.0')
-    call assert_rejected('42', 'y = x / 2')
-    call assert_rejected('42', 'x = x + 2')
-    call assert_rejected('42', 'x = y / 2')
-    call assert_rejected('42', 'x = x /')
+    call assert_rejected('42', 'x / 0')
+    call assert_rejected('42', 'x / 11')
+    call assert_rejected('42.0', 'x / 2')
+    call assert_rejected('42', 'x / 2.0')
+    call assert_rejected('42', 'x / x')
+    call assert_rejected('42', 'x + 2')
+    call assert_rejected('42', 'y / 2')
+    call assert_rejected('42', 'x /')
 
     write (*, '(a)') 'frontend program-unit-v2 initialized divisor checks: ok'
 
