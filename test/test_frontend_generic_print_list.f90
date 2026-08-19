@@ -46,6 +46,12 @@ program test_frontend_generic_print_list
     call check_dynamic_power_expression('x ** 5', 243_int64)
     call check_dynamic_power_expression('x ** 7', 2187_int64)
     call check_dynamic_power_expression('x ** 10', 59049_int64)
+    call check_variable_power_expression('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, x ** x, 7'//new_line('a')//'end program main'//new_line('a'), 27_int64)
+    call check_variable_power_expression('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, 7, x ** x, x'//new_line('a')//'end program main'//new_line('a'), 27_int64)
     call check_provenance_mutations('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x, 7, x'//new_line('a')//'end program main'//new_line('a'))
@@ -300,6 +306,37 @@ contains
             trim(expression(index(expression, '**') + 3:))) &
             error stop 'generic PRINT dynamic power expression shape changed'
     end subroutine check_dynamic_power_expression
+
+    subroutine check_variable_power_expression(source, expected_value)
+        character(len=*), intent(in) :: source
+        integer(int64), intent(in) :: expected_value
+        type(program_unit_v2_t) :: unit
+        character(len=65536) :: serialized, message
+        logical :: ok
+
+        if (expected_value /= 27_int64) error stop 'variable power oracle value changed'
+        call frontend_parse_program_unit_v2('l3_generic_print_expression_power.f90', source, &
+            'generic-print-expression-test', unit, ok, message)
+        if (.not. ok .or. unit%execution_part%print%output_count < 2_int64) &
+            error stop 'generic PRINT variable power expression was rejected'
+        if (trim(unit%execution_part%print%output_items(1)%operator) /= '**' .and. &
+            trim(unit%execution_part%print%output_items(2)%operator) /= '**') &
+            error stop 'generic PRINT variable power operator missing'
+        if (trim(unit%execution_part%print%output_items(1)%right) == 'x') then
+            if (trim(unit%execution_part%print%output_items(1)%left) /= 'x') &
+                error stop 'generic PRINT variable power left operand changed'
+        else if (trim(unit%execution_part%print%output_items(2)%right) == 'x') then
+            if (trim(unit%execution_part%print%output_items(2)%left) /= 'x') &
+                error stop 'generic PRINT variable power left operand changed'
+        else
+            error stop 'generic PRINT variable power right operand changed'
+        end if
+        call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+        if (.not. ok .or. index(serialized, &
+            '(output-item (kind integer-expression) (operator **) (left x) (right x) '// &
+            '(rule R1217) (clause 12.6.3) (page 248))') == 0) &
+            error stop 'generic PRINT variable power AST shape changed'
+    end subroutine check_variable_power_expression
 
     subroutine check_provenance_mutations(source)
         character(len=*), intent(in) :: source
