@@ -13,6 +13,8 @@ program test_frontend_program_unit_v2_initialized_power
     call assert_accepted('-3', '3')
     call assert_accepted('3', '5')
     call assert_accepted('-3', '10')
+    call assert_accepted('3', 'x')
+    call assert_accepted('4', 'x')
 
     call assert_rejected('3', 'x = x ** 0')
     call assert_rejected('3', 'x = x ** 1')
@@ -21,6 +23,9 @@ program test_frontend_program_unit_v2_initialized_power
     call assert_rejected('3', 'x = x @ 2')
     call assert_rejected('3', 'y = x ** 2')
     call assert_rejected('3', 'x = x **')
+    call assert_rejected('3', 'x = x ** -1')
+    call assert_rejected('3', 'x = x ** y')
+    call assert_rejected('3', 'y = x ** x')
 
     write (*, '(a)') 'frontend program-unit-v2 initialized power checks: ok'
 
