@@ -13,6 +13,7 @@
   (output-item integer-literal 15 R1217)
   (output-item integer-literal 16 R1217)
   (output-item integer-literal nonnegative-decimal R1217)
+  (output-item integer-literal-range signed-decimal -100 -1 R1217)
   (output-item integer-expression + x 1 R1217)
   (output-item integer-expression + x x R1217)
   (output-item integer-expression * x 2 R1217)

@@ -53,6 +53,11 @@ DECIMAL_EXPRESSION = re.compile(
     r"(\d+) (\d+) (R\d+)\)\s*"
 )
 
+SIGNED_INTEGER_LITERAL = re.compile(
+    r"\(output-item integer-literal-range (signed-decimal) "
+    r"(-\d+) (-\d+) (R\d+)\)\s*"
+)
+
 
 def _replace_generated_routes(generated: str) -> str:
     generated = generated.replace(
@@ -143,7 +148,10 @@ def _replace_generated_routes(generated: str) -> str:
                         "                    trim(item%operator)//' '//trim(item%right))))) .or. &",
         "                    (trim(item%kind) == 'variable' .and. &",
         "                    trim(item%name) /= 'x') .or. (trim(item%kind) == 'integer-literal' &",
-        "                    .and. item%value < print_policy_integer_literal_min) .or. (trim(item%rule) /= 'R901' .and. &",
+        "                    .and. item%value < print_policy_integer_literal_min .and. &",
+        "                    (item%value < print_policy_signed_integer_literal_min .or. &",
+        "                    item%value > print_policy_signed_integer_literal_max)) .or. &",
+        "                    (trim(item%rule) /= 'R901' .and. &",
         "                    trim(item%rule) /= 'R1217') .or. trim(item%clause) /= &",
         "                    trim(print_policy_output_clause) .or. item%page /= &",
         "                    print_policy_output_page) then",
@@ -454,6 +462,12 @@ def _replace_generated_routes(generated: str) -> str:
 
 
 def render(source: str) -> str:
+    signed_matches = SIGNED_INTEGER_LITERAL.findall(source)
+    if len(signed_matches) != 1:
+        raise ValueError("print policy needs one signed integer literal range")
+    signed_literal_form, signed_literal_min, signed_literal_max, signed_literal_rule = (
+        signed_matches[0]
+    )
     decimal_matches = DECIMAL_EXPRESSION.findall(source)
     if len(decimal_matches) != 2 or {item[0] for item in decimal_matches} != {"+", "-"}:
         raise ValueError("print policy needs plus and minus decimal expression ranges")
@@ -462,7 +476,10 @@ def render(source: str) -> str:
     if any(item[1] != decimal_min or item[2] != decimal_max for item in decimal_matches):
         raise ValueError("decimal expression ranges disagree")
     source_without_decimal_ranges = DECIMAL_EXPRESSION.sub("", source.strip())
-    match = SCHEMA.fullmatch(source_without_decimal_ranges)
+    source_without_literal_ranges = SIGNED_INTEGER_LITERAL.sub(
+        "", source_without_decimal_ranges
+    )
+    match = SCHEMA.fullmatch(source_without_literal_ranges)
     if match is None:
         raise ValueError("invalid print policy schema")
     (
@@ -669,6 +686,14 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_integer_literal_rule = &
         '{integer_literal_rule}'
     integer(int64), parameter, public :: print_policy_integer_literal_min = 0_int64
+    character(len=*), parameter, public :: print_policy_signed_integer_literal_form = &
+        '{signed_literal_form}'
+    character(len=*), parameter, public :: print_policy_signed_integer_literal_rule = &
+        '{signed_literal_rule}'
+    integer(int64), parameter, public :: print_policy_signed_integer_literal_min = &
+        {signed_literal_min}_int64
+    integer(int64), parameter, public :: print_policy_signed_integer_literal_max = &
+        {signed_literal_max}_int64
     integer(int64), parameter, public :: print_policy_decimal_expression_min = {decimal_min}_int64
     integer(int64), parameter, public :: print_policy_decimal_expression_max = {decimal_max}_int64
     character(len=*), parameter, public :: print_policy_document = '{document}'

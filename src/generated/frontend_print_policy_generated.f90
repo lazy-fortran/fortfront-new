@@ -161,6 +161,14 @@ module frontend_print_policy_generated
     character(len=*), parameter, public :: print_policy_integer_literal_rule = &
         'R1217'
     integer(int64), parameter, public :: print_policy_integer_literal_min = 0_int64
+    character(len=*), parameter, public :: print_policy_signed_integer_literal_form = &
+        'signed-decimal'
+    character(len=*), parameter, public :: print_policy_signed_integer_literal_rule = &
+        'R1217'
+    integer(int64), parameter, public :: print_policy_signed_integer_literal_min = &
+        -100_int64
+    integer(int64), parameter, public :: print_policy_signed_integer_literal_max = &
+        -1_int64
     integer(int64), parameter, public :: print_policy_decimal_expression_min = 0_int64
     integer(int64), parameter, public :: print_policy_decimal_expression_max = 100_int64
     character(len=*), parameter, public :: print_policy_document = 'J3-24-007'
@@ -373,7 +381,10 @@ contains
                     trim(item%operator)//' '//trim(item%right))))) .or. &
                     (trim(item%kind) == 'variable' .and. &
                     trim(item%name) /= 'x') .or. (trim(item%kind) == 'integer-literal' &
-                    .and. item%value < print_policy_integer_literal_min) .or. (trim(item%rule) /= 'R901' .and. &
+                    .and. item%value < print_policy_integer_literal_min .and. &
+                    (item%value < print_policy_signed_integer_literal_min .or. &
+                    item%value > print_policy_signed_integer_literal_max)) .or. &
+                    (trim(item%rule) /= 'R901' .and. &
                     trim(item%rule) /= 'R1217') .or. trim(item%clause) /= &
                     trim(print_policy_output_clause) .or. item%page /= &
                     print_policy_output_page) then

@@ -66,7 +66,9 @@ module fortfront_program_unit_v2
         print_policy_expression_11_right, print_policy_expression_11_source, &
         print_policy_expression_12_operator, print_policy_expression_12_left, &
         print_policy_expression_12_right, print_policy_expression_12_source, &
-        print_policy_integer_literal_min, print_policy_decimal_expression_valid, &
+        print_policy_integer_literal_min, &
+        print_policy_signed_integer_literal_min, print_policy_signed_integer_literal_max, &
+        print_policy_decimal_expression_valid, &
         print_policy_output_count_min, print_policy_output_count_max
     implicit none
     private
@@ -1421,22 +1423,33 @@ contains
         is_print_power_literal = .true.
     end function is_print_power_literal
 
-    logical function is_print_nonnegative_decimal_integer(token)
+    logical function is_print_integer_literal(token)
         character(len=*), intent(in) :: token
         integer(int64) :: value
         integer :: index, status, token_length
 
-        is_print_nonnegative_decimal_integer = .false.
+        is_print_integer_literal = .false.
         token_length = len_trim(token)
         if (token_length == 0) return
-        do index = 1, token_length
+        index = 1
+        if (token(index:index) == '-') then
+            if (token_length == 1) return
+            index = 2
+        end if
+        do while (index <= token_length)
             if (token(index:index) < '0' .or. token(index:index) > '9') return
+            index = index + 1
         end do
         read (token(:token_length), *, iostat=status) value
         if (status /= 0) return
-        if (value < print_policy_integer_literal_min) return
-        is_print_nonnegative_decimal_integer = .true.
-    end function is_print_nonnegative_decimal_integer
+        if (token(1:1) == '-') then
+            if (value < print_policy_signed_integer_literal_min .or. &
+                value > print_policy_signed_integer_literal_max) return
+        else
+            if (value < print_policy_integer_literal_min) return
+        end if
+        is_print_integer_literal = .true.
+    end function is_print_integer_literal
 
     logical function is_print_decimal_expression(token)
         character(len=*), intent(in) :: token
@@ -1501,7 +1514,7 @@ contains
                 if (is_print_power_literal(token) .or. is_print_decimal_expression(token)) &
                     has_expression = .true.
                 cycle
-            else if (is_print_nonnegative_decimal_integer(token)) then
+            else if (is_print_integer_literal(token)) then
                 cycle
             else
                 return
@@ -1678,7 +1691,7 @@ contains
                 end if
                 unit%execution_part%print%output_items(item_index)%rule = 'R1217'
             else
-                if (.not. is_print_nonnegative_decimal_integer(token)) return
+                if (.not. is_print_integer_literal(token)) return
                 read (token, *) unit%execution_part%print%output_items(item_index)%value
                 unit%execution_part%print%output_items(item_index)%kind = 'integer-literal'
                 unit%execution_part%print%output_items(item_index)%rule = 'R1217'

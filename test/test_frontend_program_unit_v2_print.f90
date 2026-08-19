@@ -54,6 +54,30 @@ program test_frontend_program_unit_v2_print
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 3'//new_line('a')//'  print *, 100, 200, 300, 400, 500'// &
         new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: generic_signed_one_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  print *, -1'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: generic_signed_twenty_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  print *, -20'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: generic_signed_hundred_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  print *, -100'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: generic_signed_out_of_range_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  print *, -101'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: generic_signed_real_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  print *, -20.0'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: generic_signed_malformed_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  print *, --20'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: generic_trailing_source = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 3'//new_line('a')//'  print *, 20, 21, 22,'//new_line('a')// &
@@ -584,6 +608,24 @@ program test_frontend_program_unit_v2_print
         trim(unit%root%span%source_hash) /= 'l3-raw-program-generic-print-list-v0') then
         error stop 'generic PRINT five-item literal witness was rejected'
     end if
+    call frontend_parse_program_unit_v2('print-generic-signed-one.f90', &
+        generic_signed_one_source, 'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_items(1)%value /= -1) then
+        error stop 'generic PRINT signed literal -1 witness was rejected'
+    end if
+    call frontend_parse_program_unit_v2('print-generic-signed-twenty.f90', &
+        generic_signed_twenty_source, 'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_items(1)%value /= -20) then
+        error stop 'generic PRINT signed literal -20 witness was rejected'
+    end if
+    call frontend_parse_program_unit_v2('print-generic-signed-hundred.f90', &
+        generic_signed_hundred_source, 'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_items(1)%value /= -100) then
+        error stop 'generic PRINT signed literal -100 witness was rejected'
+    end if
+    call assert_rejected(generic_signed_out_of_range_source)
+    call assert_rejected(generic_signed_real_source)
+    call assert_rejected(generic_signed_malformed_source)
     call assert_rejected(generic_trailing_source)
     call assert_rejected(generic_real_source)
     call assert_rejected(generic_undeclared_source)
