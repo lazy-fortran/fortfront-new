@@ -15,7 +15,7 @@ program test_frontend_program_unit_v2_initialized_power
     call assert_rejected('3', 'x = x ** 1')
     call assert_rejected('3', 'x = x ** 5')
     call assert_rejected('3', 'x = x ** 2.0')
-    call assert_rejected('3', 'x = x * 2')
+    call assert_rejected('3', 'x = x @ 2')
     call assert_rejected('3', 'y = x ** 2')
     call assert_rejected('3', 'x = x **')
 

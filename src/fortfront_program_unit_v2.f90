@@ -1022,7 +1022,8 @@ contains
             ok = .true.
             return
         end if
-        if (source == print_variable_expression_source .or. &
+        if (.not. generic_assignment_shape .and. &
+            (source == print_variable_expression_source .or. &
             source == print_variable_multiply_expression_source .or. &
             source == print_variable_subtract_expression_source .or. &
             source == print_variable_divide_expression_source .or. &
@@ -1047,7 +1048,7 @@ contains
             source == print_variable_power_value_eighteen_item_source .or. &
             source == print_variable_power_value_nineteen_item_source .or. &
             source == print_variable_power_value_twenty_item_source .or. &
-            batch_count > 0) then
+            batch_count > 0)) then
             declaration_source = 'program main'//new_line('a')// &
                 '  integer :: x'//new_line('a')//'end program main'//new_line('a')
             call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
