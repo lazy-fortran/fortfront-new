@@ -14,12 +14,18 @@ program test_frontend_program_unit_v2_initializer
     call assert_initialized_add('2047')
     call assert_initialized_add('42')
     call assert_initialized_add('-42')
+    call assert_initialized_add_with_addend('42', '2')
+    call assert_initialized_add_with_addend('-42', '10')
     call assert_initialized_add_rejected('42.0')
     call assert_initialized_add_rejected('2048')
     call assert_initialized_add_rejected('-101')
     call assert_initialized_add_rejected('42', 'x = x - 1')
     call assert_initialized_add_rejected('42', 'x = y + 1')
-    call assert_initialized_add_rejected('42', 'x = x + 2')
+    call assert_initialized_add_rejected('42', 'x = x + 0')
+    call assert_initialized_add_rejected('42', 'x = x + 11')
+    call assert_initialized_add_rejected('42', 'x = x + 1.0')
+    call assert_initialized_add_rejected('42', 'x = x * 1')
+    call assert_initialized_add_rejected('42', 'x = x +')
     call assert_rejected('2048'//new_line('a'))
     call assert_rejected('-101'//new_line('a'))
     call assert_rejected('42.0'//new_line('a'))
@@ -107,5 +113,32 @@ contains
             'initialized-add-input', unit, ok, message)
         if (ok) error stop 'invalid generic initialized add was accepted'
     end subroutine assert_initialized_add_rejected
+
+    subroutine assert_initialized_add_with_addend(initializer, addend)
+        character(len=*), intent(in) :: initializer, addend
+        character(len=512) :: source
+
+        source = 'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+            '  x = '//trim(initializer)//new_line('a')//'  x = x + '//trim(addend)// &
+            new_line('a')//'  print *, x'//new_line('a')//'end program main'//new_line('a')
+        call frontend_parse_program_unit_v2('initialized-add-generic.f90', trim(source), &
+            'initialized-add-generic-input', unit, ok, message)
+        if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 2 .or. &
+            trim(unit%execution_part%sequence%assignment(1)%expression%left_operand) /= trim(initializer) .or. &
+            trim(unit%execution_part%sequence%assignment(2)%expression%right_operand) /= trim(addend) .or. &
+            trim(unit%root%span%source_hash) /= 'initialized-add-generic-input' .or. &
+            trim(unit%declaration%span%source_hash) /= 'initialized-add-generic-input' .or. &
+            trim(unit%execution_part%sequence%assignment(1)%span%source_hash) /= &
+            'initialized-add-generic-input' .or. &
+            trim(unit%execution_part%sequence%assignment(2)%span%source_hash) /= &
+            'initialized-add-generic-input' .or. &
+            trim(unit%execution_part%print%span%source_hash) /= 'initialized-add-generic-input') then
+            error stop 'generic initialized addend transport or provenance changed'
+        end if
+        if (unit%execution_part%sequence%assignment(2)%span%end_byte <= &
+            unit%execution_part%sequence%assignment(2)%span%start_byte) then
+            error stop 'generic initialized addend span changed'
+        end if
+    end subroutine assert_initialized_add_with_addend
 
 end program test_frontend_program_unit_v2_initializer

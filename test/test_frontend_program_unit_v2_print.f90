@@ -323,7 +323,7 @@ program test_frontend_program_unit_v2_print
         'end program main'//new_line('a')
     character(len=*), parameter :: variable_multiply_expression_wrong_operator = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-        '  x = 23'//new_line('a')//'  x = x + 2'//new_line('a')// &
+        '  x = 23'//new_line('a')//'  x = x + 11'//new_line('a')// &
         '  print *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_multiply_expression_wrong_name = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
@@ -335,7 +335,7 @@ program test_frontend_program_unit_v2_print
         '  write *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_subtract_expression_wrong_operator = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-        '  x = 23'//new_line('a')//'  x = x + 2'//new_line('a')// &
+        '  x = 23'//new_line('a')//'  x = x + 11'//new_line('a')// &
         '  print *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_divide_expression_wrong_operator = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
