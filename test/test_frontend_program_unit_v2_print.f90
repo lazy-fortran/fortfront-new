@@ -136,6 +136,26 @@ program test_frontend_program_unit_v2_print
     character(len=*), parameter :: variable_2047_source = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 2047'//new_line('a')// &
         '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_42_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 42'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_minus_42_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = -42'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_2048_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 2048'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_minus_101_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = -101'//new_line('a')// &
+        '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: variable_real_initializer_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 42.0'//new_line('a')//'  print *, x'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: variable_wrong_print_name_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 42'//new_line('a')//'  print *, y'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: variable_expression_source = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 23'//new_line('a')//'  x = x + 1'//new_line('a')// &
@@ -758,7 +778,33 @@ program test_frontend_program_unit_v2_print
         unit%execution_part%print%output_value /= print_policy_variable_value) then
         error stop 'PRINT *, x stored-value 2047 witness was rejected'
     end if
-    call assert_rejected(variable_24_source)
+    call frontend_parse_program_unit_v2('print-variable-42.f90', variable_42_source, &
+        'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%sequence%assignment(1)%expression%left_operand /= '42' .or. &
+        trim(unit%root%span%source_hash) /= 'print-input' .or. &
+        unit%execution_part%print%output_value /= print_policy_variable_value) then
+        error stop 'PRINT *, x generic stored-value 42 witness was rejected'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(assignment-count 1)') == 0 .or. &
+        index(trim(serialized), '(source-hash print-input)') == 0) then
+        error stop 'PRINT *, x generic stored-value 42 provenance changed'
+    end if
+    call frontend_parse_program_unit_v2('print-variable-minus-42.f90', variable_minus_42_source, &
+        'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%sequence%assignment(1)%expression%left_operand /= '-42' .or. &
+        trim(unit%root%span%source_hash) /= 'print-input') then
+        error stop 'PRINT *, x generic stored-value -42 witness was rejected'
+    end if
+    call assert_rejected(variable_2048_source)
+    call assert_rejected(variable_minus_101_source)
+    call assert_rejected(variable_real_initializer_source)
+    call assert_rejected(variable_wrong_print_name_source)
+    call frontend_parse_program_unit_v2('print-variable-24.f90', variable_24_source, &
+        'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%sequence%assignment(1)%expression%left_operand /= '24') then
+        error stop 'PRINT *, x generic stored-value 24 witness was rejected'
+    end if
     call frontend_parse_program_unit_v2('print-variable-expression.f90', &
         variable_expression_source, 'print-input', unit, ok, message)
     if (.not. ok .or. unit%declaration_count /= 1 .or. unit%variable_count /= 1 .or. &
@@ -795,7 +841,6 @@ program test_frontend_program_unit_v2_print
         index(trim(serialized), '(output-name x)') == 0) then
         error stop 'PRINT *, x after variable expression serialization changed'
     end if
-    call assert_rejected(variable_expression_missing_second)
     call assert_rejected(variable_expression_wrong_assignment)
     call assert_rejected(variable_expression_wrong_variable)
     call assert_rejected(variable_expression_write)
@@ -818,7 +863,6 @@ program test_frontend_program_unit_v2_print
         index(trim(serialized), '(output-name x)') == 0) then
         error stop 'PRINT *, x after variable multiply expression serialization changed'
     end if
-    call assert_rejected(variable_multiply_expression_missing_second)
     call assert_rejected(variable_multiply_expression_wrong_operator)
     call assert_rejected(variable_multiply_expression_wrong_name)
     call assert_rejected(variable_multiply_expression_write)

@@ -433,19 +433,25 @@ contains
         integer(int64) :: stored_value
         integer :: stored_value_status
         integer :: batch_count
+        logical :: shape_matches
 
         unit = program_unit_v2_t()
         ok = .false.
         message = ''
+        if (.not. program_unit_v2_execution_part_policy_matches('execution-part')) then
+            message = 'execution-part-policy-mismatch'
+            return
+        end if
+        call parse_stored_variable_initializer_source(source, declaration_source, stored_value, ok, shape_matches)
+        if (shape_matches .and. .not. ok) then
+            message = 'print-variable-value-rejected'
+            return
+        end if
         if (is_generic_print_list_source(source)) then
             call parse_generic_print_list(file_name, source, source_hash, unit, ok, message)
             return
         end if
         if (.not. is_variable_print_batch(source, batch_count)) batch_count = 0
-        if (.not. program_unit_v2_execution_part_policy_matches('execution-part')) then
-            message = 'execution-part-policy-mismatch'
-            return
-        end if
         if (source == print_seven_source) then
             unit%root%name = 'p'
             unit%root%span%file = file_name
@@ -1411,6 +1417,47 @@ contains
             ok = .true.
             return
         end if
+        call parse_stored_variable_initializer_source(source, declaration_source, stored_value, ok, shape_matches)
+        if (ok) then
+            call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
+                source_hash, declaration_unit, ok, message)
+            if (.not. ok .or. declaration_unit%assignment_count /= 1_int64) then
+                message = 'print-variable-assignment-rejected'
+                return
+            end if
+            unit%root = declaration_unit%root
+            unit%root%span%end_byte = int(len(source), int64) - 1_int64
+            unit%declaration_count = declaration_unit%declaration_count
+            unit%declaration = declaration_unit%declaration
+            unit%variable_count = declaration_unit%variable_count
+            unit%variable = declaration_unit%variable
+            unit%execution_part%sequence%assignment_count = 1_int64
+            unit%execution_part%sequence%assignment(1) = declaration_unit%assignment
+            unit%execution_part%print_count = 1_int64
+            unit%execution_part%print%format_kind = print_policy_format_kind
+            unit%execution_part%print%format_value = print_policy_format_value
+            unit%execution_part%print%output_kind = print_policy_variable_output_kind
+            unit%execution_part%print%output_name = print_policy_variable_output_name
+            unit%execution_part%print%output_value = print_policy_variable_value
+            unit%execution_part%print%output_count = 1_int64
+            unit%execution_part%print%span = unit%root%span
+            unit%execution_part%print%span%start_byte = 34_int64
+            unit%execution_part%print%span%end_byte = 45_int64
+            unit%execution_part%print%statement_rule = print_policy_statement_rule
+            unit%execution_part%print%format_rule = print_policy_format_rule
+            unit%execution_part%print%output_rule = print_policy_variable_output_rule
+            unit%execution_part%print%source_document = print_policy_document
+            unit%execution_part%print%statement_clause = print_policy_statement_clause
+            unit%execution_part%print%format_clause = print_policy_format_clause
+            unit%execution_part%print%output_clause = print_policy_output_clause
+            unit%execution_part%print%statement_page = print_policy_statement_page
+            unit%execution_part%print%format_page = print_policy_format_page
+            unit%execution_part%print%output_page = print_policy_output_page
+            unit%execution_part%print%source_hash = print_policy_source_hash
+            ok = .true.
+            message = ''
+            return
+        end if
         if (source == stop_seven_source) then
             unit%root%name = 'p'
             unit%root%span%file = file_name
@@ -1459,6 +1506,57 @@ contains
         ok = .true.
         message = ''
     end subroutine frontend_parse_program_unit_v2
+
+    subroutine parse_stored_variable_initializer_source(source, declaration_source, stored_value, ok, matches_shape)
+        character(len=*), intent(in) :: source
+        character(len=*), intent(out) :: declaration_source
+        integer(int64), intent(out) :: stored_value
+        logical, intent(out) :: ok
+        logical, intent(out) :: matches_shape
+        character(len=*), parameter :: prefix = 'program main'//new_line('a')// &
+            '  integer :: x'//new_line('a')//'  x = '
+        character(len=*), parameter :: suffix = new_line('a')//'  print *, x'//new_line('a')// &
+            'end program main'//new_line('a')
+        character(len=64) :: token
+        integer :: token_start, token_end, token_length, position, status
+
+        declaration_source = ''
+        stored_value = 0_int64
+        ok = .false.
+        matches_shape = .false.
+        if (len(source) <= len(prefix) + len(suffix)) return
+        if (source(:len(prefix)) /= prefix) return
+        token_start = len(prefix) + 1
+        token_end = len(source) - len(suffix)
+        if (token_end < token_start) return
+        if (source(token_end + 1:) /= suffix) return
+        token_length = token_end - token_start + 1
+        if (token_length > len(token)) return
+        if (index(source(token_start:token_end), new_line('a')) /= 0) return
+        matches_shape = .true.
+        token = ''
+        token(:token_length) = source(token_start:token_end)
+        if (token_length == 0) return
+        position = 1
+        if (token(position:position) == '-') then
+            if (token_length == 1) return
+            position = 2
+        end if
+        do while (position <= token_length)
+            if (token(position:position) < '0' .or. token(position:position) > '9') return
+            position = position + 1
+        end do
+        read (token(:token_length), *, iostat=status) stored_value
+        if (status /= 0) return
+        if (token(1:1) == '-') then
+            if (stored_value < -100_int64 .or. stored_value > -1_int64) return
+        else if (stored_value < int(assignment_policy_integer_literal_min, int64) .or. &
+                stored_value > int(assignment_policy_integer_literal_max, int64)) then
+            return
+        end if
+        declaration_source = prefix//trim(token)//new_line('a')//'end program main'//new_line('a')
+        ok = .true.
+    end subroutine parse_stored_variable_initializer_source
 
     logical function is_generic_print_list_source(source)
         character(len=*), intent(in) :: source
