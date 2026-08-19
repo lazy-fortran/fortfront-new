@@ -77,8 +77,8 @@ module fortfront_program_unit_v2
     implicit none
     private
 
-    integer(int64), parameter :: initialized_power_min = 2_int64
-    integer(int64), parameter :: initialized_power_max = 4_int64
+    integer(int64), parameter :: initialized_power_min = print_policy_power_min
+    integer(int64), parameter :: initialized_power_max = print_policy_power_max
 
     type, public :: stop_stmt_t
         integer(int64) :: code = 0_int64

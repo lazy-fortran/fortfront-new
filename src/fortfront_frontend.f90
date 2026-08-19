@@ -38,12 +38,14 @@ module fortfront_frontend
         assignment_policy_signed_integer_literal_max, &
         assignment_policy_rows, assignment_policy_row_count, &
         assignment_policy_source_page
+    use frontend_print_policy_generated, only: print_policy_power_min, &
+        print_policy_power_max
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
     private
 
-    integer(int64), parameter :: assignment_power_min = 2_int64
-    integer(int64), parameter :: assignment_power_max = 4_int64
+    integer(int64), parameter :: assignment_power_min = print_policy_power_min
+    integer(int64), parameter :: assignment_power_max = print_policy_power_max
 
     character(len=*), parameter, public :: frontend_accepted = 'accepted'
     character(len=*), parameter, public :: frontend_rejected = 'rejected'
