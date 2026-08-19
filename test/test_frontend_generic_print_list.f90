@@ -22,6 +22,12 @@ program test_frontend_generic_print_list
     call check_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, 7, x + 1, x'//new_line('a')//'end program main'//new_line('a'), 3)
+    call check_subtract_expression('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
+        '  print *, x – 2, 7'//new_line('a')//'end program main'//new_line('a'), 1, 2)
+    call check_subtract_expression('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
+        '  print *, 7, x – 2, x'//new_line('a')//'end program main'//new_line('a'), 2, 3)
     call check_multiply_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x * 2, 7'//new_line('a')//'end program main'//new_line('a'))
@@ -175,6 +181,32 @@ contains
             '(rule R1217) (clause 12.6.3) (page 248))') == 0) &
             error stop 'generic PRINT expression serialization changed'
     end subroutine check_expression
+
+    subroutine check_subtract_expression(source, expression_index, expected_count)
+        character(len=*), intent(in) :: source
+        integer, intent(in) :: expression_index, expected_count
+        type(program_unit_v2_t) :: unit
+        character(len=65536) :: serialized, message
+        logical :: ok
+
+        call frontend_parse_program_unit_v2('generic-print-subtract-expression.f90', source, &
+            'generic-print-expression-test', unit, ok, message)
+        if (.not. ok .or. unit%execution_part%print%output_count /= expected_count .or. &
+            trim(unit%execution_part%print%output_items(expression_index)%kind) /= &
+            'integer-expression' .or. &
+            trim(unit%execution_part%print%output_items(expression_index)%operator) /= '–' .or. &
+            trim(unit%execution_part%print%output_items(expression_index)%left) /= 'x' .or. &
+            trim(unit%execution_part%print%output_items(expression_index)%right) /= '2' .or. &
+            trim(unit%root%span%source_hash) /= &
+            'l3-raw-program-generic-print-expression-v0') then
+            error stop 'generic PRINT subtraction expression was rejected'
+        end if
+        call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+        if (.not. ok .or. index(serialized, '(operator –)') == 0 .or. &
+            index(serialized, '(left x)') == 0 .or. index(serialized, '(right 2)') == 0) then
+            error stop 'generic PRINT subtraction expression serialization changed'
+        end if
+    end subroutine check_subtract_expression
 
     subroutine check_multiply_expression(source)
         character(len=*), intent(in) :: source

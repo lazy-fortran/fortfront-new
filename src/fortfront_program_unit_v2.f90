@@ -52,6 +52,8 @@ module fortfront_program_unit_v2
         print_policy_power_left, print_policy_power_min, print_policy_power_max, &
         print_policy_expression_5_operator, print_policy_expression_5_left, &
         print_policy_expression_5_right, print_policy_expression_5_source, &
+        print_policy_expression_6_operator, print_policy_expression_6_left, &
+        print_policy_expression_6_right, print_policy_expression_6_source, &
         print_policy_integer_literal_min
     implicit none
     private
@@ -1377,12 +1379,15 @@ contains
             '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')
         character(len=*), parameter :: prefix_4 = 'program main'//new_line('a')// &
             '  integer :: x'//new_line('a')//'  x = 4'//new_line('a')
+        character(len=*), parameter :: prefix_5 = 'program main'//new_line('a')// &
+            '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')
         is_generic_print_list_source = .false.
         print_start = index(source, '  print *,')
         if (print_start == 0) return
         is_generic_print_list_source = (print_start == len(prefix_3) + 1 .and. &
             index(source, prefix_3) == 1 .or. print_start == len(prefix_4) + 1 .and. &
-            index(source, prefix_4) == 1) .and. &
+            index(source, prefix_4) == 1 .or. print_start == len(prefix_5) + 1 .and. &
+            index(source, prefix_5) == 1) .and. &
             index(source, new_line('a')//'end program main'//new_line('a')) > print_start
     end function is_generic_print_list_source
 
@@ -1465,7 +1470,8 @@ contains
                 token == print_policy_expression_2_source .or. &
                 token == print_policy_expression_3_source .or. &
                 token == print_policy_expression_4_source .or. &
-                token == print_policy_expression_5_source) then
+                token == print_policy_expression_5_source .or. &
+                token == print_policy_expression_6_source) then
                 if (is_print_power_literal(token)) has_expression = .true.
                 cycle
             else if (is_print_nonnegative_decimal_integer(token)) then
@@ -1476,7 +1482,11 @@ contains
         end do
         if (item_count /= 2 .and. item_count /= 3 .and. item_count /= 5) return
 
-        if (index(source, '  x = 4'//new_line('a')) > 0) then
+        if (index(source, '  x = 5'//new_line('a')) > 0) then
+            declaration_source = 'program main'//new_line('a')// &
+                '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
+                'end program main'//new_line('a')
+        else if (index(source, '  x = 4'//new_line('a')) > 0) then
             declaration_source = 'program main'//new_line('a')// &
                 '  integer :: x'//new_line('a')//'  x = 4'//new_line('a')// &
                 'end program main'//new_line('a')
@@ -1495,7 +1505,8 @@ contains
             any(parsed_items(:item_count) == print_policy_expression_2_source) .or. &
             any(parsed_items(:item_count) == print_policy_expression_3_source) .or. &
             any(parsed_items(:item_count) == print_policy_expression_4_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_5_source)) then
+            any(parsed_items(:item_count) == print_policy_expression_5_source) .or. &
+            any(parsed_items(:item_count) == print_policy_expression_6_source)) then
             unit%root%span%source_hash = print_policy_expression_source_identity
         else
             unit%root%span%source_hash = print_policy_generic_source_identity
@@ -1524,7 +1535,8 @@ contains
                     token == print_policy_expression_2_source .or. &
                     token == print_policy_expression_3_source .or. &
                     token == print_policy_expression_4_source .or. &
-                    token == print_policy_expression_5_source) then
+                    token == print_policy_expression_5_source .or. &
+                    token == print_policy_expression_6_source) then
                 unit%execution_part%print%output_items(item_index)%kind = 'integer-expression'
                 if (is_print_power_literal(token)) then
                     unit%execution_part%print%output_items(item_index)%operator = &
@@ -1560,13 +1572,20 @@ contains
                         print_policy_expression_4_left
                     unit%execution_part%print%output_items(item_index)%right = &
                         print_policy_expression_4_right
-                else
+                else if (token == print_policy_expression_5_source) then
                     unit%execution_part%print%output_items(item_index)%operator = &
                         print_policy_expression_5_operator
                     unit%execution_part%print%output_items(item_index)%left = &
                         print_policy_expression_5_left
                     unit%execution_part%print%output_items(item_index)%right = &
                         print_policy_expression_5_right
+                else
+                    unit%execution_part%print%output_items(item_index)%operator = &
+                        print_policy_expression_6_operator
+                    unit%execution_part%print%output_items(item_index)%left = &
+                        print_policy_expression_6_left
+                    unit%execution_part%print%output_items(item_index)%right = &
+                        print_policy_expression_6_right
                 end if
                 unit%execution_part%print%output_items(item_index)%rule = 'R1217'
             else

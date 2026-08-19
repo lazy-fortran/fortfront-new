@@ -70,6 +70,18 @@ program test_frontend_program_unit_v2_print
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 3'//new_line('a')//'  print *, x + x, x + 1'//new_line('a')// &
         'end program main'//new_line('a')
+    character(len=*), parameter :: generic_subtract_expression_item_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 5'//new_line('a')//'  print *, x – 2, 7'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: generic_subtract_expression_list_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 5'//new_line('a')//'  print *, 7, x – 2, x'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: generic_ascii_subtract_expression_source = &
+        'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+        '  x = 5'//new_line('a')//'  print *, x - 2, 7'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: generic_variable_expression_wrong_operator = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
         '  x = 3'//new_line('a')//'  print *, x * x'//new_line('a')// &
@@ -595,6 +607,33 @@ program test_frontend_program_unit_v2_print
         index(trim(serialized), '(source-identity l3-raw-program-generic-print-expression-v0)') == 0) then
         error stop 'generic PRINT variable-expression serialization changed'
     end if
+    call frontend_parse_program_unit_v2('print-generic-subtract-expression.f90', &
+        generic_subtract_expression_item_source, 'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_count /= 2 .or. &
+        trim(unit%execution_part%print%output_items(1)%kind) /= print_policy_expression_kind .or. &
+        trim(unit%execution_part%print%output_items(1)%operator) /= '–' .or. &
+        trim(unit%execution_part%print%output_items(1)%left) /= 'x' .or. &
+        trim(unit%execution_part%print%output_items(1)%right) /= '2' .or. &
+        unit%execution_part%print%output_items(2)%value /= 7) then
+        error stop 'generic PRINT subtraction expression witness was rejected'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(operator –)') == 0 .or. &
+        index(trim(serialized), '(value 7)') == 0 .or. &
+        index(trim(serialized), '(source-identity l3-raw-program-generic-print-expression-v0)') == 0) then
+        error stop 'generic PRINT subtraction expression serialization changed'
+    end if
+    call frontend_parse_program_unit_v2('print-generic-subtract-expression-list.f90', &
+        generic_subtract_expression_list_source, 'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_count /= 3 .or. &
+        unit%execution_part%print%output_items(1)%value /= 7 .or. &
+        trim(unit%execution_part%print%output_items(2)%operator) /= '–' .or. &
+        trim(unit%execution_part%print%output_items(2)%left) /= 'x' .or. &
+        trim(unit%execution_part%print%output_items(2)%right) /= '2' .or. &
+        trim(unit%execution_part%print%output_items(3)%kind) /= 'variable') then
+        error stop 'generic PRINT list-position subtraction witness was rejected'
+    end if
+    call assert_rejected(generic_ascii_subtract_expression_source)
     call assert_rejected(generic_variable_expression_wrong_operator)
     call assert_rejected(generic_variable_expression_wrong_name)
     call assert_rejected(generic_variable_expression_missing_second)
