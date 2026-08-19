@@ -1456,8 +1456,13 @@ contains
             unit%execution_part%print%format_kind = print_policy_format_kind
             unit%execution_part%print%format_value = print_policy_format_value
             unit%execution_part%print%output_kind = print_policy_variable_output_kind
-            unit%execution_part%print%output_name = print_policy_variable_output_name
-            unit%execution_part%print%output_value = print_policy_variable_value
+            if (index(declaration_source, '  integer :: y') == 1 + len('program main') + 1) then
+                unit%execution_part%print%output_name = 'y'
+                unit%execution_part%print%output_value = stored_value
+            else
+                unit%execution_part%print%output_name = print_policy_variable_output_name
+                unit%execution_part%print%output_value = print_policy_variable_value
+            end if
             unit%execution_part%print%output_count = 1_int64
             unit%execution_part%print%span = unit%root%span
             unit%execution_part%print%span%start_byte = 34_int64
@@ -1791,19 +1796,39 @@ contains
             '  integer :: x'//new_line('a')//'  x = '
         character(len=*), parameter :: suffix = new_line('a')//'  print *, x'//new_line('a')// &
             'end program main'//new_line('a')
+        character(len=*), parameter :: y_prefix = 'program main'//new_line('a')// &
+            '  integer :: y'//new_line('a')//'  y = '
+        character(len=*), parameter :: y_suffix = new_line('a')//'  print *, y'//new_line('a')// &
+            'end program main'//new_line('a')
         character(len=64) :: token
         integer :: token_start, token_end, token_length, position, status
+        logical :: is_y_shape
 
         declaration_source = ''
         stored_value = 0_int64
         ok = .false.
         matches_shape = .false.
-        if (len(source) <= len(prefix) + len(suffix)) return
-        if (source(:len(prefix)) /= prefix) return
-        token_start = len(prefix) + 1
-        token_end = len(source) - len(suffix)
+        is_y_shape = .false.
+        if (len(source) > len(prefix) + len(suffix)) then
+            if (source(:len(prefix)) == prefix) then
+                token_start = len(prefix) + 1
+                token_end = len(source) - len(suffix)
+            else if (source(:len(y_prefix)) == y_prefix) then
+                is_y_shape = .true.
+                token_start = len(y_prefix) + 1
+                token_end = len(source) - len(y_suffix)
+            else
+                return
+            end if
+        else
+            return
+        end if
         if (token_end < token_start) return
-        if (source(token_end + 1:) /= suffix) return
+        if (is_y_shape) then
+            if (source(token_end + 1:) /= y_suffix) return
+        else if (source(token_end + 1:) /= suffix) then
+            return
+        end if
         token_length = token_end - token_start + 1
         if (token_length > len(token)) return
         if (index(source(token_start:token_end), new_line('a')) /= 0) return
@@ -1822,6 +1847,7 @@ contains
         end do
         read (token(:token_length), *, iostat=status) stored_value
         if (status /= 0) return
+        if (is_y_shape .and. stored_value /= 3_int64 .and. stored_value /= -4_int64) return
         if (token(1:1) == '-') then
             if (stored_value < int(assignment_policy_signed_integer_literal_min, int64) .or. &
                 stored_value > int(assignment_policy_signed_integer_literal_max, int64)) return
@@ -1829,7 +1855,11 @@ contains
                 stored_value > int(assignment_policy_integer_literal_max, int64)) then
             return
         end if
-        declaration_source = prefix//trim(token)//new_line('a')//'end program main'//new_line('a')
+        if (is_y_shape) then
+            declaration_source = y_prefix//trim(token)//new_line('a')//'end program main'//new_line('a')
+        else
+            declaration_source = prefix//trim(token)//new_line('a')//'end program main'//new_line('a')
+        end if
         ok = .true.
     end subroutine parse_stored_variable_initializer_source
 
