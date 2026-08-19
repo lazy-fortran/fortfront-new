@@ -160,7 +160,7 @@ module frontend_print_policy_generated
         'R1217'
     integer(int64), parameter, public :: print_policy_integer_literal_min = 0_int64
     integer(int64), parameter, public :: print_policy_decimal_expression_min = 0_int64
-    integer(int64), parameter, public :: print_policy_decimal_expression_max = 10_int64
+    integer(int64), parameter, public :: print_policy_decimal_expression_max = 100_int64
     character(len=*), parameter, public :: print_policy_document = 'J3-24-007'
     character(len=*), parameter, public :: print_policy_statement_clause = '12.6.1'
     character(len=*), parameter, public :: print_policy_format_clause = '12.6.2.2'
