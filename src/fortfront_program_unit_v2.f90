@@ -1472,7 +1472,7 @@ contains
                 source_hash, declaration_unit, ok, message)
             if (.not. ok) return
             call frontend_parse_typed_assignment_sequence(file_name, assignment_sequence_two_23_source, &
-                assignment_sequence_source_hash, unit%execution_part%sequence, ok, message)
+                source_hash, unit%execution_part%sequence, ok, message)
             if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 2_int64) then
                 message = 'print-variable-expression-assignment-rejected'
                 return
