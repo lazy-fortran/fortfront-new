@@ -36,16 +36,13 @@ module fortfront_lexical_grammar_session
         fortfront_grammar_session_malformed
     integer, parameter, public :: fortfront_lexical_grammar_session_capacity = &
         fortfront_grammar_session_capacity
-    integer, parameter, public :: fortfront_lexical_grammar_session_no_match = &
-        fortfront_lexical_token_no_match
-    integer, parameter, public :: fortfront_lexical_grammar_session_unsupported = &
-        fortfront_lexical_token_unsupported
-    integer, parameter, public :: fortfront_lexical_grammar_session_token_ambiguous = &
-        fortfront_lexical_token_ambiguous
-    integer, parameter, public :: fortfront_lexical_grammar_session_token_malformed = &
-        fortfront_lexical_token_malformed
-    integer, parameter, public :: fortfront_lexical_grammar_session_end_of_stream = 8
-    integer, parameter, public :: fortfront_lexical_grammar_session_initialized = 9
+    integer, parameter, public :: fortfront_lexical_grammar_session_no_match = 10
+    integer, parameter, public :: fortfront_lexical_grammar_session_unsupported = 11
+    integer, parameter, public :: fortfront_lexical_grammar_session_token_ambiguous = 12
+    integer, parameter, public :: fortfront_lexical_grammar_session_token_malformed = 13
+    integer, parameter, public :: fortfront_lexical_grammar_session_token_capacity = 14
+    integer, parameter, public :: fortfront_lexical_grammar_session_end_of_stream = 15
+    integer, parameter, public :: fortfront_lexical_grammar_session_initialized = 16
 
     type, public :: fortfront_lexical_grammar_session_t
         private
@@ -139,9 +136,18 @@ contains
         end if
         if (candidate%status /= fortfront_lexical_token_match) then
             token = candidate
-            status = candidate%status
+            status = map_token_status(candidate%status)
             message = candidate%message
             if (len_trim(message) == 0) message = lexical_status_message(candidate%status)
+            return
+        end if
+        call fortfront_grammar_session_push(session%grammar, candidate%symbol, output, output_count, &
+            grammar_status, grammar_message)
+        status = grammar_status
+        message = grammar_message
+        if (grammar_status == fortfront_lexical_grammar_session_malformed .or. &
+            grammar_status == fortfront_lexical_grammar_session_capacity) then
+            token = candidate
             return
         end if
         call fortfront_lexical_token_cursor_advance(session%cursor, token, cursor_status, &
@@ -151,10 +157,6 @@ contains
             message = 'lexical-grammar-session-cursor-advance-failed: '//trim(cursor_message)
             return
         end if
-        call fortfront_grammar_session_push(session%grammar, token%symbol, output, output_count, &
-            grammar_status, grammar_message)
-        status = grammar_status
-        message = grammar_message
     end subroutine fortfront_lexical_grammar_session_advance
 
     subroutine fortfront_lexical_grammar_session_finalize(session, output, output_count, status, &
@@ -188,7 +190,7 @@ contains
             return
         end if
         if (candidate%status /= fortfront_lexical_token_match) then
-            status = candidate%status
+            status = map_token_status(candidate%status)
             message = candidate%message
             if (len_trim(message) == 0) message = lexical_status_message(candidate%status)
             return
@@ -196,6 +198,25 @@ contains
         message = 'lexical-grammar-session-has-unconsumed-matched-token'
         return
     end subroutine fortfront_lexical_grammar_session_finalize
+
+    integer function map_token_status(token_status)
+        integer, intent(in) :: token_status
+
+        select case (token_status)
+        case (fortfront_lexical_token_no_match)
+            map_token_status = fortfront_lexical_grammar_session_no_match
+        case (fortfront_lexical_token_unsupported)
+            map_token_status = fortfront_lexical_grammar_session_unsupported
+        case (fortfront_lexical_token_ambiguous)
+            map_token_status = fortfront_lexical_grammar_session_token_ambiguous
+        case (fortfront_lexical_token_malformed)
+            map_token_status = fortfront_lexical_grammar_session_token_malformed
+        case (fortfront_lexical_token_capacity)
+            map_token_status = fortfront_lexical_grammar_session_token_capacity
+        case default
+            map_token_status = fortfront_lexical_grammar_session_token_malformed
+        end select
+    end function map_token_status
 
     logical function token_provenance_is_valid(token, message)
         type(fortfront_lexical_token_t), intent(in) :: token

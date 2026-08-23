@@ -33,16 +33,19 @@ class Model:
         if any(not alternative for alternative in self.alternatives):
             raise ValueError(MALFORMED)
 
-    def evaluate(self) -> str:
+    def evaluate_symbols(self, symbols: list[str]) -> str:
         if self.unresolved:
             return UNRESOLVED
         matches = [alternative for alternative in self.alternatives
-                   if tuple(self.symbols) == alternative]
+                   if tuple(symbols) == alternative]
         if len(matches) > self.capacity:
             return CAPACITY
         if len(matches) == 0:
             return REJECTED
         return ACCEPTED if len(matches) == 1 else AMBIGUOUS
+
+    def evaluate(self) -> str:
+        return self.evaluate_symbols(self.symbols)
 
     def advance(self) -> str:
         if self.cursor == len(self.tokens):
@@ -55,9 +58,13 @@ class Model:
         symbol = token.get("symbol", "")
         if not symbol:
             return MALFORMED
+        candidate_symbols = [*self.symbols, symbol]
+        outcome = self.evaluate_symbols(candidate_symbols)
+        if outcome in (MALFORMED, CAPACITY):
+            return outcome
         self.cursor += 1
-        self.symbols.append(symbol)
-        return self.evaluate()
+        self.symbols = candidate_symbols
+        return outcome
 
     def finalize(self) -> str:
         if self.cursor < len(self.tokens):
@@ -85,6 +92,28 @@ def main() -> None:
     require(session.cursor == 1, "unsupported consumed the cursor")
     require(session.finalize() == UNSUPPORTED, "lexical failure finalized as accepted")
 
+    capacity_retry = Model([("x",), ("x",)], capacity=1,
+                           tokens=[{"symbol": "x", "status": "match"}])
+    require(capacity_retry.advance() == CAPACITY, "capacity outcome differs")
+    require(capacity_retry.cursor == 0 and capacity_retry.symbols == [],
+            "capacity consumed the token")
+    capacity_retry.capacity = 2
+    require(capacity_retry.advance() == AMBIGUOUS, "capacity retry outcome differs")
+    require(capacity_retry.cursor == 1 and capacity_retry.symbols == ["x"],
+            "capacity retry did not commit the token")
+
+    pending = Model([("x",)], tokens=[{"symbol": "x", "status": "match"}])
+    require(pending.finalize() == MALFORMED, "matched finalization was accepted")
+    require(pending.cursor == 0 and pending.symbols == [],
+            "matched finalization consumed the token")
+    require(pending.advance() == ACCEPTED and pending.cursor == 1,
+            "matched token was not available after finalization")
+
+    malformed_push = Model([("x",)], tokens=[{"symbol": "", "status": "match"}])
+    require(malformed_push.advance() == MALFORMED, "malformed grammar push differs")
+    require(malformed_push.cursor == 0 and malformed_push.symbols == [],
+            "malformed grammar push consumed the token")
+
     for status, expected in (("no-match", NO_MATCH), ("unsupported", UNSUPPORTED),
                              ("ambiguous", TOKEN_AMBIGUOUS), ("malformed", MALFORMED)):
         isolated = Model([("x",)], tokens=[{"symbol": "x", "status": status}])
@@ -101,10 +130,6 @@ def main() -> None:
     require(Model([("x",)], unresolved=True,
                   tokens=[{"symbol": "x", "status": "match"}]).advance()
             == UNRESOLVED, "unresolved outcome differs")
-    require(Model([("x",), ("x",)], capacity=1,
-                  tokens=[{"symbol": "x", "status": "match"}]).advance()
-            == CAPACITY, "capacity outcome differs")
-
     try:
         Model([], tokens=[])
     except ValueError as error:

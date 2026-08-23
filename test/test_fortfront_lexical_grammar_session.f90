@@ -20,6 +20,7 @@ program test_fortfront_lexical_grammar_session
         fortfront_lexical_grammar_session_rejected, &
         fortfront_lexical_grammar_session_t, &
         fortfront_lexical_grammar_session_token_ambiguous, &
+        fortfront_lexical_grammar_session_token_capacity, &
         fortfront_lexical_grammar_session_token_malformed, &
         fortfront_lexical_grammar_session_unresolved, &
         fortfront_lexical_grammar_session_unsupported
@@ -30,6 +31,7 @@ program test_fortfront_lexical_grammar_session
     implicit none
 
     call test_ordered_match_and_projection()
+    call test_status_space()
     call test_lexical_failures_are_transactional()
     call test_grammar_outcomes()
     call test_malformed_input()
@@ -71,6 +73,34 @@ contains
         call require(status == fortfront_lexical_grammar_session_end_of_stream, &
             'end of stream was not explicit')
     end subroutine test_ordered_match_and_projection
+
+    subroutine test_status_space()
+        integer :: statuses(17), i, j
+
+        statuses = [fortfront_lexical_grammar_session_accepted, &
+            fortfront_lexical_grammar_session_rejected, fortfront_lexical_grammar_session_ambiguous, &
+            fortfront_lexical_grammar_session_unresolved, fortfront_lexical_grammar_session_malformed, &
+            fortfront_lexical_grammar_session_capacity, fortfront_lexical_grammar_session_no_match, &
+            fortfront_lexical_grammar_session_unsupported, &
+            fortfront_lexical_grammar_session_token_ambiguous, &
+            fortfront_lexical_grammar_session_token_malformed, &
+            fortfront_lexical_grammar_session_token_capacity, &
+            fortfront_lexical_grammar_session_end_of_stream, &
+            fortfront_lexical_grammar_session_initialized, 17, 18, 19, 20]
+        do i = 1, size(statuses)
+            do j = i + 1, size(statuses)
+                call require(statuses(i) /= statuses(j), 'adapter status space collides')
+            end do
+        end do
+        call require(fortfront_lexical_grammar_session_no_match == 10 .and. &
+            fortfront_lexical_grammar_session_unsupported == 11 .and. &
+            fortfront_lexical_grammar_session_token_ambiguous == 12 .and. &
+            fortfront_lexical_grammar_session_token_malformed == 13 .and. &
+            fortfront_lexical_grammar_session_token_capacity == 14 .and. &
+            fortfront_lexical_grammar_session_end_of_stream == 15 .and. &
+            fortfront_lexical_grammar_session_initialized == 16, &
+            'adapter lexical status mapping changed')
+    end subroutine test_status_space
 
     subroutine test_lexical_failures_are_transactional()
         type(fortfront_grammar_table_t) :: table
@@ -177,6 +207,13 @@ contains
             status, message)
         call require(status == fortfront_lexical_grammar_session_capacity .and. output_count == 0, &
             'grammar capacity outcome was not passed through')
+        call require(token%symbol == 'choice' .and. token%start_byte == 10_int64, &
+            'capacity failure lost the source token')
+        call fortfront_lexical_grammar_session_advance(session, token, output, output_count, &
+            status, message)
+        call require(status == fortfront_lexical_grammar_session_ambiguous .and. &
+            output_count == 2 .and. token%symbol == 'choice' .and. token%start_byte == 10_int64, &
+            'capacity retry did not consume and return the same token')
 
         call make_unresolved_table(table)
         call analyze(table, facts, fact_count)
@@ -193,6 +230,21 @@ contains
             tokens, 1, status, message)
         call require(status == fortfront_lexical_grammar_session_malformed, &
             'malformed grammar outcome was not passed through')
+
+        call make_single_table(table, 'FINAL', 'first')
+        call analyze(table, facts, fact_count)
+        call make_tokens(tokens)
+        call fortfront_lexical_grammar_session_initialize(session, table, facts, fact_count, 'S', &
+            tokens, 1, status, message)
+        call fortfront_lexical_grammar_session_finalize(session, output, output_count, status, &
+            message)
+        call require(status == fortfront_lexical_grammar_session_malformed .and. output_count == 0, &
+            'unconsumed matched token finalized as accepted')
+        call fortfront_lexical_grammar_session_advance(session, token, output, output_count, &
+            status, message)
+        call require(status == fortfront_lexical_grammar_session_accepted .and. &
+            token%symbol == 'first' .and. token%start_byte == 10_int64, &
+            'matched token finalization consumed or lost the token')
     end subroutine test_grammar_outcomes
 
     subroutine test_malformed_input()
