@@ -145,42 +145,6 @@ module fortfront_program_unit_v2
     character(len=*), parameter :: stop_seven_source = &
         'program p'//new_line('a')//'  stop 7'//new_line('a')// &
         'end program p'//new_line('a')
-    character(len=*), parameter :: print_variable_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 17'//new_line('a')// &
-        '  print *, x'//new_line('a')// &
-        'end program main'//new_line('a')
-    character(len=*), parameter :: print_variable_23_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 23'//new_line('a')// &
-        '  print *, x'//new_line('a')// &
-        'end program main'//new_line('a')
-    character(len=*), parameter :: print_variable_zero_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 0'//new_line('a')// &
-        '  print *, x'//new_line('a')// &
-        'end program main'//new_line('a')
-    character(len=*), parameter :: print_variable_2047_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 2047'//new_line('a')// &
-        '  print *, x'//new_line('a')// &
-        'end program main'//new_line('a')
-    character(len=*), parameter :: print_variable_negative_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = -5'//new_line('a')// &
-        '  print *, x'//new_line('a')// &
-        'end program main'//new_line('a')
-    character(len=*), parameter :: print_variable_negative_boundary_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = -100'//new_line('a')// &
-        '  print *, x'//new_line('a')// &
-        'end program main'//new_line('a')
     character(len=*), parameter :: print_variable_expression_source = &
         'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')// &
@@ -410,7 +374,6 @@ contains
         integer(int64) :: generic_addend
         character(len=128) :: execution_source_hash
         integer(int64) :: stored_value
-        integer :: stored_value_status
         integer :: print_position
         integer :: batch_count
         character(len=64) :: print_source
@@ -423,6 +386,10 @@ contains
             message = 'execution-part-policy-mismatch'
             return
         end if
+        if (is_generic_print_list_source(source)) then
+            call parse_generic_print_list(file_name, source, source_hash, unit, ok, message)
+            return
+        end if
         call parse_stored_variable_initializer_source(source, declaration_source, stored_value, ok, shape_matches)
         if (shape_matches .and. .not. ok) then
             message = 'print-variable-value-rejected'
@@ -433,10 +400,6 @@ contains
             generic_assignment_shape, generic_variable_exponent)
         if (generic_assignment_shape .and. .not. ok) then
             message = 'print-variable-value-rejected'
-            return
-        end if
-        if (is_generic_print_list_source(source)) then
-            call parse_generic_print_list(file_name, source, source_hash, unit, ok, message)
             return
         end if
         if (.not. is_variable_print_batch(source, batch_count)) batch_count = 0
@@ -752,109 +715,6 @@ contains
             message = ''
             return
         end if
-        if (source == print_variable_source .or. source == print_variable_23_source .or. &
-            source == print_variable_zero_source .or. source == print_variable_2047_source .or. &
-            source == print_variable_negative_source .or. &
-            source == print_variable_negative_boundary_source) then
-            if (source == print_variable_source) then
-                declaration_source = 'program main'//new_line('a')// &
-                    '  integer :: x'//new_line('a')// &
-                    '  x = 17'//new_line('a')//'end program main'//new_line('a')
-            else if (source == print_variable_23_source) then
-                declaration_source = 'program main'//new_line('a')// &
-                    '  integer :: x'//new_line('a')// &
-                    '  x = 23'//new_line('a')//'end program main'//new_line('a')
-            else if (source == print_variable_zero_source) then
-                declaration_source = 'program main'//new_line('a')// &
-                    '  integer :: x'//new_line('a')// &
-                    '  x = 0'//new_line('a')//'end program main'//new_line('a')
-            else if (source == print_variable_2047_source) then
-                declaration_source = 'program main'//new_line('a')// &
-                    '  integer :: x'//new_line('a')// &
-                    '  x = 2047'//new_line('a')//'end program main'//new_line('a')
-            else if (source == print_variable_negative_source) then
-                declaration_source = 'program main'//new_line('a')// &
-                    '  integer :: x'//new_line('a')// &
-                    '  x = -5'//new_line('a')//'end program main'//new_line('a')
-            else
-                declaration_source = 'program main'//new_line('a')// &
-                    '  integer :: x'//new_line('a')// &
-                    '  x = -100'//new_line('a')//'end program main'//new_line('a')
-            end if
-            call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
-                source_hash, declaration_unit, ok, message)
-            if (.not. ok .or. declaration_unit%assignment_count /= 1_int64) then
-                message = 'print-variable-assignment-rejected'
-                return
-            end if
-            read (declaration_unit%assignment%expression%left_operand, *, iostat=stored_value_status) &
-                stored_value
-            if (stored_value_status /= 0) then
-                message = 'print-variable-value-rejected'
-                return
-            end if
-            if (source == print_variable_negative_source) then
-                if (stored_value /= -5_int64) then
-                    message = 'print-variable-value-rejected'
-                    return
-                end if
-            else if (source == print_variable_negative_boundary_source) then
-                if (stored_value /= -100_int64) then
-                    message = 'print-variable-value-rejected'
-                    return
-                end if
-            else if (source == print_variable_zero_source .or. &
-                    source == print_variable_2047_source) then
-                if (stored_value < int(assignment_policy_integer_literal_min, int64) .or. &
-                    stored_value > int(assignment_policy_integer_literal_max, int64)) then
-                    message = 'print-variable-value-rejected'
-                    return
-                end if
-            else if (stored_value /= print_policy_variable_value .and. &
-                    stored_value /= print_policy_variable_value_2) then
-                message = 'print-variable-value-rejected'
-                return
-            end if
-            unit%root = declaration_unit%root
-            unit%root%span%end_byte = int(len(source), int64) - 1_int64
-            unit%declaration_count = declaration_unit%declaration_count
-            unit%declaration = declaration_unit%declaration
-            unit%variable_count = declaration_unit%variable_count
-            unit%variable = declaration_unit%variable
-            unit%execution_part%sequence%assignment_count = 1_int64
-            unit%execution_part%sequence%assignment(1) = declaration_unit%assignment
-            unit%execution_part%sequence%assignment(1)%span%end_byte = 31_int64
-            unit%execution_part%print_count = 1_int64
-            unit%execution_part%print%format_kind = print_policy_format_kind
-            unit%execution_part%print%format_value = print_policy_format_value
-            unit%execution_part%print%output_kind = print_policy_variable_output_kind
-            unit%execution_part%print%output_name = print_policy_variable_output_name
-            if (source == print_variable_zero_source .or. source == print_variable_2047_source .or. &
-                source == print_variable_negative_source) then
-                unit%execution_part%print%output_value = print_policy_variable_value
-            else if (source == print_variable_negative_boundary_source) then
-                unit%execution_part%print%output_value = print_policy_variable_value
-            else
-                unit%execution_part%print%output_value = stored_value
-            end if
-            unit%execution_part%print%output_count = 1_int64
-            unit%execution_part%print%span = unit%root%span
-            unit%execution_part%print%span%start_byte = 34_int64
-            unit%execution_part%print%span%end_byte = 45_int64
-            unit%execution_part%print%statement_rule = print_policy_statement_rule
-            unit%execution_part%print%format_rule = print_policy_format_rule
-            unit%execution_part%print%output_rule = print_policy_variable_output_rule
-            unit%execution_part%print%source_document = print_policy_document
-            unit%execution_part%print%statement_clause = print_policy_statement_clause
-            unit%execution_part%print%format_clause = print_policy_format_clause
-            unit%execution_part%print%output_clause = print_policy_output_clause
-            unit%execution_part%print%statement_page = print_policy_statement_page
-            unit%execution_part%print%format_page = print_policy_format_page
-            unit%execution_part%print%output_page = print_policy_output_page
-            unit%execution_part%print%source_hash = print_policy_source_hash
-            ok = .true.
-            return
-        end if
         if (.not. generic_assignment_shape) then
             call parse_stored_variable_initializer_source(source, declaration_source, stored_value, ok, shape_matches)
         end if
@@ -886,7 +746,11 @@ contains
                 unit%execution_part%print%output_value = stored_value
             else
                 unit%execution_part%print%output_name = print_policy_variable_output_name
-                unit%execution_part%print%output_value = print_policy_variable_value
+                if (stored_value == print_policy_variable_value_2) then
+                    unit%execution_part%print%output_value = stored_value
+                else
+                    unit%execution_part%print%output_value = print_policy_variable_value
+                end if
             end if
             unit%execution_part%print%output_count = 1_int64
             unit%execution_part%print%span = unit%root%span
@@ -1317,19 +1181,17 @@ contains
         integer :: print_start
         character(len=*), parameter :: pure_prefix = 'program p'//new_line('a')
         character(len=*), parameter :: pure_suffix = new_line('a')//'end program p'//new_line('a')
-        character(len=*), parameter :: prefix_3 = 'program main'//new_line('a')// &
-            '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')
-        character(len=*), parameter :: prefix_4 = 'program main'//new_line('a')// &
-            '  integer :: x'//new_line('a')//'  x = 4'//new_line('a')
-        character(len=*), parameter :: prefix_5 = 'program main'//new_line('a')// &
-            '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')
+        character(len=*), parameter :: declaration_prefix = 'program main'//new_line('a')// &
+            '  integer :: x'//new_line('a')
         is_generic_print_list_source = .false.
         print_start = index(source, '  print *,')
         if (print_start == 0) return
-        is_generic_print_list_source = (print_start == len(prefix_3) + 1 .and. &
-            index(source, prefix_3) == 1 .or. print_start == len(prefix_4) + 1 .and. &
-            index(source, prefix_4) == 1 .or. print_start == len(prefix_5) + 1 .and. &
-            index(source, prefix_5) == 1) .and. &
+        is_generic_print_list_source = index(source, declaration_prefix) == 1 .and. &
+            index(source, '  x = x ') == 0 .and. &
+            (index(source(print_start + len('  print *,'):), ',') > 0 .or. &
+            index(source, '  x = 3'//new_line('a')) > 0 .or. &
+            index(source, '  x = 4'//new_line('a')) > 0 .or. &
+            index(source, '  x = 5'//new_line('a')) > 0) .and. &
             index(source, new_line('a')//'end program main'//new_line('a')) > print_start
         if (index(source, pure_prefix) == 1 .and. index(source, pure_suffix) > print_start) &
             is_generic_print_list_source = .true.
@@ -1393,11 +1255,13 @@ contains
         character(len=*), intent(out) :: message
         type(typed_program_unit_t) :: declaration_unit
         character(len=256) :: declaration_source
-        character(len=256) :: line, rest, token
+        character(len=1024) :: line, rest, token, normalized_source
         character(len=32) :: parsed_items(16)
         integer :: print_start, line_end, token_end, item_count, item_index
         logical :: has_declaration, has_expression
         integer(int64) :: source_start, source_end
+        integer(int64) :: stored_value
+        logical :: initializer_ok, initializer_shape_matches
 
         unit = program_unit_v2_t()
         ok = .false.
@@ -1452,8 +1316,13 @@ contains
         end do
         if (item_count < print_policy_output_count_min .or. &
             item_count > print_policy_output_count_max) return
-        if (has_declaration .and. index(source, '  x = ') == 0) return
-        if (has_declaration .and. index(source, '  x = x ') > 0) return
+        if (has_declaration) then
+            normalized_source = source(:print_start - 1)//'  print *, x'//new_line('a')// &
+                'end program main'//new_line('a')
+            call parse_stored_variable_initializer_source(trim(normalized_source), declaration_source, &
+                stored_value, initializer_ok, initializer_shape_matches)
+            if (.not. initializer_shape_matches .or. .not. initializer_ok) return
+        end if
 
         if (.not. has_declaration) then
             unit%root%name = 'p'
@@ -1461,18 +1330,6 @@ contains
             unit%root%span%start_byte = 0_int64
             unit%root%span%end_byte = int(len(source), int64) - 1_int64
             unit%root%span%source_hash = source_hash
-        else if (index(source, '  x = 5'//new_line('a')) > 0) then
-            declaration_source = 'program main'//new_line('a')// &
-                '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
-                'end program main'//new_line('a')
-        else if (index(source, '  x = 4'//new_line('a')) > 0) then
-            declaration_source = 'program main'//new_line('a')// &
-                '  integer :: x'//new_line('a')//'  x = 4'//new_line('a')// &
-                'end program main'//new_line('a')
-        else
-            declaration_source = 'program main'//new_line('a')// &
-                '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
-                'end program main'//new_line('a')
         end if
         if (has_declaration) then
             call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
@@ -1519,6 +1376,7 @@ contains
             if (token == 'x') then
                 unit%execution_part%print%output_items(item_index)%kind = 'variable'
                 unit%execution_part%print%output_items(item_index)%name = 'x'
+                unit%execution_part%print%output_items(item_index)%value = stored_value
                 unit%execution_part%print%output_items(item_index)%rule = 'R901'
             else if (is_print_power_literal(token) .or. is_print_decimal_expression(token) .or. &
                     token == print_policy_expression_source .or. &

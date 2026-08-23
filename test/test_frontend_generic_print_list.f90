@@ -57,6 +57,11 @@ program test_frontend_generic_print_list
         'end program main'//new_line('a'), 10, &
         '(output-item (kind integer-literal) (value 11) (rule R1217) (clause 12.6.3) (page 248))', &
         '(source-identity l3-raw-program-generic-print-list-v0)')
+    call check_positive('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 37'//new_line('a')// &
+        '  print *, x, 11, x'//new_line('a')//'end program main'//new_line('a'), 3, &
+        '(output-item (kind variable) (name x) (rule R901) (clause 12.6.3) (page 248))', &
+        '(output-item (kind integer-literal) (value 11) (rule R1217) (clause 12.6.3) (page 248))')
     call check_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x + 1, 7'//new_line('a')//'end program main'//new_line('a'), 2)
