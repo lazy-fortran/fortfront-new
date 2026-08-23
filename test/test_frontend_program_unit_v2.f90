@@ -38,6 +38,14 @@ program test_frontend_program_unit_v2
     character(len=*), parameter :: raw_counter_wrong_print = 'program main'//new_line('a')// &
         '  integer :: counter_2'//new_line('a')//'  counter_2 = 42'//new_line('a')// &
         '  print *, other_2'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: raw_counter_two_assignment = 'program main'//new_line('a')// &
+        '  integer :: counter_2'//new_line('a')//'  counter_2 = 42'//new_line('a')// &
+        '  counter_2 = counter_2 + 1'//new_line('a')//'  print *, counter_2'//new_line('a')// &
+        'end program main'//new_line('a')
+    character(len=*), parameter :: raw_counter_wrong_update = 'program main'//new_line('a')// &
+        '  integer :: counter_2'//new_line('a')//'  counter_2 = 42'//new_line('a')// &
+        '  counter_2 = counter_2 +'//new_line('a')//'  print *, counter_2'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: six_wrong_operator = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
@@ -163,6 +171,49 @@ program test_frontend_program_unit_v2
         index(trim(serialized), '(output-name counter_2)') == 0) then
         error stop 'generic raw counter AST-v2 serialization changed: '//trim(message)
     end if
+    call frontend_parse_program_unit_v2('raw-counter-two-assignment.f90', &
+        raw_counter_two_assignment, 'raw-counter-two-assignment-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 2 .or. &
+        trim(unit%execution_part%sequence%assignment(1)%variable) /= 'counter_2' .or. &
+        trim(unit%execution_part%sequence%assignment(1)%expression%left_operand) /= '42' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%variable) /= 'counter_2' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%kind) /= 'binary-expression' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%operator) /= '+' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%left_operand) /= 'counter_2' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%right_operand) /= '1' .or. &
+        trim(unit%execution_part%print%output_name) /= 'counter_2' .or. &
+        unit%execution_part%sequence%assignment(1)%span%start_byte /= &
+        int(index(raw_counter_two_assignment, '  counter_2 = 42') - 1) .or. &
+        unit%execution_part%sequence%assignment(1)%span%end_byte /= &
+        int(index(raw_counter_two_assignment, '  counter_2 = 42') - 1) + &
+        len('  counter_2 = 42') - 1 .or. &
+        unit%execution_part%sequence%assignment(2)%span%start_byte /= &
+        int(index(raw_counter_two_assignment, '  counter_2 = counter_2 + 1') - 1) .or. &
+        unit%execution_part%sequence%assignment(2)%span%end_byte /= &
+        int(index(raw_counter_two_assignment, '  counter_2 = counter_2 + 1') - 1) + &
+        len('  counter_2 = counter_2 + 1') - 1 .or. &
+        unit%execution_part%print%span%start_byte /= &
+        int(index(raw_counter_two_assignment, '  print *, counter_2') - 1) .or. &
+        unit%execution_part%print%span%end_byte /= &
+        int(index(raw_counter_two_assignment, '  print *, counter_2') - 1) + &
+        len('  print *, counter_2') - 1 .or. &
+        trim(unit%root%span%source_hash) /= 'raw-counter-two-assignment-input' .or. &
+        trim(unit%variable%span%source_hash) /= 'raw-counter-two-assignment-input' .or. &
+        trim(unit%execution_part%sequence%assignment(1)%span%source_hash) /= &
+        'raw-counter-two-assignment-input' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%span%source_hash) /= &
+        'raw-counter-two-assignment-input' .or. &
+        trim(unit%execution_part%print%span%source_hash) /= 'raw-counter-two-assignment-input') then
+        error stop 'generic raw counter two-assignment AST-v2 fields changed'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(assignment-count 2)') == 0 .or. &
+        index(trim(serialized), '(operator +)') == 0 .or. &
+        index(trim(serialized), '(left-operand counter_2)') == 0 .or. &
+        index(trim(serialized), '(right-operand 1)') == 0) then
+        error stop 'generic raw counter two-assignment serialization changed'
+    end if
+    call check_rejected(raw_counter_wrong_update)
     call check_rejected(raw_counter_wrong_print)
     call check_rejected(wrong_name)
     call check_rejected(wrong_type)

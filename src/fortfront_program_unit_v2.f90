@@ -235,6 +235,7 @@ contains
         character(len=64) :: generic_initializer
         character(len=8) :: generic_operator
         character(len=16) :: generic_addend_text
+        character(len=128) :: generic_variable_name
         integer(int64) :: generic_addend
         character(len=128) :: execution_source_hash
         integer(int64) :: stored_value
@@ -263,7 +264,7 @@ contains
         end if
         call parse_generic_initialized_add_source(source, declaration_source, generic_initializer, &
             generic_operator, generic_addend, stored_value, ok, &
-            generic_assignment_shape, generic_variable_exponent)
+            generic_assignment_shape, generic_variable_exponent, generic_variable_name)
         if (generic_assignment_shape .and. .not. ok) then
             message = 'print-variable-value-rejected'
             return
@@ -461,10 +462,14 @@ contains
                 return
             end if
             unit%execution_part%sequence%assignment(1)%expression%left_operand = trim(generic_initializer)
+            unit%execution_part%sequence%assignment(1)%variable = trim(generic_variable_name)
+            unit%execution_part%sequence%assignment(2)%variable = trim(generic_variable_name)
             unit%execution_part%sequence%assignment(2)%expression%operator = trim(generic_operator)
+            unit%execution_part%sequence%assignment(2)%expression%left_operand = &
+                trim(generic_variable_name)
             if (generic_variable_exponent) then
                 unit%execution_part%sequence%assignment(2)%expression%right_operand = &
-                    'x'
+                    trim(generic_variable_name)
             else
                 write (generic_addend_text, '(i0)') generic_addend
                 unit%execution_part%sequence%assignment(2)%expression%right_operand = &
@@ -477,12 +482,14 @@ contains
             unit%variable_count = declaration_unit%variable_count
             unit%variable = declaration_unit%variable
             unit%execution_part%sequence%assignment(1)%span%start_byte = &
-                int(index(source, '  x = ') - 1, int64)
+                int(index(source, '  '//trim(generic_variable_name)//' = ') - 1, int64)
             unit%execution_part%sequence%assignment(1)%span%end_byte = &
                 unit%execution_part%sequence%assignment(1)%span%start_byte + &
-                int(len_trim(generic_initializer) + 5, int64)
+                int(len_trim('  '//trim(generic_variable_name)//' = '// &
+                trim(generic_initializer)) - 1, int64)
             unit%execution_part%sequence%assignment(2)%span%start_byte = &
-                int(index(source, '  x = x '//trim(generic_operator)//' ') - 1, int64)
+                int(index(source, '  '//trim(generic_variable_name)//' = '// &
+                trim(generic_variable_name)//' '//trim(generic_operator)//' ') - 1, int64)
             unit%execution_part%sequence%assignment(2)%span%end_byte = &
                 unit%execution_part%sequence%assignment(2)%span%start_byte + &
                 int(index(source(unit%execution_part%sequence%assignment(2)%span%start_byte + 1:), &
@@ -491,12 +498,14 @@ contains
             unit%execution_part%print%format_kind = print_policy_format_kind
             unit%execution_part%print%format_value = print_policy_format_value
             unit%execution_part%print%output_kind = print_policy_variable_output_kind
-            unit%execution_part%print%output_name = print_policy_variable_output_name
+            unit%execution_part%print%output_name = trim(generic_variable_name)
             unit%execution_part%print%output_value = print_policy_variable_value_2
             unit%execution_part%print%output_count = 1_int64
             unit%execution_part%print%span = unit%root%span
-            unit%execution_part%print%span%start_byte = int(index(source, '  print *, x') - 1, int64)
-            unit%execution_part%print%span%end_byte = unit%execution_part%print%span%start_byte + 11_int64
+            unit%execution_part%print%span%start_byte = int(index(source, '  print *, '// &
+                trim(generic_variable_name)) - 1, int64)
+            unit%execution_part%print%span%end_byte = unit%execution_part%print%span%start_byte + &
+                int(len_trim('  print *, '//trim(generic_variable_name)) - 1, int64)
             unit%execution_part%print%statement_rule = print_policy_statement_rule
             unit%execution_part%print%format_rule = print_policy_format_rule
             unit%execution_part%print%output_rule = print_policy_variable_output_rule
@@ -563,21 +572,21 @@ contains
 
     subroutine parse_generic_initialized_add_source(source, declaration_source, &
             initializer, operator, addend, stored_value, ok, matches_shape, &
-            variable_exponent)
+            variable_exponent, variable_name)
         character(len=*), intent(in) :: source
         character(len=*), intent(out) :: declaration_source, initializer, operator
         integer(int64), intent(out) :: addend
         integer(int64), intent(out) :: stored_value
         logical, intent(out) :: ok, matches_shape, variable_exponent
-        character(len=*), parameter :: prefix = 'program main'//new_line('a')// &
-            '  integer :: x'//new_line('a')//'  x = '
-        character(len=*), parameter :: assignment_prefix = '  x = x '
-        character(len=*), parameter :: print_suffix = new_line('a')// &
-            '  print *, x'//new_line('a')//'end program main'//new_line('a')
+        character(len=*), intent(out) :: variable_name
+        character(len=*), parameter :: declaration_prefix = 'program main'//new_line('a')// &
+            '  integer :: '
         character(len=1024) :: initializer_source, parsed_declaration_source, tail
         character(len=64) :: assignment_line
         character(len=128) :: initializer_variable_name
-        integer :: initializer_end, assignment_end, token_length
+        character(len=256) :: assignment_prefix, print_suffix
+        integer :: declaration_end, initializer_end, assignment_end, token_length
+        integer :: assignment_prefix_length
         logical :: initializer_shape_matches
 
         declaration_source = ''
@@ -588,10 +597,23 @@ contains
         ok = .false.
         matches_shape = .false.
         variable_exponent = .false.
+        variable_name = ''
         if (source == print_variable_subtract_expression_source) return
-        if (len(source) <= len(prefix) + len(print_suffix) + len(assignment_prefix)) return
-        if (source(:len(prefix)) /= prefix) return
-        tail = source(len(prefix) + 1:)
+        if (len(source) <= len(declaration_prefix)) return
+        if (source(:len(declaration_prefix)) /= declaration_prefix) return
+        declaration_end = index(source(len(declaration_prefix) + 1:), new_line('a'))
+        if (declaration_end <= 1) return
+        variable_name = trim(source(len(declaration_prefix) + 1: &
+            len(declaration_prefix) + declaration_end - 1))
+        if (.not. valid_variable_name(variable_name)) return
+        assignment_prefix = '  '//trim(variable_name)//' = '
+        assignment_prefix_length = len('  '//trim(variable_name)//' = ')
+        print_suffix = new_line('a')//'  print *, '//trim(variable_name)// &
+            new_line('a')//'end program main'//new_line('a')
+        tail = source(len(declaration_prefix) + declaration_end + 1:)
+        if (len(tail) <= assignment_prefix_length .or. &
+            tail(:assignment_prefix_length) /= assignment_prefix(:assignment_prefix_length)) return
+        tail = tail(assignment_prefix_length + 1:)
         initializer_end = index(tail, new_line('a'))
         if (initializer_end <= 1) return
         token_length = initializer_end - 1
@@ -599,15 +621,18 @@ contains
         initializer = tail(:token_length)
         tail = tail(initializer_end + 1:)
         assignment_end = index(tail, new_line('a'))
-        if (assignment_end <= len(assignment_prefix) + 1 .or. assignment_end > len(assignment_line)) return
+        if (assignment_end <= len('  '//trim(variable_name)//' = ') + 1 .or. &
+            assignment_end > len(assignment_line)) return
         assignment_line = ''
         assignment_line(:assignment_end - 1) = tail(:assignment_end - 1)
-        if (tail(assignment_end:) /= print_suffix) return
+        if (tail(assignment_end:) /= trim(print_suffix)) return
         matches_shape = .true.
         if (.not. parse_generic_update_line(assignment_line(:assignment_end - 1), &
-            operator, addend, variable_exponent)) return
-        initializer_source = prefix//trim(initializer)//new_line('a')// &
-            '  print *, x'//new_line('a')//'end program main'//new_line('a')
+            variable_name, operator, addend, variable_exponent)) return
+        initializer_source = 'program main'//new_line('a')//'  integer :: '// &
+            trim(variable_name)//new_line('a')//'  '//trim(variable_name)//' = '// &
+            trim(initializer)//new_line('a')//'  print *, '//trim(variable_name)// &
+            new_line('a')//'end program main'//new_line('a')
         call parse_stored_variable_initializer_source(trim(initializer_source), parsed_declaration_source, &
             stored_value, initializer_variable_name, ok, initializer_shape_matches)
         if (.not. initializer_shape_matches) then
@@ -622,18 +647,14 @@ contains
         declaration_source = parsed_declaration_source
     end subroutine parse_generic_initialized_add_source
 
-    logical function parse_generic_update_line(line, operator, addend, &
+    logical function parse_generic_update_line(line, variable_name, operator, addend, &
             variable_exponent)
         character(len=*), intent(in) :: line
+        character(len=*), intent(in) :: variable_name
         character(len=*), intent(out) :: operator
         integer(int64), intent(out) :: addend
         logical, intent(out) :: variable_exponent
         character(len=32) :: token
-        character(len=11), parameter :: update_prefixes(5) = [character(len=11) :: &
-            '  x = x + ', '  x = x - ', '  x = x * ', '  x = x / ', '  x = x ** ']
-        integer, parameter :: update_prefix_lengths(5) = [10, 10, 10, 10, 11]
-        character(len=2), parameter :: update_operators(5) = [character(len=2) :: &
-            '+ ', '- ', '* ', '/ ', '**']
         character(len=17), parameter :: variable_expression_kinds(4) = [character(len=17) :: &
             'add-variable', 'multiply-variable', 'divide-variable', 'subtract-variable']
         character(len=5), parameter :: variable_expression_rules(4) = [character(len=5) :: &
@@ -641,31 +662,51 @@ contains
         character(len=5), parameter :: variable_operator_rules(4) = [character(len=5) :: &
             'R1010', 'R1009', 'R1009', 'R1010']
         integer, parameter :: variable_policy_indices(5) = [1, 4, 2, 3, 0]
-        integer :: status, position, operator_index
+        character(len=256) :: update_prefix
+        integer :: status, position, operator_index, prefix_length
 
         parse_generic_update_line = .false.
         operator = ''
         addend = 0_int64
         variable_exponent = .false.
-        if (len_trim(line) <= len('  x = x ')) return
+        update_prefix = '  '//trim(variable_name)//' = '//trim(variable_name)//' '
+        prefix_length = len_trim(update_prefix)
+        if (len_trim(line) <= prefix_length) return
+        if (line(:prefix_length) /= update_prefix(:prefix_length)) return
         operator_index = 0
-        do position = 1, size(update_prefixes)
-            if (len_trim(line) < update_prefix_lengths(position)) cycle
-            if (line(:update_prefix_lengths(position)) /= &
-                update_prefixes(position)(:update_prefix_lengths(position))) cycle
-            operator_index = position
-            operator = trim(update_operators(position))
-            token = adjustl(line(update_prefix_lengths(position) + 1:))
-            exit
-        end do
+        token = adjustl(line(prefix_length + 1:))
+        if (len_trim(token) < 2) return
+        if (token(:2) == '+ ') then
+            operator_index = 1
+            operator = '+'
+            token = adjustl(token(3:))
+        else if (token(:2) == '- ') then
+            operator_index = 2
+            operator = '-'
+            token = adjustl(token(3:))
+        else if (token(:2) == '* ') then
+            operator_index = 3
+            operator = '*'
+            token = adjustl(token(3:))
+        else if (token(:2) == '/ ') then
+            operator_index = 4
+            operator = '/'
+            token = adjustl(token(3:))
+        else if (len_trim(token) >= 3) then
+            if (token(:3) == '** ') then
+                operator_index = 5
+                operator = '**'
+                token = adjustl(token(4:))
+            end if
+        end if
         if (len_trim(operator) == 0) return
         if (len_trim(token) == 0) return
-        if (operator == '**' .and. trim(token) == 'x') then
+        if (operator == '**' .and. trim(token) == trim(variable_name)) then
             variable_exponent = .true.
             parse_generic_update_line = .true.
             return
         end if
-        if (operator_index <= 4 .and. trim(token) == 'x') then
+        if (operator_index <= 4 .and. trim(token) == trim(variable_name)) then
             do position = 1, assignment_policy_row_count
                 if (trim(assignment_policy_rows(position)%expression_kind) /= &
                     trim(variable_expression_kinds(variable_policy_indices(operator_index)))) cycle
