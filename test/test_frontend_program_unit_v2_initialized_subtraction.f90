@@ -13,6 +13,7 @@ program test_frontend_program_unit_v2_initialized_subtraction
     call assert_accepted('-42', '10')
     call assert_accepted('42', '1')
     call assert_accepted('42', '10')
+    call assert_accepted_en_dash()
 
     call assert_rejected('42', 'x = x - 0')
     call assert_rejected('42', 'x = x - 11')
@@ -110,6 +111,25 @@ contains
             'initialized-subtraction-negative-input', unit, ok, message)
         if (ok) error stop 'invalid initialized subtraction was accepted'
     end subroutine assert_rejected
+
+    subroutine assert_accepted_en_dash()
+        character(len=:), allocatable :: source
+        character(len=256) :: en_dash_message
+        character(len=*), parameter :: source_hash = 'initialized-subtraction-en-dash-input'
+
+        source = 'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+            '  x = 23'//new_line('a')//'  x = x – 2'//new_line('a')// &
+            '  print *, x'//new_line('a')//'end program main'//new_line('a')
+        call frontend_parse_program_unit_v2('initialized-subtraction-en-dash.f90', source, &
+            source_hash, unit, ok, en_dash_message)
+        if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 2_int64 .or. &
+            unit%execution_part%print_count /= 1_int64 .or. &
+            trim(unit%execution_part%sequence%assignment(2)%expression%operator) /= '-' .or. &
+            trim(unit%execution_part%sequence%assignment(2)%expression%right_operand) /= '2' .or. &
+            unit%root%span%end_byte /= int(len(source) - 1, int64)) then
+            error stop 'UTF-8 en-dash subtraction was not accepted'
+        end if
+    end subroutine assert_accepted_en_dash
 
     subroutine assert_provenance(file_name, source_hash, start_byte, end_byte, label, &
             expected_file, expected_hash)
