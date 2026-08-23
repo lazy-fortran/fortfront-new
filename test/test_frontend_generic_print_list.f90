@@ -5,6 +5,31 @@ program test_frontend_generic_print_list
     use frontend_print_policy_generated, only: print_stmt_validate
     implicit none
 
+    call check_pure_literal('program p'//new_line('a')// &
+        '  print *, 31, 47, 59, 71'//new_line('a')//'end program p'//new_line('a'), &
+        [31_int64, 47_int64, 59_int64, 71_int64])
+    call check_pure_literal('program p'//new_line('a')// &
+        '  print *, 7'//new_line('a')//'end program p'//new_line('a'), [7_int64])
+    call check_pure_literal('program p'//new_line('a')// &
+        '  print *, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16'//new_line('a')// &
+        'end program p'//new_line('a'), [7_int64, 8_int64, 9_int64, 10_int64, &
+        11_int64, 12_int64, 13_int64, 14_int64, 15_int64, 16_int64])
+    call check_rejected('program p'//new_line('a')//'  print *,'//new_line('a')// &
+        'end program p'//new_line('a'))
+    call check_rejected('program p'//new_line('a')//'  print *, 31,'//new_line('a')// &
+        'end program p'//new_line('a'))
+    call check_rejected('program p'//new_line('a')//'  print *, 31.0'//new_line('a')// &
+        'end program p'//new_line('a'))
+    call check_rejected('program p'//new_line('a')//'  write *, 31'//new_line('a')// &
+        'end program p'//new_line('a'))
+    call check_rejected('program p'//new_line('a')// &
+        '  print *, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11'//new_line('a')// &
+        'end program p'//new_line('a'))
+    call check_rejected('module p'//new_line('a')//'  print *, 31'//new_line('a')// &
+        'end module p'//new_line('a'))
+    call check_rejected('program p'//new_line('a')//'  print *, 31'//new_line('a')// &
+        'end program q'//new_line('a'))
+
     call check_positive('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x, 7, x'//new_line('a')//'end program main'//new_line('a'), &
@@ -198,6 +223,38 @@ program test_frontend_generic_print_list
         '  print *, x ** 2.0, 7'//new_line('a')//'end program main'//new_line('a'))
 
 contains
+
+    subroutine check_pure_literal(source, expected_values)
+        character(len=*), intent(in) :: source
+        integer(int64), intent(in) :: expected_values(:)
+        type(program_unit_v2_t) :: unit
+        character(len=128) :: message
+        character(len=64) :: source_hash
+        logical :: ok
+        integer :: item, print_start, line_end
+
+        source_hash = 'pure-print-test-source'
+        call frontend_parse_program_unit_v2('pure-print.f90', source, source_hash, unit, ok, message)
+        if (.not. ok .or. unit%execution_part%print%output_count /= size(expected_values)) &
+            error stop 'pure integer PRINT was rejected'
+        if (trim(unit%root%span%source_hash) /= trim(source_hash) .or. &
+            trim(unit%execution_part%print%source_identity) /= &
+            'l3-raw-program-generic-print-list-v0') &
+            error stop 'pure integer PRINT provenance changed'
+        print_start = index(source, '  print *,')
+        line_end = index(source(print_start:), new_line('a')) + print_start - 1
+        if (unit%execution_part%print%span%start_byte /= int(print_start - 1, int64) .or. &
+            unit%execution_part%print%span%end_byte /= int(line_end - 1, int64)) &
+            error stop 'pure integer PRINT span changed'
+        do item = 1, size(expected_values)
+            if (trim(unit%execution_part%print%output_items(item)%kind) /= 'integer-literal' .or. &
+                unit%execution_part%print%output_items(item)%value /= expected_values(item) .or. &
+                trim(unit%execution_part%print%output_items(item)%rule) /= 'R1217' .or. &
+                trim(unit%execution_part%print%output_items(item)%clause) /= '12.6.3' .or. &
+                unit%execution_part%print%output_items(item)%page /= 248_int64) &
+                error stop 'pure integer PRINT output item changed'
+        end do
+    end subroutine check_pure_literal
 
     subroutine check_positive(source, expected_count, expected_item, expected_extra)
         character(len=*), intent(in) :: source, expected_item, expected_extra

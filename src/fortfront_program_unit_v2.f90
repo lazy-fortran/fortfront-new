@@ -23,7 +23,8 @@ module fortfront_program_unit_v2
         stop_policy_code_rule, stop_policy_clause, &
         stop_policy_document, stop_policy_page, stop_policy_source_hash, &
         stop_policy_statement_rule
-    use frontend_print_policy_generated, only: print_stmt_t, print_stmt_validate, &
+    use frontend_print_policy_generated, only: print_stmt_t, &
+        generated_print_stmt_validate => print_stmt_validate, &
         print_stmt_to_sx, print_policy_format_kind, print_policy_format_value, &
         print_policy_output_kind, print_policy_output_value, &
         print_policy_variable_output_kind, print_policy_variable_output_name, &
@@ -143,39 +144,6 @@ module fortfront_program_unit_v2
         'end program main'//new_line('a')
     character(len=*), parameter :: stop_seven_source = &
         'program p'//new_line('a')//'  stop 7'//new_line('a')// &
-        'end program p'//new_line('a')
-    character(len=*), parameter :: print_seven_source = &
-        'program p'//new_line('a')//'  print *, 7'//new_line('a')// &
-        'end program p'//new_line('a')
-    character(len=*), parameter :: print_seven_eight_source = &
-        'program p'//new_line('a')//'  print *, 7, 8'//new_line('a')// &
-        'end program p'//new_line('a')
-    character(len=*), parameter :: print_seven_eight_nine_source = &
-        'program p'//new_line('a')//'  print *, 7, 8, 9'//new_line('a')// &
-        'end program p'//new_line('a')
-    character(len=*), parameter :: print_seven_eight_nine_ten_source = &
-        'program p'//new_line('a')//'  print *, 7, 8, 9, 10'//new_line('a')// &
-        'end program p'//new_line('a')
-    character(len=*), parameter :: print_seven_eight_nine_ten_eleven_source = &
-        'program p'//new_line('a')//'  print *, 7, 8, 9, 10, 11'//new_line('a')// &
-        'end program p'//new_line('a')
-    character(len=*), parameter :: print_seven_eight_nine_ten_eleven_twelve_source = &
-        'program p'//new_line('a')//'  print *, 7, 8, 9, 10, 11, 12'//new_line('a')// &
-        'end program p'//new_line('a')
-    character(len=*), parameter :: print_seven_eight_nine_ten_eleven_twelve_thirteen_source = &
-        'program p'//new_line('a')//'  print *, 7, 8, 9, 10, 11, 12, 13'//new_line('a')// &
-        'end program p'//new_line('a')
-    character(len=*), parameter :: print_eight_item_source = &
-        'program p'//new_line('a')//'  print *, 7, 8, 9, 10, 11, 12, 13, 14'//new_line('a')// &
-        'end program p'//new_line('a')
-    character(len=*), parameter :: print_nine_item_source = &
-        'program p'//new_line('a')//'  print *, 7, 8, 9, 10, 11, 12, 13, 14, 15'//new_line('a')// &
-        'end program p'//new_line('a')
-    character(len=*), parameter :: print_ten_item_source = &
-        'program p'//new_line('a')//'  print *, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16'//new_line('a')// &
-        'end program p'//new_line('a')
-    character(len=*), parameter :: print_generic_item_source = &
-        'program p'//new_line('a')//'  print *, 17, 18, 19'//new_line('a')// &
         'end program p'//new_line('a')
     character(len=*), parameter :: print_variable_source = &
         'program main'//new_line('a')// &
@@ -472,562 +440,6 @@ contains
             return
         end if
         if (.not. is_variable_print_batch(source, batch_count)) batch_count = 0
-        if (source == print_seven_source) then
-            unit%root%name = 'p'
-            unit%root%span%file = file_name
-            unit%root%span%start_byte = 0_int64
-            unit%root%span%end_byte = int(len(source), int64) - 1_int64
-            unit%root%span%source_hash = source_hash
-            unit%execution_part%print_count = 1_int64
-            unit%execution_part%print%format_kind = print_policy_format_kind
-            unit%execution_part%print%format_value = print_policy_format_value
-            unit%execution_part%print%output_kind = print_policy_output_kind
-            unit%execution_part%print%output_value = print_policy_output_value
-            unit%execution_part%print%output_count = 1_int64
-            unit%execution_part%print%span = unit%root%span
-            unit%execution_part%print%span%start_byte = 10_int64
-            unit%execution_part%print%span%end_byte = 21_int64
-            unit%execution_part%print%statement_rule = print_policy_statement_rule
-            unit%execution_part%print%format_rule = print_policy_format_rule
-            unit%execution_part%print%output_rule = print_policy_output_rule
-            unit%execution_part%print%source_document = print_policy_document
-            unit%execution_part%print%statement_clause = print_policy_statement_clause
-            unit%execution_part%print%format_clause = print_policy_format_clause
-            unit%execution_part%print%output_clause = print_policy_output_clause
-            unit%execution_part%print%statement_page = print_policy_statement_page
-            unit%execution_part%print%format_page = print_policy_format_page
-            unit%execution_part%print%output_page = print_policy_output_page
-            unit%execution_part%print%source_hash = print_policy_source_hash
-            ok = .true.
-            return
-        end if
-        if (source == print_seven_eight_source) then
-            unit%root%name = 'p'
-            unit%root%span%file = file_name
-            unit%root%span%start_byte = 0_int64
-            unit%root%span%end_byte = int(len(source), int64) - 1_int64
-            unit%root%span%source_hash = source_hash
-            unit%execution_part%print_count = 1_int64
-            unit%execution_part%print%format_kind = print_policy_format_kind
-            unit%execution_part%print%format_value = print_policy_format_value
-            unit%execution_part%print%output_kind = print_policy_output_kind
-            unit%execution_part%print%output_value = print_policy_output_value
-            unit%execution_part%print%output_count = 2_int64
-            unit%execution_part%print%output_2_kind = print_policy_output_2_kind
-            unit%execution_part%print%output_2_value = print_policy_output_2_value
-            unit%execution_part%print%span = unit%root%span
-            unit%execution_part%print%span%start_byte = 10_int64
-            unit%execution_part%print%span%end_byte = 24_int64
-            unit%execution_part%print%statement_rule = print_policy_statement_rule
-            unit%execution_part%print%format_rule = print_policy_format_rule
-            unit%execution_part%print%output_rule = print_policy_output_rule
-            unit%execution_part%print%output_2_rule = print_policy_output_2_rule
-            unit%execution_part%print%source_document = print_policy_document
-            unit%execution_part%print%statement_clause = print_policy_statement_clause
-            unit%execution_part%print%format_clause = print_policy_format_clause
-            unit%execution_part%print%output_clause = print_policy_output_clause
-            unit%execution_part%print%output_2_clause = print_policy_output_clause
-            unit%execution_part%print%statement_page = print_policy_statement_page
-            unit%execution_part%print%format_page = print_policy_format_page
-            unit%execution_part%print%output_page = print_policy_output_page
-            unit%execution_part%print%output_2_page = print_policy_output_page
-            unit%execution_part%print%source_hash = print_policy_source_hash
-            ok = .true.
-            return
-        end if
-        if (source == print_seven_eight_nine_source) then
-            unit%root%name = 'p'
-            unit%root%span%file = file_name
-            unit%root%span%start_byte = 0_int64
-            unit%root%span%end_byte = int(len(source), int64) - 1_int64
-            unit%root%span%source_hash = source_hash
-            unit%execution_part%print_count = 1_int64
-            unit%execution_part%print%format_kind = print_policy_format_kind
-            unit%execution_part%print%format_value = print_policy_format_value
-            unit%execution_part%print%output_kind = print_policy_output_kind
-            unit%execution_part%print%output_value = print_policy_output_value
-            unit%execution_part%print%output_count = 3_int64
-            unit%execution_part%print%output_2_kind = print_policy_output_2_kind
-            unit%execution_part%print%output_2_value = print_policy_output_2_value
-            unit%execution_part%print%output_3_kind = print_policy_output_3_kind
-            unit%execution_part%print%output_3_value = print_policy_output_3_value
-            unit%execution_part%print%span = unit%root%span
-            unit%execution_part%print%span%start_byte = 10_int64
-            unit%execution_part%print%span%end_byte = 27_int64
-            unit%execution_part%print%statement_rule = print_policy_statement_rule
-            unit%execution_part%print%format_rule = print_policy_format_rule
-            unit%execution_part%print%output_rule = print_policy_output_rule
-            unit%execution_part%print%output_2_rule = print_policy_output_2_rule
-            unit%execution_part%print%output_3_rule = print_policy_output_3_rule
-            unit%execution_part%print%source_document = print_policy_document
-            unit%execution_part%print%statement_clause = print_policy_statement_clause
-            unit%execution_part%print%format_clause = print_policy_format_clause
-            unit%execution_part%print%output_clause = print_policy_output_clause
-            unit%execution_part%print%output_2_clause = print_policy_output_clause
-            unit%execution_part%print%output_3_clause = print_policy_output_clause
-            unit%execution_part%print%statement_page = print_policy_statement_page
-            unit%execution_part%print%format_page = print_policy_format_page
-            unit%execution_part%print%output_page = print_policy_output_page
-            unit%execution_part%print%output_2_page = print_policy_output_page
-            unit%execution_part%print%output_3_page = print_policy_output_page
-            unit%execution_part%print%source_hash = print_policy_source_hash
-            ok = .true.
-            return
-        end if
-        if (source == print_seven_eight_nine_ten_source) then
-            unit%root%name = 'p'
-            unit%root%span%file = file_name
-            unit%root%span%start_byte = 0_int64
-            unit%root%span%end_byte = int(len(source), int64) - 1_int64
-            unit%root%span%source_hash = source_hash
-            unit%execution_part%print_count = 1_int64
-            unit%execution_part%print%format_kind = print_policy_format_kind
-            unit%execution_part%print%format_value = print_policy_format_value
-            unit%execution_part%print%output_kind = print_policy_output_kind
-            unit%execution_part%print%output_value = print_policy_output_value
-            unit%execution_part%print%output_count = 4_int64
-            unit%execution_part%print%output_2_kind = print_policy_output_2_kind
-            unit%execution_part%print%output_2_value = print_policy_output_2_value
-            unit%execution_part%print%output_3_kind = print_policy_output_3_kind
-            unit%execution_part%print%output_3_value = print_policy_output_3_value
-            unit%execution_part%print%output_4_kind = print_policy_output_4_kind
-            unit%execution_part%print%output_4_value = print_policy_output_4_value
-            unit%execution_part%print%span = unit%root%span
-            unit%execution_part%print%span%start_byte = 10_int64
-            unit%execution_part%print%span%end_byte = 31_int64
-            unit%execution_part%print%statement_rule = print_policy_statement_rule
-            unit%execution_part%print%format_rule = print_policy_format_rule
-            unit%execution_part%print%output_rule = print_policy_output_rule
-            unit%execution_part%print%output_2_rule = print_policy_output_2_rule
-            unit%execution_part%print%output_3_rule = print_policy_output_3_rule
-            unit%execution_part%print%output_4_rule = print_policy_output_4_rule
-            unit%execution_part%print%source_document = print_policy_document
-            unit%execution_part%print%statement_clause = print_policy_statement_clause
-            unit%execution_part%print%format_clause = print_policy_format_clause
-            unit%execution_part%print%output_clause = print_policy_output_clause
-            unit%execution_part%print%output_2_clause = print_policy_output_clause
-            unit%execution_part%print%output_3_clause = print_policy_output_clause
-            unit%execution_part%print%output_4_clause = print_policy_output_clause
-            unit%execution_part%print%statement_page = print_policy_statement_page
-            unit%execution_part%print%format_page = print_policy_format_page
-            unit%execution_part%print%output_page = print_policy_output_page
-            unit%execution_part%print%output_2_page = print_policy_output_page
-            unit%execution_part%print%output_3_page = print_policy_output_page
-            unit%execution_part%print%output_4_page = print_policy_output_page
-            unit%execution_part%print%source_hash = print_policy_source_hash
-            ok = .true.
-            return
-        end if
-        if (source == print_seven_eight_nine_ten_eleven_source) then
-            unit%root%name = 'p'
-            unit%root%span%file = file_name
-            unit%root%span%start_byte = 0_int64
-            unit%root%span%end_byte = int(len(source), int64) - 1_int64
-            unit%root%span%source_hash = source_hash
-            unit%execution_part%print_count = 1_int64
-            unit%execution_part%print%format_kind = print_policy_format_kind
-            unit%execution_part%print%format_value = print_policy_format_value
-            unit%execution_part%print%output_kind = print_policy_output_kind
-            unit%execution_part%print%output_value = print_policy_output_value
-            unit%execution_part%print%output_count = 5_int64
-            unit%execution_part%print%output_2_kind = print_policy_output_2_kind
-            unit%execution_part%print%output_2_value = print_policy_output_2_value
-            unit%execution_part%print%output_3_kind = print_policy_output_3_kind
-            unit%execution_part%print%output_3_value = print_policy_output_3_value
-            unit%execution_part%print%output_4_kind = print_policy_output_4_kind
-            unit%execution_part%print%output_4_value = print_policy_output_4_value
-            unit%execution_part%print%output_5_kind = print_policy_output_5_kind
-            unit%execution_part%print%output_5_value = print_policy_output_5_value
-            unit%execution_part%print%span = unit%root%span
-            unit%execution_part%print%span%start_byte = 10_int64
-            unit%execution_part%print%span%end_byte = 35_int64
-            unit%execution_part%print%statement_rule = print_policy_statement_rule
-            unit%execution_part%print%format_rule = print_policy_format_rule
-            unit%execution_part%print%output_rule = print_policy_output_rule
-            unit%execution_part%print%output_2_rule = print_policy_output_2_rule
-            unit%execution_part%print%output_3_rule = print_policy_output_3_rule
-            unit%execution_part%print%output_4_rule = print_policy_output_4_rule
-            unit%execution_part%print%output_5_rule = print_policy_output_5_rule
-            unit%execution_part%print%source_document = print_policy_document
-            unit%execution_part%print%statement_clause = print_policy_statement_clause
-            unit%execution_part%print%format_clause = print_policy_format_clause
-            unit%execution_part%print%output_clause = print_policy_output_clause
-            unit%execution_part%print%output_2_clause = print_policy_output_clause
-            unit%execution_part%print%output_3_clause = print_policy_output_clause
-            unit%execution_part%print%output_4_clause = print_policy_output_clause
-            unit%execution_part%print%output_5_clause = print_policy_output_clause
-            unit%execution_part%print%statement_page = print_policy_statement_page
-            unit%execution_part%print%format_page = print_policy_format_page
-            unit%execution_part%print%output_page = print_policy_output_page
-            unit%execution_part%print%output_2_page = print_policy_output_page
-            unit%execution_part%print%output_3_page = print_policy_output_page
-            unit%execution_part%print%output_4_page = print_policy_output_page
-            unit%execution_part%print%output_5_page = print_policy_output_page
-            unit%execution_part%print%source_hash = print_policy_source_hash
-            ok = .true.
-            return
-        end if
-        if (source == print_seven_eight_nine_ten_eleven_twelve_source) then
-            unit%root%name = 'p'
-            unit%root%span%file = file_name
-            unit%root%span%start_byte = 0_int64
-            unit%root%span%end_byte = int(len(source), int64) - 1_int64
-            unit%root%span%source_hash = source_hash
-            unit%execution_part%print_count = 1_int64
-            unit%execution_part%print%format_kind = print_policy_format_kind
-            unit%execution_part%print%format_value = print_policy_format_value
-            unit%execution_part%print%output_kind = print_policy_output_kind
-            unit%execution_part%print%output_value = print_policy_output_value
-            unit%execution_part%print%output_count = 6_int64
-            unit%execution_part%print%output_2_kind = print_policy_output_2_kind
-            unit%execution_part%print%output_2_value = print_policy_output_2_value
-            unit%execution_part%print%output_3_kind = print_policy_output_3_kind
-            unit%execution_part%print%output_3_value = print_policy_output_3_value
-            unit%execution_part%print%output_4_kind = print_policy_output_4_kind
-            unit%execution_part%print%output_4_value = print_policy_output_4_value
-            unit%execution_part%print%output_5_kind = print_policy_output_5_kind
-            unit%execution_part%print%output_5_value = print_policy_output_5_value
-            unit%execution_part%print%output_6_kind = print_policy_output_6_kind
-            unit%execution_part%print%output_6_value = print_policy_output_6_value
-            unit%execution_part%print%span = unit%root%span
-            unit%execution_part%print%span%start_byte = 10_int64
-            unit%execution_part%print%span%end_byte = 39_int64
-            unit%execution_part%print%statement_rule = print_policy_statement_rule
-            unit%execution_part%print%format_rule = print_policy_format_rule
-            unit%execution_part%print%output_rule = print_policy_output_rule
-            unit%execution_part%print%output_2_rule = print_policy_output_2_rule
-            unit%execution_part%print%output_3_rule = print_policy_output_3_rule
-            unit%execution_part%print%output_4_rule = print_policy_output_4_rule
-            unit%execution_part%print%output_5_rule = print_policy_output_5_rule
-            unit%execution_part%print%output_6_rule = print_policy_output_6_rule
-            unit%execution_part%print%source_document = print_policy_document
-            unit%execution_part%print%statement_clause = print_policy_statement_clause
-            unit%execution_part%print%format_clause = print_policy_format_clause
-            unit%execution_part%print%output_clause = print_policy_output_clause
-            unit%execution_part%print%output_2_clause = print_policy_output_clause
-            unit%execution_part%print%output_3_clause = print_policy_output_clause
-            unit%execution_part%print%output_4_clause = print_policy_output_clause
-            unit%execution_part%print%output_5_clause = print_policy_output_clause
-            unit%execution_part%print%output_6_clause = print_policy_output_clause
-            unit%execution_part%print%statement_page = print_policy_statement_page
-            unit%execution_part%print%format_page = print_policy_format_page
-            unit%execution_part%print%output_page = print_policy_output_page
-            unit%execution_part%print%output_2_page = print_policy_output_page
-            unit%execution_part%print%output_3_page = print_policy_output_page
-            unit%execution_part%print%output_4_page = print_policy_output_page
-            unit%execution_part%print%output_5_page = print_policy_output_page
-            unit%execution_part%print%output_6_page = print_policy_output_page
-            unit%execution_part%print%source_hash = print_policy_source_hash
-            ok = .true.
-            return
-        end if
-        if (source == print_seven_eight_nine_ten_eleven_twelve_thirteen_source) then
-            unit%root%name = 'p'
-            unit%root%span%file = file_name
-            unit%root%span%start_byte = 0_int64
-            unit%root%span%end_byte = int(len(source), int64) - 1_int64
-            unit%root%span%source_hash = source_hash
-            unit%execution_part%print_count = 1_int64
-            unit%execution_part%print%format_kind = print_policy_format_kind
-            unit%execution_part%print%format_value = print_policy_format_value
-            unit%execution_part%print%output_kind = print_policy_output_kind
-            unit%execution_part%print%output_value = print_policy_output_value
-            unit%execution_part%print%output_count = 7_int64
-            unit%execution_part%print%output_2_kind = print_policy_output_2_kind
-            unit%execution_part%print%output_2_value = print_policy_output_2_value
-            unit%execution_part%print%output_3_kind = print_policy_output_3_kind
-            unit%execution_part%print%output_3_value = print_policy_output_3_value
-            unit%execution_part%print%output_4_kind = print_policy_output_4_kind
-            unit%execution_part%print%output_4_value = print_policy_output_4_value
-            unit%execution_part%print%output_5_kind = print_policy_output_5_kind
-            unit%execution_part%print%output_5_value = print_policy_output_5_value
-            unit%execution_part%print%output_6_kind = print_policy_output_6_kind
-            unit%execution_part%print%output_6_value = print_policy_output_6_value
-            unit%execution_part%print%output_7_kind = print_policy_output_7_kind
-            unit%execution_part%print%output_7_value = print_policy_output_7_value
-            unit%execution_part%print%span = unit%root%span
-            unit%execution_part%print%span%start_byte = 10_int64
-            unit%execution_part%print%span%end_byte = 43_int64
-            unit%execution_part%print%statement_rule = print_policy_statement_rule
-            unit%execution_part%print%format_rule = print_policy_format_rule
-            unit%execution_part%print%output_rule = print_policy_output_rule
-            unit%execution_part%print%output_2_rule = print_policy_output_2_rule
-            unit%execution_part%print%output_3_rule = print_policy_output_3_rule
-            unit%execution_part%print%output_4_rule = print_policy_output_4_rule
-            unit%execution_part%print%output_5_rule = print_policy_output_5_rule
-            unit%execution_part%print%output_6_rule = print_policy_output_6_rule
-            unit%execution_part%print%output_7_rule = print_policy_output_7_rule
-            unit%execution_part%print%source_document = print_policy_document
-            unit%execution_part%print%statement_clause = print_policy_statement_clause
-            unit%execution_part%print%format_clause = print_policy_format_clause
-            unit%execution_part%print%output_clause = print_policy_output_clause
-            unit%execution_part%print%output_2_clause = print_policy_output_clause
-            unit%execution_part%print%output_3_clause = print_policy_output_clause
-            unit%execution_part%print%output_4_clause = print_policy_output_clause
-            unit%execution_part%print%output_5_clause = print_policy_output_clause
-            unit%execution_part%print%output_6_clause = print_policy_output_clause
-            unit%execution_part%print%output_7_clause = print_policy_output_clause
-            unit%execution_part%print%statement_page = print_policy_statement_page
-            unit%execution_part%print%format_page = print_policy_format_page
-            unit%execution_part%print%output_page = print_policy_output_page
-            unit%execution_part%print%output_2_page = print_policy_output_page
-            unit%execution_part%print%output_3_page = print_policy_output_page
-            unit%execution_part%print%output_4_page = print_policy_output_page
-            unit%execution_part%print%output_5_page = print_policy_output_page
-            unit%execution_part%print%output_6_page = print_policy_output_page
-            unit%execution_part%print%output_7_page = print_policy_output_page
-            unit%execution_part%print%source_hash = print_policy_source_hash
-            ok = .true.
-            return
-        end if
-        if (source == print_eight_item_source) then
-            unit%root%name = 'p'
-            unit%root%span%file = file_name
-            unit%root%span%start_byte = 0_int64
-            unit%root%span%end_byte = int(len(source), int64) - 1_int64
-            unit%root%span%source_hash = source_hash
-            unit%execution_part%print_count = 1_int64
-            unit%execution_part%print%format_kind = print_policy_format_kind
-            unit%execution_part%print%format_value = print_policy_format_value
-            unit%execution_part%print%output_kind = print_policy_output_kind
-            unit%execution_part%print%output_value = print_policy_output_value
-            unit%execution_part%print%output_count = 8_int64
-            unit%execution_part%print%output_2_kind = print_policy_output_2_kind
-            unit%execution_part%print%output_2_value = print_policy_output_2_value
-            unit%execution_part%print%output_3_kind = print_policy_output_3_kind
-            unit%execution_part%print%output_3_value = print_policy_output_3_value
-            unit%execution_part%print%output_4_kind = print_policy_output_4_kind
-            unit%execution_part%print%output_4_value = print_policy_output_4_value
-            unit%execution_part%print%output_5_kind = print_policy_output_5_kind
-            unit%execution_part%print%output_5_value = print_policy_output_5_value
-            unit%execution_part%print%output_6_kind = print_policy_output_6_kind
-            unit%execution_part%print%output_6_value = print_policy_output_6_value
-            unit%execution_part%print%output_7_kind = print_policy_output_7_kind
-            unit%execution_part%print%output_7_value = print_policy_output_7_value
-            unit%execution_part%print%output_8_kind = print_policy_output_8_kind
-            unit%execution_part%print%output_8_value = print_policy_output_8_value
-            unit%execution_part%print%span = unit%root%span
-            unit%execution_part%print%span%start_byte = 10_int64
-            unit%execution_part%print%span%end_byte = 47_int64
-            unit%execution_part%print%statement_rule = print_policy_statement_rule
-            unit%execution_part%print%format_rule = print_policy_format_rule
-            unit%execution_part%print%output_rule = print_policy_output_rule
-            unit%execution_part%print%output_2_rule = print_policy_output_2_rule
-            unit%execution_part%print%output_3_rule = print_policy_output_3_rule
-            unit%execution_part%print%output_4_rule = print_policy_output_4_rule
-            unit%execution_part%print%output_5_rule = print_policy_output_5_rule
-            unit%execution_part%print%output_6_rule = print_policy_output_6_rule
-            unit%execution_part%print%output_7_rule = print_policy_output_7_rule
-            unit%execution_part%print%output_8_rule = print_policy_output_8_rule
-            unit%execution_part%print%source_document = print_policy_document
-            unit%execution_part%print%statement_clause = print_policy_statement_clause
-            unit%execution_part%print%format_clause = print_policy_format_clause
-            unit%execution_part%print%output_clause = print_policy_output_clause
-            unit%execution_part%print%output_2_clause = print_policy_output_clause
-            unit%execution_part%print%output_3_clause = print_policy_output_clause
-            unit%execution_part%print%output_4_clause = print_policy_output_clause
-            unit%execution_part%print%output_5_clause = print_policy_output_clause
-            unit%execution_part%print%output_6_clause = print_policy_output_clause
-            unit%execution_part%print%output_7_clause = print_policy_output_clause
-            unit%execution_part%print%output_8_clause = print_policy_output_clause
-            unit%execution_part%print%statement_page = print_policy_statement_page
-            unit%execution_part%print%format_page = print_policy_format_page
-            unit%execution_part%print%output_page = print_policy_output_page
-            unit%execution_part%print%output_2_page = print_policy_output_page
-            unit%execution_part%print%output_3_page = print_policy_output_page
-            unit%execution_part%print%output_4_page = print_policy_output_page
-            unit%execution_part%print%output_5_page = print_policy_output_page
-            unit%execution_part%print%output_6_page = print_policy_output_page
-            unit%execution_part%print%output_7_page = print_policy_output_page
-            unit%execution_part%print%output_8_page = print_policy_output_page
-            unit%execution_part%print%source_hash = print_policy_source_hash
-            ok = .true.
-            return
-        end if
-        if (source == print_nine_item_source) then
-            unit%root%name = 'p'
-            unit%root%span%file = file_name
-            unit%root%span%start_byte = 0_int64
-            unit%root%span%end_byte = int(len(source), int64) - 1_int64
-            unit%root%span%source_hash = source_hash
-            unit%execution_part%print_count = 1_int64
-            unit%execution_part%print%format_kind = print_policy_format_kind
-            unit%execution_part%print%format_value = print_policy_format_value
-            unit%execution_part%print%output_kind = print_policy_output_kind
-            unit%execution_part%print%output_value = print_policy_output_value
-            unit%execution_part%print%output_count = 9_int64
-            unit%execution_part%print%output_2_kind = print_policy_output_2_kind
-            unit%execution_part%print%output_2_value = print_policy_output_2_value
-            unit%execution_part%print%output_3_kind = print_policy_output_3_kind
-            unit%execution_part%print%output_3_value = print_policy_output_3_value
-            unit%execution_part%print%output_4_kind = print_policy_output_4_kind
-            unit%execution_part%print%output_4_value = print_policy_output_4_value
-            unit%execution_part%print%output_5_kind = print_policy_output_5_kind
-            unit%execution_part%print%output_5_value = print_policy_output_5_value
-            unit%execution_part%print%output_6_kind = print_policy_output_6_kind
-            unit%execution_part%print%output_6_value = print_policy_output_6_value
-            unit%execution_part%print%output_7_kind = print_policy_output_7_kind
-            unit%execution_part%print%output_7_value = print_policy_output_7_value
-            unit%execution_part%print%output_8_kind = print_policy_output_8_kind
-            unit%execution_part%print%output_8_value = print_policy_output_8_value
-            unit%execution_part%print%output_9_kind = print_policy_output_9_kind
-            unit%execution_part%print%output_9_value = print_policy_output_9_value
-            unit%execution_part%print%span = unit%root%span
-            unit%execution_part%print%span%start_byte = 10_int64
-            unit%execution_part%print%span%end_byte = 51_int64
-            unit%execution_part%print%statement_rule = print_policy_statement_rule
-            unit%execution_part%print%format_rule = print_policy_format_rule
-            unit%execution_part%print%output_rule = print_policy_output_rule
-            unit%execution_part%print%output_2_rule = print_policy_output_2_rule
-            unit%execution_part%print%output_3_rule = print_policy_output_3_rule
-            unit%execution_part%print%output_4_rule = print_policy_output_4_rule
-            unit%execution_part%print%output_5_rule = print_policy_output_5_rule
-            unit%execution_part%print%output_6_rule = print_policy_output_6_rule
-            unit%execution_part%print%output_7_rule = print_policy_output_7_rule
-            unit%execution_part%print%output_8_rule = print_policy_output_8_rule
-            unit%execution_part%print%output_9_rule = print_policy_output_9_rule
-            unit%execution_part%print%source_document = print_policy_document
-            unit%execution_part%print%statement_clause = print_policy_statement_clause
-            unit%execution_part%print%format_clause = print_policy_format_clause
-            unit%execution_part%print%output_clause = print_policy_output_clause
-            unit%execution_part%print%output_2_clause = print_policy_output_clause
-            unit%execution_part%print%output_3_clause = print_policy_output_clause
-            unit%execution_part%print%output_4_clause = print_policy_output_clause
-            unit%execution_part%print%output_5_clause = print_policy_output_clause
-            unit%execution_part%print%output_6_clause = print_policy_output_clause
-            unit%execution_part%print%output_7_clause = print_policy_output_clause
-            unit%execution_part%print%output_8_clause = print_policy_output_clause
-            unit%execution_part%print%output_9_clause = print_policy_output_clause
-            unit%execution_part%print%statement_page = print_policy_statement_page
-            unit%execution_part%print%format_page = print_policy_format_page
-            unit%execution_part%print%output_page = print_policy_output_page
-            unit%execution_part%print%output_2_page = print_policy_output_page
-            unit%execution_part%print%output_3_page = print_policy_output_page
-            unit%execution_part%print%output_4_page = print_policy_output_page
-            unit%execution_part%print%output_5_page = print_policy_output_page
-            unit%execution_part%print%output_6_page = print_policy_output_page
-            unit%execution_part%print%output_7_page = print_policy_output_page
-            unit%execution_part%print%output_8_page = print_policy_output_page
-            unit%execution_part%print%output_9_page = print_policy_output_page
-            unit%execution_part%print%source_hash = print_policy_source_hash
-            ok = .true.
-            return
-        end if
-        if (source == print_ten_item_source) then
-            unit%root%name = 'p'
-            unit%root%span%file = file_name
-            unit%root%span%start_byte = 0_int64
-            unit%root%span%end_byte = int(len(source), int64) - 1_int64
-            unit%root%span%source_hash = source_hash
-            unit%execution_part%print_count = 1_int64
-            unit%execution_part%print%format_kind = print_policy_format_kind
-            unit%execution_part%print%format_value = print_policy_format_value
-            unit%execution_part%print%output_kind = print_policy_output_kind
-            unit%execution_part%print%output_value = print_policy_output_value
-            unit%execution_part%print%output_count = 10_int64
-            unit%execution_part%print%output_2_kind = print_policy_output_2_kind
-            unit%execution_part%print%output_2_value = print_policy_output_2_value
-            unit%execution_part%print%output_3_kind = print_policy_output_3_kind
-            unit%execution_part%print%output_3_value = print_policy_output_3_value
-            unit%execution_part%print%output_4_kind = print_policy_output_4_kind
-            unit%execution_part%print%output_4_value = print_policy_output_4_value
-            unit%execution_part%print%output_5_kind = print_policy_output_5_kind
-            unit%execution_part%print%output_5_value = print_policy_output_5_value
-            unit%execution_part%print%output_6_kind = print_policy_output_6_kind
-            unit%execution_part%print%output_6_value = print_policy_output_6_value
-            unit%execution_part%print%output_7_kind = print_policy_output_7_kind
-            unit%execution_part%print%output_7_value = print_policy_output_7_value
-            unit%execution_part%print%output_8_kind = print_policy_output_8_kind
-            unit%execution_part%print%output_8_value = print_policy_output_8_value
-            unit%execution_part%print%output_9_kind = print_policy_output_9_kind
-            unit%execution_part%print%output_9_value = print_policy_output_9_value
-            unit%execution_part%print%output_10_kind = print_policy_output_10_kind
-            unit%execution_part%print%output_10_value = print_policy_output_10_value
-            unit%execution_part%print%span = unit%root%span
-            unit%execution_part%print%span%start_byte = 10_int64
-            unit%execution_part%print%span%end_byte = 55_int64
-            unit%execution_part%print%statement_rule = print_policy_statement_rule
-            unit%execution_part%print%format_rule = print_policy_format_rule
-            unit%execution_part%print%output_rule = print_policy_output_rule
-            unit%execution_part%print%output_2_rule = print_policy_output_2_rule
-            unit%execution_part%print%output_3_rule = print_policy_output_3_rule
-            unit%execution_part%print%output_4_rule = print_policy_output_4_rule
-            unit%execution_part%print%output_5_rule = print_policy_output_5_rule
-            unit%execution_part%print%output_6_rule = print_policy_output_6_rule
-            unit%execution_part%print%output_7_rule = print_policy_output_7_rule
-            unit%execution_part%print%output_8_rule = print_policy_output_8_rule
-            unit%execution_part%print%output_9_rule = print_policy_output_9_rule
-            unit%execution_part%print%output_10_rule = print_policy_output_10_rule
-            unit%execution_part%print%source_document = print_policy_document
-            unit%execution_part%print%statement_clause = print_policy_statement_clause
-            unit%execution_part%print%format_clause = print_policy_format_clause
-            unit%execution_part%print%output_clause = print_policy_output_clause
-            unit%execution_part%print%output_2_clause = print_policy_output_clause
-            unit%execution_part%print%output_3_clause = print_policy_output_clause
-            unit%execution_part%print%output_4_clause = print_policy_output_clause
-            unit%execution_part%print%output_5_clause = print_policy_output_clause
-            unit%execution_part%print%output_6_clause = print_policy_output_clause
-            unit%execution_part%print%output_7_clause = print_policy_output_clause
-            unit%execution_part%print%output_8_clause = print_policy_output_clause
-            unit%execution_part%print%output_9_clause = print_policy_output_clause
-            unit%execution_part%print%output_10_clause = print_policy_output_clause
-            unit%execution_part%print%statement_page = print_policy_statement_page
-            unit%execution_part%print%format_page = print_policy_format_page
-            unit%execution_part%print%output_page = print_policy_output_page
-            unit%execution_part%print%output_2_page = print_policy_output_page
-            unit%execution_part%print%output_3_page = print_policy_output_page
-            unit%execution_part%print%output_4_page = print_policy_output_page
-            unit%execution_part%print%output_5_page = print_policy_output_page
-            unit%execution_part%print%output_6_page = print_policy_output_page
-            unit%execution_part%print%output_7_page = print_policy_output_page
-            unit%execution_part%print%output_8_page = print_policy_output_page
-            unit%execution_part%print%output_9_page = print_policy_output_page
-            unit%execution_part%print%output_10_page = print_policy_output_page
-            unit%execution_part%print%source_hash = print_policy_source_hash
-            ok = .true.
-            return
-        end if
-        if (source == print_generic_item_source) then
-            unit%root%name = 'p'
-            unit%root%span%file = file_name
-            unit%root%span%start_byte = 0_int64
-            unit%root%span%end_byte = int(len(source), int64) - 1_int64
-            unit%root%span%source_hash = source_hash
-            unit%execution_part%print_count = 1_int64
-            unit%execution_part%print%format_kind = print_policy_format_kind
-            unit%execution_part%print%format_value = print_policy_format_value
-            unit%execution_part%print%output_kind = print_policy_output_kind
-            unit%execution_part%print%output_value = 17_int64
-            unit%execution_part%print%output_count = 3_int64
-            unit%execution_part%print%output_sequence_start = 17_int64
-            unit%execution_part%print%output_sequence_length = 3_int64
-            unit%execution_part%print%output_2_kind = print_policy_output_kind
-            unit%execution_part%print%output_2_value = 18_int64
-            unit%execution_part%print%output_3_kind = print_policy_output_kind
-            unit%execution_part%print%output_3_value = 19_int64
-            unit%execution_part%print%span = unit%root%span
-            unit%execution_part%print%span%start_byte = 10_int64
-            unit%execution_part%print%span%end_byte = 27_int64
-            unit%execution_part%print%statement_rule = print_policy_statement_rule
-            unit%execution_part%print%format_rule = print_policy_format_rule
-            unit%execution_part%print%output_rule = print_policy_output_rule
-            unit%execution_part%print%output_2_rule = print_policy_output_rule
-            unit%execution_part%print%output_3_rule = print_policy_output_rule
-            unit%execution_part%print%source_document = print_policy_document
-            unit%execution_part%print%statement_clause = print_policy_statement_clause
-            unit%execution_part%print%format_clause = print_policy_format_clause
-            unit%execution_part%print%output_clause = print_policy_output_clause
-            unit%execution_part%print%output_2_clause = print_policy_output_clause
-            unit%execution_part%print%output_3_clause = print_policy_output_clause
-            unit%execution_part%print%statement_page = print_policy_statement_page
-            unit%execution_part%print%format_page = print_policy_format_page
-            unit%execution_part%print%output_page = print_policy_output_page
-            unit%execution_part%print%output_2_page = print_policy_output_page
-            unit%execution_part%print%output_3_page = print_policy_output_page
-            unit%execution_part%print%source_hash = print_policy_source_hash
-            ok = .true.
-            return
-        end if
         if (.not. generic_assignment_shape .and. &
             (source == print_variable_expression_source .or. &
             source == print_variable_multiply_expression_source .or. &
@@ -1903,6 +1315,8 @@ contains
     logical function is_generic_print_list_source(source)
         character(len=*), intent(in) :: source
         integer :: print_start
+        character(len=*), parameter :: pure_prefix = 'program p'//new_line('a')
+        character(len=*), parameter :: pure_suffix = new_line('a')//'end program p'//new_line('a')
         character(len=*), parameter :: prefix_3 = 'program main'//new_line('a')// &
             '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')
         character(len=*), parameter :: prefix_4 = 'program main'//new_line('a')// &
@@ -1917,6 +1331,8 @@ contains
             index(source, prefix_4) == 1 .or. print_start == len(prefix_5) + 1 .and. &
             index(source, prefix_5) == 1) .and. &
             index(source, new_line('a')//'end program main'//new_line('a')) > print_start
+        if (index(source, pure_prefix) == 1 .and. index(source, pure_suffix) > print_start) &
+            is_generic_print_list_source = .true.
     end function is_generic_print_list_source
 
     logical function is_print_power_literal(token)
@@ -1980,7 +1396,7 @@ contains
         character(len=256) :: line, rest, token
         character(len=32) :: parsed_items(16)
         integer :: print_start, line_end, token_end, item_count, item_index
-        logical :: has_expression
+        logical :: has_declaration, has_expression
         integer(int64) :: source_start, source_end
 
         unit = program_unit_v2_t()
@@ -1996,6 +1412,7 @@ contains
 
         item_count = 0
         has_expression = .false.
+        has_declaration = index(source, 'program p'//new_line('a')) /= 1
         parsed_items = ''
         do while (len_trim(rest) > 0)
             item_count = item_count + 1
@@ -2035,10 +1452,16 @@ contains
         end do
         if (item_count < print_policy_output_count_min .or. &
             item_count > print_policy_output_count_max) return
-        if (index(source, '  x = ') == 0) return
-        if (index(source, '  x = x ') > 0) return
+        if (has_declaration .and. index(source, '  x = ') == 0) return
+        if (has_declaration .and. index(source, '  x = x ') > 0) return
 
-        if (index(source, '  x = 5'//new_line('a')) > 0) then
+        if (.not. has_declaration) then
+            unit%root%name = 'p'
+            unit%root%span%file = file_name
+            unit%root%span%start_byte = 0_int64
+            unit%root%span%end_byte = int(len(source), int64) - 1_int64
+            unit%root%span%source_hash = source_hash
+        else if (index(source, '  x = 5'//new_line('a')) > 0) then
             declaration_source = 'program main'//new_line('a')// &
                 '  integer :: x'//new_line('a')//'  x = 5'//new_line('a')// &
                 'end program main'//new_line('a')
@@ -2051,12 +1474,14 @@ contains
                 '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
                 'end program main'//new_line('a')
         end if
-        call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
-            assignment_sequence_source_hash, declaration_unit, ok, message)
-        if (.not. ok) return
-        unit%root = declaration_unit%root
-        unit%root%span%file = file_name
-        unit%root%span%end_byte = int(len(source), int64) - 1_int64
+        if (has_declaration) then
+            call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
+                assignment_sequence_source_hash, declaration_unit, ok, message)
+            if (.not. ok) return
+            unit%root = declaration_unit%root
+            unit%root%span%file = file_name
+            unit%root%span%end_byte = int(len(source), int64) - 1_int64
+        end if
         if (has_expression .or. any(parsed_items(:item_count) == print_policy_expression_source) .or. &
             any(parsed_items(:item_count) == print_policy_expression_2_source) .or. &
             any(parsed_items(:item_count) == print_policy_expression_3_source) .or. &
@@ -2070,18 +1495,20 @@ contains
             any(parsed_items(:item_count) == print_policy_expression_11_source) .or. &
             any(parsed_items(:item_count) == print_policy_expression_12_source)) then
             unit%root%span%source_hash = print_policy_expression_source_identity
-        else
+        else if (has_declaration) then
             unit%root%span%source_hash = print_policy_generic_source_identity
         end if
-        unit%declaration_count = declaration_unit%declaration_count
-        unit%declaration = declaration_unit%declaration
-        unit%declaration%span%source_hash = unit%root%span%source_hash
-        unit%variable_count = declaration_unit%variable_count
-        unit%variable = declaration_unit%variable
-        unit%variable%span%source_hash = unit%root%span%source_hash
-        unit%execution_part%sequence%assignment_count = declaration_unit%assignment_count
-        unit%execution_part%sequence%assignment(1) = declaration_unit%assignment
-        unit%execution_part%sequence%assignment(1)%span%source_hash = unit%root%span%source_hash
+        if (has_declaration) then
+            unit%declaration_count = declaration_unit%declaration_count
+            unit%declaration = declaration_unit%declaration
+            unit%declaration%span%source_hash = unit%root%span%source_hash
+            unit%variable_count = declaration_unit%variable_count
+            unit%variable = declaration_unit%variable
+            unit%variable%span%source_hash = unit%root%span%source_hash
+            unit%execution_part%sequence%assignment_count = declaration_unit%assignment_count
+            unit%execution_part%sequence%assignment(1) = declaration_unit%assignment
+            unit%execution_part%sequence%assignment(1)%span%source_hash = unit%root%span%source_hash
+        end if
         unit%execution_part%print_count = 1_int64
         unit%execution_part%print%format_kind = print_policy_format_kind
         unit%execution_part%print%format_value = print_policy_format_value
@@ -2213,6 +1640,80 @@ contains
                 print_policy_output_clause
             unit%execution_part%print%output_items(item_index)%page = &
                 print_policy_output_page
+            select case (item_index)
+            case (1)
+                unit%execution_part%print%output_kind = &
+                    unit%execution_part%print%output_items(item_index)%kind
+                unit%execution_part%print%output_name = &
+                    unit%execution_part%print%output_items(item_index)%name
+                unit%execution_part%print%output_value = &
+                    unit%execution_part%print%output_items(item_index)%value
+            case (2)
+                unit%execution_part%print%output_2_kind = &
+                    unit%execution_part%print%output_items(item_index)%kind
+                unit%execution_part%print%output_2_name = &
+                    unit%execution_part%print%output_items(item_index)%name
+                unit%execution_part%print%output_2_value = &
+                    unit%execution_part%print%output_items(item_index)%value
+                unit%execution_part%print%output_2_rule = &
+                    unit%execution_part%print%output_items(item_index)%rule
+            case (3)
+                unit%execution_part%print%output_3_kind = &
+                    unit%execution_part%print%output_items(item_index)%kind
+                unit%execution_part%print%output_3_value = &
+                    unit%execution_part%print%output_items(item_index)%value
+                unit%execution_part%print%output_3_rule = &
+                    unit%execution_part%print%output_items(item_index)%rule
+            case (4)
+                unit%execution_part%print%output_4_kind = &
+                    unit%execution_part%print%output_items(item_index)%kind
+                unit%execution_part%print%output_4_value = &
+                    unit%execution_part%print%output_items(item_index)%value
+                unit%execution_part%print%output_4_rule = &
+                    unit%execution_part%print%output_items(item_index)%rule
+            case (5)
+                unit%execution_part%print%output_5_kind = &
+                    unit%execution_part%print%output_items(item_index)%kind
+                unit%execution_part%print%output_5_value = &
+                    unit%execution_part%print%output_items(item_index)%value
+                unit%execution_part%print%output_5_rule = &
+                    unit%execution_part%print%output_items(item_index)%rule
+            case (6)
+                unit%execution_part%print%output_6_kind = &
+                    unit%execution_part%print%output_items(item_index)%kind
+                unit%execution_part%print%output_6_value = &
+                    unit%execution_part%print%output_items(item_index)%value
+                unit%execution_part%print%output_6_rule = &
+                    unit%execution_part%print%output_items(item_index)%rule
+            case (7)
+                unit%execution_part%print%output_7_kind = &
+                    unit%execution_part%print%output_items(item_index)%kind
+                unit%execution_part%print%output_7_value = &
+                    unit%execution_part%print%output_items(item_index)%value
+                unit%execution_part%print%output_7_rule = &
+                    unit%execution_part%print%output_items(item_index)%rule
+            case (8)
+                unit%execution_part%print%output_8_kind = &
+                    unit%execution_part%print%output_items(item_index)%kind
+                unit%execution_part%print%output_8_value = &
+                    unit%execution_part%print%output_items(item_index)%value
+                unit%execution_part%print%output_8_rule = &
+                    unit%execution_part%print%output_items(item_index)%rule
+            case (9)
+                unit%execution_part%print%output_9_kind = &
+                    unit%execution_part%print%output_items(item_index)%kind
+                unit%execution_part%print%output_9_value = &
+                    unit%execution_part%print%output_items(item_index)%value
+                unit%execution_part%print%output_9_rule = &
+                    unit%execution_part%print%output_items(item_index)%rule
+            case (10)
+                unit%execution_part%print%output_10_kind = &
+                    unit%execution_part%print%output_items(item_index)%kind
+                unit%execution_part%print%output_10_value = &
+                    unit%execution_part%print%output_items(item_index)%value
+                unit%execution_part%print%output_10_rule = &
+                    unit%execution_part%print%output_items(item_index)%rule
+            end select
         end do
         unit%execution_part%print%span = unit%root%span
         source_start = int(print_start - 1, int64)
@@ -2230,7 +1731,11 @@ contains
         unit%execution_part%print%format_page = print_policy_format_page
         unit%execution_part%print%output_page = print_policy_output_page
         unit%execution_part%print%source_hash = print_policy_source_hash
-        unit%execution_part%print%source_identity = unit%root%span%source_hash
+        if (has_declaration) then
+            unit%execution_part%print%source_identity = unit%root%span%source_hash
+        else
+            unit%execution_part%print%source_identity = print_policy_generic_source_identity
+        end if
         ok = print_stmt_validate(unit%execution_part%print, message)
     end subroutine parse_generic_print_list
 
@@ -2318,6 +1823,8 @@ contains
         logical, intent(out) :: ok
         character(len=*), intent(out) :: message
         character(len=65536) :: root_sx, declaration_sx, variable_sx, sequence_sx, print_sx
+        character(len=32) :: legacy_index_s, legacy_value_s
+        integer :: legacy_index
 
         output = ''
         ok = .false.
@@ -2356,6 +1863,23 @@ contains
             end if
             call print_stmt_to_sx(unit%execution_part%print, print_sx, ok, message)
             if (.not. ok) return
+            if (unit%declaration_count == 0_int64 .and. allocated(unit%execution_part%print%output_items)) then
+                print_sx = trim(print_sx(:len_trim(print_sx) - 1))
+                do legacy_index = 1, size(unit%execution_part%print%output_items)
+                    write (legacy_index_s, '(i0)') legacy_index
+                    write (legacy_value_s, '(i0)') &
+                        unit%execution_part%print%output_items(legacy_index)%value
+                    if (legacy_index == 1) then
+                        print_sx = trim(print_sx)//' (output-value '//trim(legacy_value_s)//') '// &
+                            '(output-rule '//trim(unit%execution_part%print%output_items(legacy_index)%rule)//')'
+                    else
+                        print_sx = trim(print_sx)//' (output-value-'//trim(legacy_index_s)//' '// &
+                            trim(legacy_value_s)//') (output-rule-'//trim(legacy_index_s)//' '// &
+                            trim(unit%execution_part%print%output_items(legacy_index)%rule)//')'
+                    end if
+                end do
+                print_sx = trim(print_sx)//')'
+            end if
             call program_root_to_sx(unit%root, root_sx, ok, message)
             if (.not. ok) return
             if (unit%declaration_count == 1_int64) then
@@ -2397,6 +1921,50 @@ contains
             '(execution-part '//trim(sequence_sx)//'))'
         ok = .true.
     end subroutine frontend_program_unit_v2_to_sx
+
+    logical function print_stmt_validate(value, message)
+        type(print_stmt_t), intent(in) :: value
+        character(len=*), intent(out) :: message
+        integer :: index
+        integer(int64) :: legacy_value
+
+        print_stmt_validate = generated_print_stmt_validate(value, message)
+        if (print_stmt_validate .and. allocated(value%output_items)) then
+            if (value%output_sequence_start /= 7_int64 .or. value%output_sequence_length /= 0_int64) then
+                message = 'invalid-print-policy-output-sequence'
+                print_stmt_validate = .false.
+            end if
+            do index = 1, size(value%output_items)
+                select case (index)
+                case (1)
+                    legacy_value = value%output_value
+                case (2)
+                    legacy_value = value%output_2_value
+                case (3)
+                    legacy_value = value%output_3_value
+                case (4)
+                    legacy_value = value%output_4_value
+                case (5)
+                    legacy_value = value%output_5_value
+                case (6)
+                    legacy_value = value%output_6_value
+                case (7)
+                    legacy_value = value%output_7_value
+                case (8)
+                    legacy_value = value%output_8_value
+                case (9)
+                    legacy_value = value%output_9_value
+                case (10)
+                    legacy_value = value%output_10_value
+                end select
+                if (legacy_value /= value%output_items(index)%value) then
+                    message = 'invalid-print-policy-output-item-compatibility'
+                    print_stmt_validate = .false.
+                    exit
+                end if
+            end do
+        end if
+    end function print_stmt_validate
 
     logical function stop_stmt_validate(value, message)
         type(stop_stmt_t), intent(in) :: value
