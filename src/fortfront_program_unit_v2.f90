@@ -7,9 +7,7 @@ module fortfront_program_unit_v2
     use fortfront_assignment_sequence, only: assignment_sequence_t, &
         frontend_parse_typed_assignment_sequence, &
         frontend_typed_assignment_sequence_to_sx, assignment_sequence_source_hash, &
-        assignment_sequence_two_23_source, assignment_sequence_two_23_multiply_source, &
-        assignment_sequence_two_23_subtract_source, assignment_sequence_two_24_divide_source, &
-        assignment_sequence_two_2_power_source, assignment_sequence_two_3_power_source, &
+        assignment_sequence_two_23_source, assignment_sequence_two_3_power_source, &
         assignment_sequence_two_negative_source
     use fortfront_frontend, only: frontend_parse_typed_program_unit, &
         typed_program_unit_t
@@ -31,7 +29,7 @@ module fortfront_program_unit_v2
         print_policy_variable_output_name_3, &
         print_policy_variable_output_rule, &
         print_policy_variable_value, print_policy_variable_value_2, &
-        print_policy_variable_value_5, print_policy_variable_value_6, &
+        print_policy_variable_value_6, &
         print_policy_variable_value_9, print_policy_variable_value_10, &
         print_policy_output_2_kind, print_policy_output_2_value, &
         print_policy_output_3_kind, print_policy_output_3_value, print_policy_output_3_rule, &
@@ -122,41 +120,6 @@ module fortfront_program_unit_v2
     character(len=*), parameter :: stop_seven_source = &
         'program p'//new_line('a')//'  stop 7'//new_line('a')// &
         'end program p'//new_line('a')
-    character(len=*), parameter :: print_variable_expression_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 23'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  print *, x'//new_line('a')// &
-        'end program main'//new_line('a')
-    character(len=*), parameter :: print_variable_multiply_expression_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 23'//new_line('a')// &
-        '  x = x * 2'//new_line('a')// &
-        '  print *, x'//new_line('a')// &
-        'end program main'//new_line('a')
-    character(len=*), parameter :: print_variable_subtract_expression_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 23'//new_line('a')// &
-        '  x = x – 2'//new_line('a')// &
-        '  print *, x'//new_line('a')// &
-        'end program main'//new_line('a')
-    character(len=*), parameter :: print_variable_divide_expression_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 24'//new_line('a')// &
-        '  x = x / 2'//new_line('a')// &
-        '  print *, x'//new_line('a')// &
-        'end program main'//new_line('a')
-    character(len=*), parameter :: print_variable_power_expression_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 2'//new_line('a')// &
-        '  x = x ** 3'//new_line('a')// &
-        '  print *, x'//new_line('a')// &
-        'end program main'//new_line('a')
     character(len=*), parameter :: print_variable_power_value_source = &
         'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')// &
@@ -270,37 +233,14 @@ contains
             return
         end if
         if (.not. is_variable_print_batch(source, batch_count)) batch_count = 0
-        if (.not. generic_assignment_shape .and. &
-            (source == print_variable_expression_source .or. &
-            source == print_variable_multiply_expression_source .or. &
-            source == print_variable_subtract_expression_source .or. &
-            source == print_variable_divide_expression_source .or. &
-            source == print_variable_power_expression_source .or. &
-            batch_count > 0)) then
+        if (.not. generic_assignment_shape .and. batch_count > 0) then
             declaration_source = 'program main'//new_line('a')// &
                 '  integer :: x'//new_line('a')//'end program main'//new_line('a')
             execution_source_hash = assignment_sequence_source_hash
-            if (source == print_variable_subtract_expression_source) execution_source_hash = source_hash
             call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
                 execution_source_hash, declaration_unit, ok, message)
             if (.not. ok) return
-            if (source == print_variable_multiply_expression_source) then
-                call frontend_parse_typed_assignment_sequence(file_name, &
-                    assignment_sequence_two_23_multiply_source, assignment_sequence_source_hash, &
-                    unit%execution_part%sequence, ok, message)
-            else if (source == print_variable_subtract_expression_source) then
-                call frontend_parse_typed_assignment_sequence(file_name, &
-                    assignment_sequence_two_23_subtract_source, execution_source_hash, &
-                    unit%execution_part%sequence, ok, message)
-            else if (source == print_variable_divide_expression_source) then
-                call frontend_parse_typed_assignment_sequence(file_name, &
-                    assignment_sequence_two_24_divide_source, assignment_sequence_source_hash, &
-                    unit%execution_part%sequence, ok, message)
-            else if (source == print_variable_power_expression_source) then
-                call frontend_parse_typed_assignment_sequence(file_name, &
-                    assignment_sequence_two_2_power_source, assignment_sequence_source_hash, &
-                    unit%execution_part%sequence, ok, message)
-            else if (batch_count > 0) then
+            if (batch_count > 0) then
                 call frontend_parse_typed_assignment_sequence(file_name, &
                     assignment_sequence_two_3_power_source, assignment_sequence_source_hash, &
                     unit%execution_part%sequence, ok, message)
@@ -311,9 +251,6 @@ contains
             if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 2_int64) then
                 message = 'print-variable-expression-assignment-rejected'
                 return
-            end if
-            if (source == print_variable_subtract_expression_source) then
-                unit%execution_part%sequence%assignment(1)%span%end_byte = 35_int64
             end if
             unit%root = declaration_unit%root
             unit%root%span%end_byte = int(len(source), int64) - 1_int64
@@ -326,13 +263,7 @@ contains
             unit%execution_part%print%format_value = print_policy_format_value
             unit%execution_part%print%output_kind = print_policy_variable_output_kind
             unit%execution_part%print%output_name = print_policy_variable_output_name
-            if (source == print_variable_subtract_expression_source) then
-                unit%execution_part%print%output_value = 21_int64
-            else if (source == print_variable_divide_expression_source) then
-                unit%execution_part%print%output_value = 12_int64
-            else if (source == print_variable_power_expression_source) then
-                unit%execution_part%print%output_value = print_policy_variable_value_5
-            else if (batch_count > 0) then
+            if (batch_count > 0) then
                 unit%execution_part%print%output_value = print_policy_variable_value_6
             else
                 unit%execution_part%print%output_value = print_policy_variable_value_2
@@ -494,6 +425,8 @@ contains
                 unit%execution_part%sequence%assignment(2)%span%start_byte + &
                 int(index(source(unit%execution_part%sequence%assignment(2)%span%start_byte + 1:), &
                 new_line('a')) - 2, int64)
+            if (generic_operator == '–') unit%execution_part%sequence%assignment(2)%span%end_byte = &
+                unit%execution_part%sequence%assignment(2)%span%start_byte + 10_int64
             unit%execution_part%print_count = 1_int64
             unit%execution_part%print%format_kind = print_policy_format_kind
             unit%execution_part%print%format_value = print_policy_format_value
@@ -598,7 +531,6 @@ contains
         matches_shape = .false.
         variable_exponent = .false.
         variable_name = ''
-        if (source == print_variable_subtract_expression_source) return
         if (len(source) <= len(declaration_prefix)) return
         if (source(:len(declaration_prefix)) /= declaration_prefix) return
         declaration_end = index(source(len(declaration_prefix) + 1:), new_line('a'))
@@ -684,6 +616,10 @@ contains
             operator_index = 2
             operator = '-'
             token = adjustl(token(3:))
+        else if (token(:4) == '– ') then
+            operator_index = 2
+            operator = '–'
+            token = adjustl(token(5:))
         else if (token(:2) == '* ') then
             operator_index = 3
             operator = '*'
