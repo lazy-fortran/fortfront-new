@@ -238,6 +238,7 @@ contains
         integer(int64) :: generic_addend
         character(len=128) :: execution_source_hash
         integer(int64) :: stored_value
+        character(len=128) :: stored_variable_name
         integer :: print_position
         integer :: batch_count
         character(len=64) :: print_source
@@ -254,7 +255,8 @@ contains
             call parse_generic_print_list(file_name, source, source_hash, unit, ok, message)
             return
         end if
-        call parse_stored_variable_initializer_source(source, declaration_source, stored_value, ok, shape_matches)
+        call parse_stored_variable_initializer_source(source, declaration_source, stored_value, &
+            stored_variable_name, ok, shape_matches)
         if (shape_matches .and. .not. ok) then
             message = 'print-variable-value-rejected'
             return
@@ -377,7 +379,8 @@ contains
             return
         end if
         if (.not. generic_assignment_shape) then
-            call parse_stored_variable_initializer_source(source, declaration_source, stored_value, ok, shape_matches)
+            call parse_stored_variable_initializer_source(source, declaration_source, stored_value, &
+                stored_variable_name, ok, shape_matches)
         end if
         if (ok .and. .not. generic_assignment_shape) then
             call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
@@ -392,21 +395,28 @@ contains
             unit%declaration = declaration_unit%declaration
             unit%variable_count = declaration_unit%variable_count
             unit%variable = declaration_unit%variable
+            unit%variable%span%start_byte = int(index(source, '  integer :: '// &
+                trim(stored_variable_name)) - 1, int64)
+            unit%variable%span%end_byte = unit%variable%span%start_byte + &
+                int(len_trim('  integer :: '//trim(stored_variable_name)), int64)
             unit%execution_part%sequence%assignment_count = 1_int64
             unit%execution_part%sequence%assignment(1) = declaration_unit%assignment
+            unit%execution_part%sequence%assignment(1)%span%start_byte = &
+                int(index(source, '  '//trim(stored_variable_name)//' = ') - 1, int64)
+            unit%execution_part%sequence%assignment(1)%span%end_byte = &
+                unit%execution_part%sequence%assignment(1)%span%start_byte + &
+                int(index(source(unit%execution_part%sequence%assignment(1)%span%start_byte + 1:), &
+                new_line('a')) - 2, int64)
             unit%execution_part%print_count = 1_int64
             unit%execution_part%print%format_kind = print_policy_format_kind
             unit%execution_part%print%format_value = print_policy_format_value
             unit%execution_part%print%output_kind = print_policy_variable_output_kind
-            if (index(declaration_source, '  integer :: y') == 1 + len('program main') + 1) then
-                unit%execution_part%print%output_name = 'y'
+            unit%execution_part%print%output_name = trim(stored_variable_name)
+            if (trim(stored_variable_name) == 'y' .or. trim(stored_variable_name) == 'z') then
                 unit%execution_part%print%output_value = stored_value
-            else if (index(declaration_source, '  integer :: z') == &
-                    1 + len('program main') + 1) then
-                unit%execution_part%print%output_name = print_policy_variable_output_name_3
-                unit%execution_part%print%output_value = stored_value
+            else if (trim(stored_variable_name) /= 'x') then
+                unit%execution_part%print%output_value = print_policy_variable_value
             else
-                unit%execution_part%print%output_name = print_policy_variable_output_name
                 if (stored_value == print_policy_variable_value_2) then
                     unit%execution_part%print%output_value = stored_value
                 else
@@ -566,6 +576,7 @@ contains
             '  print *, x'//new_line('a')//'end program main'//new_line('a')
         character(len=1024) :: initializer_source, parsed_declaration_source, tail
         character(len=64) :: assignment_line
+        character(len=128) :: initializer_variable_name
         integer :: initializer_end, assignment_end, token_length
         logical :: initializer_shape_matches
 
@@ -594,11 +605,11 @@ contains
         if (tail(assignment_end:) /= print_suffix) return
         matches_shape = .true.
         if (.not. parse_generic_update_line(assignment_line(:assignment_end - 1), &
-                operator, addend, variable_exponent)) return
+            operator, addend, variable_exponent)) return
         initializer_source = prefix//trim(initializer)//new_line('a')// &
             '  print *, x'//new_line('a')//'end program main'//new_line('a')
         call parse_stored_variable_initializer_source(trim(initializer_source), parsed_declaration_source, &
-            stored_value, ok, initializer_shape_matches)
+            stored_value, initializer_variable_name, ok, initializer_shape_matches)
         if (.not. initializer_shape_matches) then
             ok = .false.
             return
@@ -689,67 +700,50 @@ contains
         parse_generic_update_line = .true.
     end function parse_generic_update_line
 
-    subroutine parse_stored_variable_initializer_source(source, declaration_source, stored_value, ok, matches_shape)
+    subroutine parse_stored_variable_initializer_source(source, declaration_source, stored_value, &
+            variable_name, ok, matches_shape)
         character(len=*), intent(in) :: source
         character(len=*), intent(out) :: declaration_source
         integer(int64), intent(out) :: stored_value
+        character(len=*), intent(out) :: variable_name
         logical, intent(out) :: ok
         logical, intent(out) :: matches_shape
-        character(len=*), parameter :: prefix = 'program main'//new_line('a')// &
-            '  integer :: x'//new_line('a')//'  x = '
-        character(len=*), parameter :: suffix = new_line('a')//'  print *, x'//new_line('a')// &
-            'end program main'//new_line('a')
-        character(len=*), parameter :: y_prefix = 'program main'//new_line('a')// &
-            '  integer :: y'//new_line('a')//'  y = '
-        character(len=*), parameter :: y_suffix = new_line('a')//'  print *, y'//new_line('a')// &
-            'end program main'//new_line('a')
-        character(len=*), parameter :: z_prefix = 'program main'//new_line('a')// &
-            '  integer :: z'//new_line('a')//'  z = '
-        character(len=*), parameter :: z_suffix = new_line('a')//'  print *, z'//new_line('a')// &
-            'end program main'//new_line('a')
-        character(len=64) :: token
-        integer :: token_start, token_end, token_length, position, status
-        logical :: is_y_shape, is_z_shape
+        character(len=64) :: token, declaration_line, assignment_line
+        character(len=128) :: assignment_prefix
+        integer :: first_newline, second_newline, third_newline, fourth_newline, fifth_newline
+        integer :: token_length, position, status, name_start
 
         declaration_source = ''
         stored_value = 0_int64
+        variable_name = ''
         ok = .false.
         matches_shape = .false.
-        is_y_shape = .false.
-        is_z_shape = .false.
-        if (len(source) > len(prefix) + len(suffix)) then
-            if (source(:len(prefix)) == prefix) then
-                token_start = len(prefix) + 1
-                token_end = len(source) - len(suffix)
-            else if (source(:len(y_prefix)) == y_prefix) then
-                is_y_shape = .true.
-                token_start = len(y_prefix) + 1
-                token_end = len(source) - len(y_suffix)
-            else if (source(:len(z_prefix)) == z_prefix) then
-                is_z_shape = .true.
-                token_start = len(z_prefix) + 1
-                token_end = len(source) - len(z_suffix)
-            else
-                return
-            end if
-        else
-            return
-        end if
-        if (token_end < token_start) return
-        if (is_y_shape) then
-            if (source(token_end + 1:) /= y_suffix) return
-        else if (is_z_shape) then
-            if (source(token_end + 1:) /= z_suffix) return
-        else if (source(token_end + 1:) /= suffix) then
-            return
-        end if
-        token_length = token_end - token_start + 1
-        if (token_length > len(token)) return
-        if (index(source(token_start:token_end), new_line('a')) /= 0) return
+        first_newline = index(source, new_line('a'))
+        if (first_newline == 0) return
+        second_newline = first_newline + index(source(first_newline + 1:), new_line('a'))
+        if (second_newline <= first_newline) return
+        third_newline = second_newline + index(source(second_newline + 1:), new_line('a'))
+        if (third_newline <= second_newline) return
+        fourth_newline = third_newline + index(source(third_newline + 1:), new_line('a'))
+        if (fourth_newline <= third_newline) return
+        fifth_newline = fourth_newline + index(source(fourth_newline + 1:), new_line('a'))
+        if (fifth_newline /= len(source)) return
+        if (trim(source(:first_newline - 1)) /= 'program main') return
+        declaration_line = source(first_newline + 1:second_newline - 1)
+        if (index(declaration_line, '  integer :: ') /= 1) return
+        name_start = len('  integer :: ') + 1
+        variable_name = trim(declaration_line(name_start:))
+        if (.not. valid_variable_name(variable_name)) return
+        assignment_prefix = '  '//trim(variable_name)//' = '
+        assignment_line = source(second_newline + 1:third_newline - 1)
+        if (index(assignment_line, trim(assignment_prefix)) /= 1) return
+        if (trim(source(third_newline + 1:fourth_newline - 1)) /= &
+            '  print *, '//trim(variable_name)) return
+        if (trim(source(fourth_newline + 1:fifth_newline - 1)) /= 'end program main') return
+        token = adjustl(assignment_line(len_trim(assignment_prefix) + 1:))
+        token_length = len_trim(token)
+        if (token_length == 0 .or. token_length > len(token)) return
         matches_shape = .true.
-        token = ''
-        token(:token_length) = source(token_start:token_end)
-        if (token_length == 0) return
         position = 1
         if (token(position:position) == '-') then
             if (token_length == 1) return
@@ -761,9 +755,10 @@ contains
         end do
         read (token(:token_length), *, iostat=status) stored_value
         if (status /= 0) return
-        if (is_y_shape .and. stored_value /= 3_int64 .and. stored_value /= -4_int64) return
-        if (is_z_shape .and. stored_value /= print_policy_variable_value_9 .and. &
-                stored_value /= print_policy_variable_value_10) return
+        if (trim(variable_name) == 'y' .and. stored_value /= 3_int64 .and. &
+            stored_value /= -4_int64) return
+        if (trim(variable_name) == 'z' .and. stored_value /= print_policy_variable_value_9 .and. &
+            stored_value /= print_policy_variable_value_10) return
         if (token(1:1) == '-') then
             if (stored_value < int(assignment_policy_signed_integer_literal_min, int64) .or. &
                 stored_value > int(assignment_policy_signed_integer_literal_max, int64)) return
@@ -771,15 +766,29 @@ contains
                 stored_value > int(assignment_policy_integer_literal_max, int64)) then
             return
         end if
-        if (is_y_shape) then
-            declaration_source = y_prefix//trim(token)//new_line('a')//'end program main'//new_line('a')
-        else if (is_z_shape) then
-            declaration_source = z_prefix//trim(token)//new_line('a')//'end program main'//new_line('a')
-        else
-            declaration_source = prefix//trim(token)//new_line('a')//'end program main'//new_line('a')
-        end if
+        declaration_source = 'program main'//new_line('a')// &
+            '  integer :: '//trim(variable_name)//new_line('a')// &
+            '  '//trim(variable_name)//' = '//trim(token)//new_line('a')// &
+            'end program main'//new_line('a')
         ok = .true.
     end subroutine parse_stored_variable_initializer_source
+
+    logical function valid_variable_name(value)
+        character(len=*), intent(in) :: value
+        integer :: position
+
+        valid_variable_name = .false.
+        if (len_trim(value) == 0 .or. len_trim(value) > 128) return
+        if (.not. ((value(1:1) >= 'A' .and. value(1:1) <= 'Z') .or. &
+            (value(1:1) >= 'a' .and. value(1:1) <= 'z'))) return
+        do position = 2, len_trim(value)
+            if (.not. ((value(position:position) >= 'A' .and. value(position:position) <= 'Z') .or. &
+                (value(position:position) >= 'a' .and. value(position:position) <= 'z') .or. &
+                (value(position:position) >= '0' .and. value(position:position) <= '9') .or. &
+                value(position:position) == '_')) return
+        end do
+        valid_variable_name = .true.
+    end function valid_variable_name
 
     logical function is_generic_print_list_source(source)
         character(len=*), intent(in) :: source
@@ -906,6 +915,7 @@ contains
         logical :: has_declaration, has_expression
         integer(int64) :: source_start, source_end
         integer(int64) :: stored_value
+        character(len=128) :: initializer_variable_name
         logical :: initializer_ok, initializer_shape_matches
         type(print_output_item_t) :: expression_item
 
@@ -954,7 +964,7 @@ contains
             normalized_source = source(:print_start - 1)//'  print *, x'//new_line('a')// &
                 'end program main'//new_line('a')
             call parse_stored_variable_initializer_source(trim(normalized_source), declaration_source, &
-                stored_value, initializer_ok, initializer_shape_matches)
+                stored_value, initializer_variable_name, initializer_ok, initializer_shape_matches)
             if (.not. initializer_shape_matches .or. .not. initializer_ok) return
         end if
 

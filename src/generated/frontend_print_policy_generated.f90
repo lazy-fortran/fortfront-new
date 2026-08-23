@@ -416,9 +416,7 @@ contains
                 end if
             else if (trim(item%kind) == trim(print_policy_variable_output_kind)) then
                 if (index < 1 .or. index > 100 .or. &
-                    trim(item%name) /= trim(print_policy_variable_output_name) .and. &
-                    trim(item%name) /= trim(print_policy_variable_output_name_2) .and. &
-                    trim(item%name) /= trim(print_policy_variable_output_name_3) .or. &
+                    .not. print_policy_identifier_valid(trim(item%name)) .or. &
                     (item%value /= print_policy_variable_value .and. &
                     item%value /= print_policy_variable_value_2 .and. &
                     item%value /= print_policy_variable_value_3 .and. &

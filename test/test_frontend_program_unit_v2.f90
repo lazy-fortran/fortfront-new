@@ -32,6 +32,12 @@ program test_frontend_program_unit_v2
     character(len=*), parameter :: negative_print_source = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = -5'//new_line('a')// &
         '  print *, x'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: raw_counter_source = 'program main'//new_line('a')// &
+        '  integer :: counter_2'//new_line('a')//'  counter_2 = 42'//new_line('a')// &
+        '  print *, counter_2'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: raw_counter_wrong_print = 'program main'//new_line('a')// &
+        '  integer :: counter_2'//new_line('a')//'  counter_2 = 42'//new_line('a')// &
+        '  print *, other_2'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: six_wrong_operator = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
@@ -134,6 +140,30 @@ program test_frontend_program_unit_v2
         error stop 'v2 signed initializer value serialization changed'
     if (index(trim(serialized), 'l3-raw-program-v2') == 0) &
         error stop 'v2 signed initializer identity serialization changed'
+    call frontend_parse_program_unit_v2('raw-counter.f90', raw_counter_source, &
+        'raw-counter-input', unit, ok, message)
+    if (.not. ok) error stop 'generic raw counter source was rejected: '//trim(message)
+    if (trim(unit%variable%name) /= 'counter_2' .or. &
+        unit%execution_part%sequence%assignment_count /= 1 .or. &
+        trim(unit%execution_part%sequence%assignment(1)%variable) /= 'counter_2' .or. &
+        trim(unit%execution_part%sequence%assignment(1)%expression%left_operand) /= '42' .or. &
+        trim(unit%execution_part%print%output_name) /= 'counter_2' .or. &
+        unit%execution_part%print%output_value /= 17 .or. &
+        unit%variable%span%start_byte /= int(index(raw_counter_source, '  integer :: counter_2') - 1) .or. &
+        unit%execution_part%sequence%assignment(1)%span%start_byte /= &
+        int(index(raw_counter_source, '  counter_2 = 42') - 1) .or. &
+        unit%execution_part%print%span%start_byte /= &
+        int(index(raw_counter_source, '  print *, counter_2') - 1) .or. &
+        len_trim(unit%execution_part%print%source_hash) == 0) then
+        error stop 'generic raw counter AST-v2 fields changed'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(name counter_2)') == 0 .or. &
+        index(trim(serialized), '(left-operand 42)') == 0 .or. &
+        index(trim(serialized), '(output-name counter_2)') == 0) then
+        error stop 'generic raw counter AST-v2 serialization changed: '//trim(message)
+    end if
+    call check_rejected(raw_counter_wrong_print)
     call check_rejected(wrong_name)
     call check_rejected(wrong_type)
     call check_rejected(wrong_operator)
