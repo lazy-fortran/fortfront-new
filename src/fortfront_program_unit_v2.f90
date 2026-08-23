@@ -1057,8 +1057,10 @@ contains
             batch_count > 0)) then
             declaration_source = 'program main'//new_line('a')// &
                 '  integer :: x'//new_line('a')//'end program main'//new_line('a')
+            execution_source_hash = assignment_sequence_source_hash
+            if (source == print_variable_subtract_expression_source) execution_source_hash = source_hash
             call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
-                assignment_sequence_source_hash, declaration_unit, ok, message)
+                execution_source_hash, declaration_unit, ok, message)
             if (.not. ok) return
             if (source == print_variable_multiply_expression_source) then
                 call frontend_parse_typed_assignment_sequence(file_name, &
@@ -1066,7 +1068,7 @@ contains
                     unit%execution_part%sequence, ok, message)
             else if (source == print_variable_subtract_expression_source) then
                 call frontend_parse_typed_assignment_sequence(file_name, &
-                    assignment_sequence_two_23_subtract_source, assignment_sequence_source_hash, &
+                    assignment_sequence_two_23_subtract_source, execution_source_hash, &
                     unit%execution_part%sequence, ok, message)
             else if (source == print_variable_divide_expression_source) then
                 call frontend_parse_typed_assignment_sequence(file_name, &
@@ -1107,6 +1109,9 @@ contains
             if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 2_int64) then
                 message = 'print-variable-expression-assignment-rejected'
                 return
+            end if
+            if (source == print_variable_subtract_expression_source) then
+                unit%execution_part%sequence%assignment(1)%span%end_byte = 35_int64
             end if
             unit%root = declaration_unit%root
             unit%root%span%end_byte = int(len(source), int64) - 1_int64

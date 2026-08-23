@@ -1,6 +1,5 @@
 program test_frontend_program_unit_v2_initialized_subtraction
     use, intrinsic :: iso_fortran_env, only: int64
-    use fortfront_assignment_sequence, only: assignment_sequence_source_hash
     use fortfront_program_unit_v2, only: frontend_parse_program_unit_v2, &
         frontend_program_unit_v2_to_sx, program_unit_v2_t
     implicit none
@@ -131,13 +130,20 @@ contains
             unit%root%span%end_byte /= int(len(source) - 1, int64)) then
             error stop 'UTF-8 en-dash subtraction was not accepted'
         end if
+        assignment_start = 28_int64
+        assignment_end = 35_int64
+        call assert_span(unit%execution_part%sequence%assignment(1)%span%file, &
+            unit%execution_part%sequence%assignment(1)%span%source_hash, &
+            unit%execution_part%sequence%assignment(1)%span%start_byte, &
+            unit%execution_part%sequence%assignment(1)%span%end_byte, 'en-dash initializer', &
+            'initialized-subtraction-en-dash.f90', source_hash, assignment_start, assignment_end)
         assignment_start = 37_int64
         assignment_end = 47_int64
         call assert_span(unit%execution_part%sequence%assignment(2)%span%file, &
             unit%execution_part%sequence%assignment(2)%span%source_hash, &
             unit%execution_part%sequence%assignment(2)%span%start_byte, &
             unit%execution_part%sequence%assignment(2)%span%end_byte, 'en-dash subtraction', &
-            'initialized-subtraction-en-dash.f90', assignment_sequence_source_hash, assignment_start, assignment_end)
+            'initialized-subtraction-en-dash.f90', source_hash, assignment_start, assignment_end)
     end subroutine assert_accepted_en_dash
 
     subroutine assert_provenance(file_name, source_hash, start_byte, end_byte, label, &
