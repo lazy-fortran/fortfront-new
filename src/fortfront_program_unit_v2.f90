@@ -47,33 +47,10 @@ module fortfront_program_unit_v2
         print_policy_document, print_policy_statement_clause, print_policy_format_clause, &
         print_policy_output_clause, print_policy_statement_page, &
         print_policy_format_page, print_policy_output_page, print_policy_source_hash
-    use frontend_print_policy_generated, only: print_policy_generic_source_identity, &
-        print_policy_expression_source_identity, print_policy_expression_operator, &
-        print_policy_expression_left, print_policy_expression_right, &
-        print_policy_expression_2_operator, print_policy_expression_2_left, &
-        print_policy_expression_2_right, print_policy_expression_source, &
-        print_policy_expression_2_source, print_policy_expression_3_operator, &
-        print_policy_expression_3_left, print_policy_expression_3_right, &
-        print_policy_expression_3_source, print_policy_expression_4_operator, &
-        print_policy_expression_4_left, print_policy_expression_4_right, &
-        print_policy_expression_4_source, print_policy_power_operator, &
-        print_policy_power_left, print_policy_power_min, print_policy_power_max, &
-        print_policy_expression_5_operator, print_policy_expression_5_left, &
-        print_policy_expression_5_right, print_policy_expression_5_source, &
-        print_policy_expression_6_operator, print_policy_expression_6_left, &
-        print_policy_expression_6_right, print_policy_expression_6_source, &
-        print_policy_expression_7_operator, print_policy_expression_7_left, &
-        print_policy_expression_7_right, print_policy_expression_7_source, &
-        print_policy_expression_8_operator, print_policy_expression_8_left, &
-        print_policy_expression_8_right, print_policy_expression_8_source, &
-        print_policy_expression_9_operator, print_policy_expression_9_left, &
-        print_policy_expression_9_right, print_policy_expression_9_source, &
-        print_policy_expression_10_operator, print_policy_expression_10_left, &
-        print_policy_expression_10_right, print_policy_expression_10_source, &
-        print_policy_expression_11_operator, print_policy_expression_11_left, &
-        print_policy_expression_11_right, print_policy_expression_11_source, &
-        print_policy_expression_12_operator, print_policy_expression_12_left, &
-        print_policy_expression_12_right, print_policy_expression_12_source, &
+    use frontend_print_policy_generated, only: print_output_item_t, &
+        print_policy_generic_source_identity, &
+        print_policy_expression_source_identity, print_policy_expression_valid, &
+        print_policy_power_min, print_policy_power_max, &
         print_policy_integer_literal_min, &
         print_policy_signed_integer_literal_min, print_policy_signed_integer_literal_max, &
         print_policy_decimal_expression_valid, &
@@ -1197,22 +1174,68 @@ contains
             is_generic_print_list_source = .true.
     end function is_generic_print_list_source
 
-    logical function is_print_power_literal(token)
+    logical function parse_print_expression_item(token, item)
         character(len=*), intent(in) :: token
-        integer(int64) :: exponent
-        integer :: index, status, token_length
+        type(print_output_item_t), intent(out) :: item
+        character(len=8) :: delimiter
+        character(len=8) :: operator
+        character(len=256) :: left
+        character(len=256) :: right
+        integer :: position, delimiter_length, token_length
 
-        is_print_power_literal = .false.
+        item = print_output_item_t()
+        parse_print_expression_item = .false.
         token_length = len_trim(token)
-        if (token_length < 6 .or. token(:5) /= 'x ** ') return
-        do index = 6, token_length
-            if (token(index:index) < '0' .or. token(index:index) > '9') return
-        end do
-        read (token(6:token_length), *, iostat=status) exponent
-        if (status /= 0) return
-        if (exponent < print_policy_power_min .or. exponent > print_policy_power_max) return
-        is_print_power_literal = .true.
-    end function is_print_power_literal
+        if (token_length == 0) return
+        delimiter = ''
+        operator = ''
+        position = index(token(:token_length), ' ** ')
+        if (position > 0) then
+            delimiter = ' ** '
+            operator = '**'
+        else
+            position = index(token(:token_length), ' + ')
+            if (position > 0) then
+                delimiter = ' + '
+                operator = '+'
+            else
+                position = index(token(:token_length), ' - ')
+                if (position > 0) then
+                    delimiter = ' - '
+                    operator = '-'
+                else
+                    position = index(token(:token_length), ' – ')
+                    if (position > 0) then
+                        delimiter = ' – '
+                        operator = '–'
+                    else
+                        position = index(token(:token_length), ' * ')
+                        if (position > 0) then
+                            delimiter = ' * '
+                            operator = '*'
+                        else
+                            position = index(token(:token_length), ' / ')
+                            if (position > 0) then
+                                delimiter = ' / '
+                                operator = '/'
+                            end if
+                        end if
+                    end if
+                end if
+            end if
+        end if
+        if (position <= 1) return
+        delimiter_length = len_trim(delimiter) + 1
+        if (position + delimiter_length > token_length) return
+        left = trim(token(:position - 1))
+        right = trim(token(position + delimiter_length:token_length))
+        if (.not. print_policy_expression_valid(operator, left, right)) return
+        item%kind = 'integer-expression'
+        item%operator = trim(operator)
+        item%left = trim(left)
+        item%right = trim(right)
+        parse_print_expression_item = .true.
+    end function parse_print_expression_item
 
     logical function is_print_integer_literal(token)
         character(len=*), intent(in) :: token
@@ -1242,12 +1265,6 @@ contains
         is_print_integer_literal = .true.
     end function is_print_integer_literal
 
-    logical function is_print_decimal_expression(token)
-        character(len=*), intent(in) :: token
-
-        is_print_decimal_expression = print_policy_decimal_expression_valid(token)
-    end function is_print_decimal_expression
-
     subroutine parse_generic_print_list(file_name, source, source_hash, unit, ok, message)
         character(len=*), intent(in) :: file_name, source, source_hash
         type(program_unit_v2_t), intent(out) :: unit
@@ -1262,6 +1279,7 @@ contains
         integer(int64) :: source_start, source_end
         integer(int64) :: stored_value
         logical :: initializer_ok, initializer_shape_matches
+        type(print_output_item_t) :: expression_item
 
         unit = program_unit_v2_t()
         ok = .false.
@@ -1291,22 +1309,10 @@ contains
                 if (len_trim(rest) == 0) return
             end if
             parsed_items(item_count) = token
-            if (token == 'x' .or. is_print_power_literal(token) .or. &
-                is_print_decimal_expression(token) .or. &
-                token == print_policy_expression_source .or. &
-                token == print_policy_expression_2_source .or. &
-                token == print_policy_expression_3_source .or. &
-                token == print_policy_expression_4_source .or. &
-                token == print_policy_expression_5_source .or. &
-                token == print_policy_expression_6_source .or. &
-                token == print_policy_expression_7_source .or. &
-                token == print_policy_expression_8_source .or. &
-                token == print_policy_expression_9_source .or. &
-                token == print_policy_expression_10_source .or. &
-                token == print_policy_expression_11_source .or. &
-                token == print_policy_expression_12_source) then
-                if (is_print_power_literal(token) .or. is_print_decimal_expression(token)) &
-                    has_expression = .true.
+            if (token == 'x') then
+                cycle
+            else if (parse_print_expression_item(token, expression_item)) then
+                has_expression = .true.
                 cycle
             else if (is_print_integer_literal(token)) then
                 cycle
@@ -1339,18 +1345,7 @@ contains
             unit%root%span%file = file_name
             unit%root%span%end_byte = int(len(source), int64) - 1_int64
         end if
-        if (has_expression .or. any(parsed_items(:item_count) == print_policy_expression_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_2_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_3_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_4_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_5_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_6_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_7_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_8_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_9_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_10_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_11_source) .or. &
-            any(parsed_items(:item_count) == print_policy_expression_12_source)) then
+        if (has_expression) then
             unit%root%span%source_hash = print_policy_expression_source_identity
         else if (has_declaration) then
             unit%root%span%source_hash = print_policy_generic_source_identity
@@ -1378,115 +1373,8 @@ contains
                 unit%execution_part%print%output_items(item_index)%name = 'x'
                 unit%execution_part%print%output_items(item_index)%value = stored_value
                 unit%execution_part%print%output_items(item_index)%rule = 'R901'
-            else if (is_print_power_literal(token) .or. is_print_decimal_expression(token) .or. &
-                    token == print_policy_expression_source .or. &
-                    token == print_policy_expression_2_source .or. &
-                    token == print_policy_expression_3_source .or. &
-                    token == print_policy_expression_4_source .or. &
-                    token == print_policy_expression_5_source .or. &
-                    token == print_policy_expression_6_source .or. &
-                    token == print_policy_expression_7_source .or. &
-                    token == print_policy_expression_8_source .or. &
-                    token == print_policy_expression_9_source .or. &
-                    token == print_policy_expression_10_source .or. &
-                    token == print_policy_expression_11_source .or. &
-                    token == print_policy_expression_12_source) then
-                unit%execution_part%print%output_items(item_index)%kind = 'integer-expression'
-                if (is_print_decimal_expression(token)) then
-                    unit%execution_part%print%output_items(item_index)%operator = token(3:3)
-                    unit%execution_part%print%output_items(item_index)%left = 'x'
-                    unit%execution_part%print%output_items(item_index)%right = token(5:)
-                else if (is_print_power_literal(token)) then
-                    unit%execution_part%print%output_items(item_index)%operator = &
-                        print_policy_power_operator
-                    unit%execution_part%print%output_items(item_index)%left = &
-                        print_policy_power_left
-                    unit%execution_part%print%output_items(item_index)%right = token(6:)
-                else if (token == print_policy_expression_source) then
-                    unit%execution_part%print%output_items(item_index)%operator = &
-                        print_policy_expression_operator
-                    unit%execution_part%print%output_items(item_index)%left = &
-                        print_policy_expression_left
-                    unit%execution_part%print%output_items(item_index)%right = &
-                        print_policy_expression_right
-                else if (token == print_policy_expression_2_source) then
-                    unit%execution_part%print%output_items(item_index)%operator = &
-                        print_policy_expression_2_operator
-                    unit%execution_part%print%output_items(item_index)%left = &
-                        print_policy_expression_2_left
-                    unit%execution_part%print%output_items(item_index)%right = &
-                        print_policy_expression_2_right
-                else if (token == print_policy_expression_3_source) then
-                    unit%execution_part%print%output_items(item_index)%operator = &
-                        print_policy_expression_3_operator
-                    unit%execution_part%print%output_items(item_index)%left = &
-                        print_policy_expression_3_left
-                    unit%execution_part%print%output_items(item_index)%right = &
-                        print_policy_expression_3_right
-                else if (token == print_policy_expression_4_source) then
-                    unit%execution_part%print%output_items(item_index)%operator = &
-                        print_policy_expression_4_operator
-                    unit%execution_part%print%output_items(item_index)%left = &
-                        print_policy_expression_4_left
-                    unit%execution_part%print%output_items(item_index)%right = &
-                        print_policy_expression_4_right
-                else if (token == print_policy_expression_5_source) then
-                    unit%execution_part%print%output_items(item_index)%operator = &
-                        print_policy_expression_5_operator
-                    unit%execution_part%print%output_items(item_index)%left = &
-                        print_policy_expression_5_left
-                    unit%execution_part%print%output_items(item_index)%right = &
-                        print_policy_expression_5_right
-                else if (token == print_policy_expression_7_source) then
-                    unit%execution_part%print%output_items(item_index)%operator = &
-                        print_policy_expression_7_operator
-                    unit%execution_part%print%output_items(item_index)%left = &
-                        print_policy_expression_7_left
-                    unit%execution_part%print%output_items(item_index)%right = &
-                        print_policy_expression_7_right
-                else if (token == print_policy_expression_8_source) then
-                    unit%execution_part%print%output_items(item_index)%operator = &
-                        print_policy_expression_8_operator
-                    unit%execution_part%print%output_items(item_index)%left = &
-                        print_policy_expression_8_left
-                    unit%execution_part%print%output_items(item_index)%right = &
-                        print_policy_expression_8_right
-                else if (token == print_policy_expression_9_source) then
-                    unit%execution_part%print%output_items(item_index)%operator = &
-                        print_policy_expression_9_operator
-                    unit%execution_part%print%output_items(item_index)%left = &
-                        print_policy_expression_9_left
-                    unit%execution_part%print%output_items(item_index)%right = &
-                        print_policy_expression_9_right
-                else if (token == print_policy_expression_10_source) then
-                    unit%execution_part%print%output_items(item_index)%operator = &
-                        print_policy_expression_10_operator
-                    unit%execution_part%print%output_items(item_index)%left = &
-                        print_policy_expression_10_left
-                    unit%execution_part%print%output_items(item_index)%right = &
-                        print_policy_expression_10_right
-                else if (token == print_policy_expression_11_source) then
-                    unit%execution_part%print%output_items(item_index)%operator = &
-                        print_policy_expression_11_operator
-                    unit%execution_part%print%output_items(item_index)%left = &
-                        print_policy_expression_11_left
-                    unit%execution_part%print%output_items(item_index)%right = &
-                        print_policy_expression_11_right
-                else if (token == print_policy_expression_12_source) then
-                    unit%execution_part%print%output_items(item_index)%operator = &
-                        print_policy_expression_12_operator
-                    unit%execution_part%print%output_items(item_index)%left = &
-                        print_policy_expression_12_left
-                    unit%execution_part%print%output_items(item_index)%right = &
-                        print_policy_expression_12_right
-                else
-                    unit%execution_part%print%output_items(item_index)%operator = &
-                        print_policy_expression_6_operator
-                    unit%execution_part%print%output_items(item_index)%left = &
-                        print_policy_expression_6_left
-                    unit%execution_part%print%output_items(item_index)%right = &
-                        print_policy_expression_6_right
-                end if
+            else if (parse_print_expression_item(token, &
+                    unit%execution_part%print%output_items(item_index))) then
                 unit%execution_part%print%output_items(item_index)%rule = 'R1217'
             else
                 if (.not. is_print_integer_literal(token)) return

@@ -122,6 +122,13 @@ program test_frontend_generic_print_list
     call check_divide_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x / 2, 7'//new_line('a')//'end program main'//new_line('a'))
+    call check_positive('program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
+        '  print *, x * 2, x ** 10, x - 4'//new_line('a')// &
+        'end program main'//new_line('a'), 3, &
+        '(output-item (kind integer-expression) (operator **) (left x) (right 10) '// &
+        '(rule R1217) (clause 12.6.3) (page 248))', &
+        '(source-identity l3-raw-program-generic-print-expression-v0)')
     call check_power_expression('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x ** 2, 7'//new_line('a')//'end program main'//new_line('a'))

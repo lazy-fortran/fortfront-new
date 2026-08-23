@@ -297,6 +297,7 @@ module frontend_print_policy_generated
     public :: print_stmt_validate
     public :: print_stmt_to_sx
     public :: print_policy_decimal_expression_valid
+    public :: print_policy_expression_valid
 
 contains
 
@@ -356,47 +357,8 @@ contains
                 if ((trim(item%kind) /= 'variable' .and. trim(item%kind) /= &
                     'integer-literal' .and. trim(item%kind) /= 'integer-expression') .or. &
                     (trim(item%kind) == 'integer-expression' .and. &
-                    ((trim(item%operator) /= print_policy_expression_operator .or. &
-                    trim(item%left) /= print_policy_expression_left .or. &
-                    trim(item%right) /= print_policy_expression_right) .and. &
-                    (trim(item%operator) /= print_policy_expression_2_operator .or. &
-                    trim(item%left) /= print_policy_expression_2_left .or. &
-                    trim(item%right) /= print_policy_expression_2_right) .and. &
-                    (trim(item%operator) /= print_policy_expression_3_operator .or. &
-                    trim(item%left) /= print_policy_expression_3_left .or. &
-                    trim(item%right) /= print_policy_expression_3_right) .and. &
-                    (.not. print_policy_power_literal_valid(item%right) .or. &
-                    trim(item%operator) /= print_policy_power_operator .or. &
-                    trim(item%left) /= print_policy_power_left) .and. &
-                    (trim(item%operator) /= print_policy_expression_4_operator .or. &
-                    trim(item%left) /= print_policy_expression_4_left .or. &
-                    trim(item%right) /= print_policy_expression_4_right) .and. &
-                    (trim(item%operator) /= print_policy_expression_5_operator .or. &
-                    trim(item%left) /= print_policy_expression_5_left .or. &
-                    trim(item%right) /= print_policy_expression_5_right) .and. &
-                    (trim(item%operator) /= print_policy_expression_6_operator .or. &
-                    trim(item%left) /= print_policy_expression_6_left .or. &
-                    trim(item%right) /= print_policy_expression_6_right) .and. &
-                    (trim(item%operator) /= print_policy_expression_7_operator .or. &
-                    trim(item%left) /= print_policy_expression_7_left .or. &
-                    trim(item%right) /= print_policy_expression_7_right) .and. &
-                    (trim(item%operator) /= print_policy_expression_8_operator .or. &
-                    trim(item%left) /= print_policy_expression_8_left .or. &
-                    trim(item%right) /= print_policy_expression_8_right) .and. &
-                    (trim(item%operator) /= print_policy_expression_9_operator .or. &
-                    trim(item%left) /= print_policy_expression_9_left .or. &
-                    trim(item%right) /= print_policy_expression_9_right) .and. &
-                    (trim(item%operator) /= print_policy_expression_10_operator .or. &
-                    trim(item%left) /= print_policy_expression_10_left .or. &
-                    trim(item%right) /= print_policy_expression_10_right) .and. &
-                    (trim(item%operator) /= print_policy_expression_11_operator .or. &
-                    trim(item%left) /= print_policy_expression_11_left .or. &
-                    trim(item%right) /= print_policy_expression_11_right) .and. &
-                    (trim(item%operator) /= print_policy_expression_12_operator .or. &
-                    trim(item%left) /= print_policy_expression_12_left .or. &
-                    trim(item%right) /= print_policy_expression_12_right) .and. &
-                    (.not. print_policy_decimal_expression_valid(trim(item%left)//' '// &
-                    trim(item%operator)//' '//trim(item%right))))) .or. &
+                    (.not. print_policy_expression_valid(trim(item%operator), &
+                    trim(item%left), trim(item%right)))) .or. &
                     (trim(item%kind) == 'variable' .and. &
                     trim(item%name) /= print_policy_variable_output_name .and. &
                     trim(item%name) /= print_policy_variable_output_name_2 .and. &
@@ -700,5 +662,28 @@ contains
             end if
         end select
     end subroutine print_stmt_output_item
+
+    logical function print_policy_expression_valid(operator, left, right)
+        character(len=*), intent(in) :: operator, left, right
+
+        print_policy_expression_valid = .false.
+        if (trim(left) /= 'x') return
+        if (trim(operator) == print_policy_expression_operator) then
+            print_policy_expression_valid = trim(right) == 'x' .or. &
+                print_policy_decimal_expression_valid('x + '//trim(right))
+        else if (trim(operator) == print_policy_expression_8_operator) then
+            print_policy_expression_valid = &
+                print_policy_decimal_expression_valid('x - '//trim(right))
+        else if (trim(operator) == print_policy_expression_3_operator) then
+            print_policy_expression_valid = trim(right) == print_policy_expression_3_right
+        else if (trim(operator) == print_policy_expression_4_operator) then
+            print_policy_expression_valid = trim(right) == print_policy_expression_4_right
+        else if (trim(operator) == print_policy_power_operator) then
+            print_policy_expression_valid = trim(right) == 'x' .or. &
+                print_policy_power_literal_valid(trim(right))
+        else if (trim(operator) == print_policy_expression_6_operator) then
+            print_policy_expression_valid = trim(right) == print_policy_expression_6_right
+        end if
+    end function print_policy_expression_valid
 
 end module frontend_print_policy_generated
