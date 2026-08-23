@@ -934,43 +934,35 @@ contains
         integer(int64), intent(out) :: addend
         logical, intent(out) :: variable_exponent
         character(len=32) :: token
-        integer :: status, position
+        character(len=11), parameter :: update_prefixes(5) = [character(len=11) :: &
+            '  x = x + ', '  x = x - ', '  x = x * ', '  x = x / ', '  x = x ** ']
+        integer, parameter :: update_prefix_lengths(5) = [10, 10, 10, 10, 11]
+        character(len=2), parameter :: update_operators(5) = [character(len=2) :: &
+            '+ ', '- ', '* ', '/ ', '**']
+        character(len=17), parameter :: variable_expression_kinds(4) = [character(len=17) :: &
+            'add-variable', 'multiply-variable', 'divide-variable', 'subtract-variable']
+        character(len=5), parameter :: variable_expression_rules(4) = [character(len=5) :: &
+            'R1007', 'R1006', 'R1006', 'R1006']
+        character(len=5), parameter :: variable_operator_rules(4) = [character(len=5) :: &
+            'R1010', 'R1009', 'R1009', 'R1010']
+        integer, parameter :: variable_policy_indices(5) = [1, 4, 2, 3, 0]
+        integer :: status, position, operator_index
 
         parse_generic_update_line = .false.
         operator = ''
         addend = 0_int64
         variable_exponent = .false.
         if (len_trim(line) <= len('  x = x ')) return
-        if (len_trim(line) >= len('  x = x + ')) then
-            if (line(:len('  x = x + ')) == '  x = x + ') then
-                operator = '+'
-                token = adjustl(line(len('  x = x + ') + 1:))
-            end if
-        end if
-        if (len_trim(operator) == 0 .and. len_trim(line) >= len('  x = x - ')) then
-            if (line(:len('  x = x - ')) == '  x = x - ') then
-                operator = '-'
-                token = adjustl(line(len('  x = x - ') + 1:))
-            end if
-        end if
-        if (len_trim(operator) == 0 .and. len_trim(line) >= len('  x = x * ')) then
-            if (line(:len('  x = x * ')) == '  x = x * ') then
-                operator = '*'
-                token = adjustl(line(len('  x = x * ') + 1:))
-            end if
-        end if
-        if (len_trim(operator) == 0 .and. len_trim(line) >= len('  x = x / ')) then
-            if (line(:len('  x = x / ')) == '  x = x / ') then
-                operator = '/'
-                token = adjustl(line(len('  x = x / ') + 1:))
-            end if
-        end if
-        if (len_trim(operator) == 0 .and. len_trim(line) >= len('  x = x ** ')) then
-            if (line(:len('  x = x ** ')) == '  x = x ** ') then
-                operator = '**'
-                token = adjustl(line(len('  x = x ** ') + 1:))
-            end if
-        end if
+        operator_index = 0
+        do position = 1, size(update_prefixes)
+            if (len_trim(line) < update_prefix_lengths(position)) cycle
+            if (line(:update_prefix_lengths(position)) /= &
+                update_prefixes(position)(:update_prefix_lengths(position))) cycle
+            operator_index = position
+            operator = trim(update_operators(position))
+            token = adjustl(line(update_prefix_lengths(position) + 1:))
+            exit
+        end do
         if (len_trim(operator) == 0) return
         if (len_trim(token) == 0) return
         if (operator == '**' .and. trim(token) == 'x') then
@@ -978,68 +970,20 @@ contains
             parse_generic_update_line = .true.
             return
         end if
-        if (operator == '+' .and. trim(token) == 'x') then
+        if (operator_index <= 4 .and. trim(token) == 'x') then
             do position = 1, assignment_policy_row_count
                 if (trim(assignment_policy_rows(position)%expression_kind) /= &
-                    'add-variable') cycle
-                if (trim(assignment_policy_rows(position)%expression_rule) /= 'R1007') cycle
-                if (trim(assignment_policy_rows(position)%operator_rule) /= 'R1010') cycle
+                    trim(variable_expression_kinds(variable_policy_indices(operator_index)))) cycle
+                if (trim(assignment_policy_rows(position)%expression_rule) /= &
+                    variable_expression_rules(variable_policy_indices(operator_index))) cycle
+                if (trim(assignment_policy_rows(position)%operator_rule) /= &
+                    variable_operator_rules(variable_policy_indices(operator_index))) cycle
                 if (trim(assignment_policy_rows(position)%source_rule) /= 'R1033') cycle
-                if (trim(assignment_policy_rows(position)%source_spelling) /= 'x + x') cycle
+                if (trim(assignment_policy_rows(position)%source_spelling) /= &
+                    'x '//trim(operator)//' x') cycle
                 if (trim(assignment_policy_rows(position)%left_operand) /= 'x') cycle
                 if (trim(assignment_policy_rows(position)%right_operand) /= 'x') cycle
-                if (trim(assignment_policy_rows(position)%operator) /= '+') cycle
-                variable_exponent = .true.
-                parse_generic_update_line = .true.
-                return
-            end do
-            return
-        end if
-        if (operator == '*' .and. trim(token) == 'x') then
-            do position = 1, assignment_policy_row_count
-                if (trim(assignment_policy_rows(position)%expression_kind) /= &
-                    'multiply-variable') cycle
-                if (trim(assignment_policy_rows(position)%expression_rule) /= 'R1006') cycle
-                if (trim(assignment_policy_rows(position)%operator_rule) /= 'R1009') cycle
-                if (trim(assignment_policy_rows(position)%source_rule) /= 'R1033') cycle
-                if (trim(assignment_policy_rows(position)%source_spelling) /= 'x * x') cycle
-                if (trim(assignment_policy_rows(position)%left_operand) /= 'x') cycle
-                if (trim(assignment_policy_rows(position)%right_operand) /= 'x') cycle
-                if (trim(assignment_policy_rows(position)%operator) /= '*') cycle
-                variable_exponent = .true.
-                parse_generic_update_line = .true.
-                return
-            end do
-            return
-        end if
-        if (operator == '/' .and. trim(token) == 'x') then
-            do position = 1, assignment_policy_row_count
-                if (trim(assignment_policy_rows(position)%expression_kind) /= &
-                    'divide-variable') cycle
-                if (trim(assignment_policy_rows(position)%expression_rule) /= 'R1006') cycle
-                if (trim(assignment_policy_rows(position)%operator_rule) /= 'R1009') cycle
-                if (trim(assignment_policy_rows(position)%source_rule) /= 'R1033') cycle
-                if (trim(assignment_policy_rows(position)%source_spelling) /= 'x / x') cycle
-                if (trim(assignment_policy_rows(position)%left_operand) /= 'x') cycle
-                if (trim(assignment_policy_rows(position)%right_operand) /= 'x') cycle
-                if (trim(assignment_policy_rows(position)%operator) /= '/') cycle
-                variable_exponent = .true.
-                parse_generic_update_line = .true.
-                return
-            end do
-            return
-        end if
-        if (operator == '-' .and. trim(token) == 'x') then
-            do position = 1, assignment_policy_row_count
-                if (trim(assignment_policy_rows(position)%expression_kind) /= &
-                    'subtract-variable') cycle
-                if (trim(assignment_policy_rows(position)%expression_rule) /= 'R1006') cycle
-                if (trim(assignment_policy_rows(position)%operator_rule) /= 'R1010') cycle
-                if (trim(assignment_policy_rows(position)%source_rule) /= 'R1033') cycle
-                if (trim(assignment_policy_rows(position)%source_spelling) /= 'x - x') cycle
-                if (trim(assignment_policy_rows(position)%left_operand) /= 'x') cycle
-                if (trim(assignment_policy_rows(position)%right_operand) /= 'x') cycle
-                if (trim(assignment_policy_rows(position)%operator) /= '-') cycle
+                if (trim(assignment_policy_rows(position)%operator) /= trim(operator)) cycle
                 variable_exponent = .true.
                 parse_generic_update_line = .true.
                 return
