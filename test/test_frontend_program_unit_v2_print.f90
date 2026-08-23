@@ -481,7 +481,19 @@ program test_frontend_program_unit_v2_print
         error stop 'PRINT four-item serialization changed'
     end if
 
-    call assert_rejected(print_eight)
+    call frontend_parse_program_unit_v2('print-eight.f90', print_eight, 'print-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%print%output_count /= 1 .or. &
+        unit%execution_part%print%output_items(1)%value /= 8 .or. &
+        trim(unit%execution_part%print%output_items(1)%kind) /= 'integer-literal' .or. &
+        trim(unit%execution_part%print%source_hash) /= trim(print_policy_source_hash) .or. &
+        trim(unit%root%span%source_hash) /= 'print-input') then
+        error stop 'generic pure PRINT *, 8 witness was rejected'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(output-value 8)') == 0 .or. &
+        index(trim(serialized), '(output-item (kind integer-literal) (value 8)') == 0) then
+        error stop 'generic pure PRINT *, 8 serialization changed'
+    end if
     call assert_rejected(write_seven)
     call assert_rejected(missing_item)
     call assert_rejected(missing_second)
