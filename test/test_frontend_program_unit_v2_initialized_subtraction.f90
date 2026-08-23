@@ -116,6 +116,7 @@ contains
         character(len=:), allocatable :: source
         character(len=256) :: en_dash_message
         character(len=*), parameter :: source_hash = 'initialized-subtraction-en-dash-input'
+        integer(int64) :: assignment_start, assignment_end
 
         source = 'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
             '  x = 23'//new_line('a')//'  x = x – 2'//new_line('a')// &
@@ -129,6 +130,13 @@ contains
             unit%root%span%end_byte /= int(len(source) - 1, int64)) then
             error stop 'UTF-8 en-dash subtraction was not accepted'
         end if
+        assignment_start = int(index(source, '  x = x – 2') - 1, int64)
+        assignment_end = assignment_start + int(len('  x = x – 2') - 1, int64)
+        call assert_span(unit%execution_part%sequence%assignment(2)%span%file, &
+            unit%execution_part%sequence%assignment(2)%span%source_hash, &
+            unit%execution_part%sequence%assignment(2)%span%start_byte, &
+            unit%execution_part%sequence%assignment(2)%span%end_byte, 'en-dash subtraction', &
+            'initialized-subtraction-en-dash.f90', source_hash, assignment_start, assignment_end)
     end subroutine assert_accepted_en_dash
 
     subroutine assert_provenance(file_name, source_hash, start_byte, end_byte, label, &
