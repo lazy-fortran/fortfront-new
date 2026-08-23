@@ -80,19 +80,20 @@ contains
         session = fortfront_lexical_grammar_session_t()
         status = fortfront_lexical_grammar_session_malformed
         message = ''
-        do i = 1, token_count
-            if (.not. token_provenance_is_valid(tokens(i), facts_message)) then
-                message = 'lexical-grammar-session-token-provenance-is-malformed: '// &
-                    trim(facts_message)
-                return
-            end if
-        end do
         call fortfront_lexical_token_cursor_initialize(session%cursor, tokens, token_count, &
             cursor_status, cursor_message)
         if (cursor_status /= fortfront_lexical_token_cursor_ok) then
             message = 'lexical-grammar-session-cursor-is-malformed: '//trim(cursor_message)
             return
         end if
+        do i = 1, token_count
+            if (.not. token_provenance_is_valid(tokens(i), facts_message)) then
+                session = fortfront_lexical_grammar_session_t()
+                message = 'lexical-grammar-session-token-provenance-is-malformed: '// &
+                    trim(facts_message)
+                return
+            end if
+        end do
         call fortfront_grammar_session_initialize(session%grammar, table, facts, fact_count, &
             start_lhs, grammar_status, grammar_message)
         if (grammar_status /= fortfront_grammar_session_initialized) then
@@ -163,6 +164,10 @@ contains
         integer, intent(out) :: output_count, status
         character(len=*), intent(out) :: message
 
+        type(fortfront_lexical_token_t) :: candidate
+        integer :: cursor_status
+        character(len=256) :: cursor_message
+
         output = fortfront_grammar_frontier_result_t()
         output_count = 0
         status = fortfront_lexical_grammar_session_malformed
@@ -171,8 +176,25 @@ contains
             message = 'lexical-grammar-session-is-not-initialized'
             return
         end if
-        call fortfront_grammar_session_finalize(session%grammar, output, output_count, status, &
-            message)
+        call fortfront_lexical_token_cursor_peek(session%cursor, candidate, cursor_status, &
+            cursor_message)
+        if (cursor_status == fortfront_lexical_token_cursor_end_of_stream) then
+            call fortfront_grammar_session_finalize(session%grammar, output, output_count, status, &
+                message)
+            return
+        end if
+        if (cursor_status /= fortfront_lexical_token_cursor_ok) then
+            message = 'lexical-grammar-session-cursor-is-malformed: '//trim(cursor_message)
+            return
+        end if
+        if (candidate%status /= fortfront_lexical_token_match) then
+            status = candidate%status
+            message = candidate%message
+            if (len_trim(message) == 0) message = lexical_status_message(candidate%status)
+            return
+        end if
+        message = 'lexical-grammar-session-has-unconsumed-matched-token'
+        return
     end subroutine fortfront_lexical_grammar_session_finalize
 
     logical function token_provenance_is_valid(token, message)
