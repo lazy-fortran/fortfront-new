@@ -162,6 +162,7 @@ program test_frontend_generic_print_list
     call check_provenance_mutations('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
         '  print *, x, 7, x'//new_line('a')//'end program main'//new_line('a'))
+    call check_variable_identifier_and_value()
 
     call check_rejected('program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 3'//new_line('a')// &
@@ -575,5 +576,32 @@ contains
             if (valid) error stop 'generic PRINT provenance mutation was accepted'
         end do
     end subroutine check_provenance_mutations
+
+    subroutine check_variable_identifier_and_value()
+        character(len=256) :: message
+        logical :: ok, valid
+        type(program_unit_v2_t) :: unit
+
+        call frontend_parse_program_unit_v2('generic-print-variable.f90', &
+            'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+            '  x = 3'//new_line('a')//'  print *, x'//new_line('a')// &
+            'end program main'//new_line('a'), 'generic-print-test', unit, ok, message)
+        if (.not. ok) error stop 'generic PRINT variable fixture was rejected'
+        unit%execution_part%print%output_items(1)%name = 'counter_2'
+        unit%execution_part%print%output_items(1)%value = -100_int64
+        unit%execution_part%print%output_value = -100_int64
+        valid = print_stmt_validate(unit%execution_part%print, message)
+        if (.not. valid) error stop 'legal PRINT variable name/value was rejected'
+
+        unit%execution_part%print%output_items(1)%name = '2counter'
+        valid = print_stmt_validate(unit%execution_part%print, message)
+        if (valid) error stop 'malformed PRINT variable name was accepted'
+
+        unit%execution_part%print%output_items(1)%name = 'counter_2'
+        unit%execution_part%print%output_items(1)%value = -101_int64
+        unit%execution_part%print%output_value = -101_int64
+        valid = print_stmt_validate(unit%execution_part%print, message)
+        if (valid) error stop 'out-of-range PRINT variable value was accepted'
+    end subroutine check_variable_identifier_and_value
 
 end program test_frontend_generic_print_list

@@ -114,13 +114,13 @@ def _replace_generated_routes(generated: str) -> str:
         "                    (.not. print_policy_expression_valid(trim(item%operator), &",
         "                    trim(item%left), trim(item%right)))) .or. &",
         "                    (trim(item%kind) == 'variable' .and. &",
-        "                    trim(item%name) /= print_policy_variable_output_name .and. &",
-        "                    trim(item%name) /= print_policy_variable_output_name_2 .and. &",
-        "                    trim(item%name) /= print_policy_variable_output_name_3) .or. &",
+        "                    .not. print_policy_identifier_valid(trim(item%name))) .or. &",
         "                    (trim(item%kind) == 'integer-literal' &",
         "                    .and. item%value < print_policy_integer_literal_min .and. &",
         "                    (item%value < print_policy_signed_integer_literal_min .or. &",
         "                    item%value > print_policy_signed_integer_literal_max)) .or. &",
+        "                    (trim(item%kind) == 'variable' .and. &",
+        "                    .not. print_policy_variable_value_valid(item%value)) .or. &",
         "                    (trim(item%rule) /= 'R901' .and. &",
         "                    trim(item%rule) /= 'R1217') .or. trim(item%clause) /= &",
         "                    trim(print_policy_output_clause) .or. item%page /= &",
@@ -428,6 +428,36 @@ def _replace_generated_routes(generated: str) -> str:
             end if
         end select
     end subroutine print_stmt_output_item
+
+    logical function print_policy_identifier_valid(name)
+        character(len=*), intent(in) :: name
+        integer :: index, code, name_length
+
+        name_length = len_trim(name)
+        print_policy_identifier_valid = name_length > 0
+        if (.not. print_policy_identifier_valid) return
+        do index = 1, name_length
+            code = iachar(name(index:index))
+            if (index == 1) then
+                if ((code < iachar('A') .or. code > iachar('Z')) .and. &
+                    (code < iachar('a') .or. code > iachar('z'))) then
+                    print_policy_identifier_valid = .false.
+                    return
+                end if
+            else if ((code < iachar('A') .or. code > iachar('Z')) .and. &
+                    (code < iachar('a') .or. code > iachar('z')) .and. &
+                    (code < iachar('0') .or. code > iachar('9')) .and. code /= iachar('_')) then
+                print_policy_identifier_valid = .false.
+                return
+            end if
+        end do
+    end function print_policy_identifier_valid
+
+    logical function print_policy_variable_value_valid(value)
+        integer(int64), intent(in) :: value
+
+        print_policy_variable_value_valid = value >= print_policy_signed_integer_literal_min
+    end function print_policy_variable_value_valid
 
     logical function print_policy_expression_valid(operator, left, right)
         character(len=*), intent(in) :: operator, left, right
