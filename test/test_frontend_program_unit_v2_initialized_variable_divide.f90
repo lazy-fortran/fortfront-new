@@ -12,7 +12,7 @@ program test_frontend_program_unit_v2_initialized_variable_divide
     call assert_accepted('42')
     call assert_accepted('-42')
 
-    call assert_rejected('42', 'x = x - x', 'x')
+    call assert_rejected('42', 'y = x / x', 'x')
     call assert_rejected('42', 'x = x / y', 'x')
     call assert_rejected('42', 'x = x / x', 'y')
     call assert_rejected('42.0', 'x = x / x', 'x')

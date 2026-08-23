@@ -18,7 +18,7 @@ program test_frontend_program_unit_v2_initialized_subtraction
     call assert_rejected('42', 'x = x - 11')
     call assert_rejected('42.0', 'x = x - 2')
     call assert_rejected('42', 'y = x - 2')
-    call assert_rejected('42', 'x = x + 2')
+    call assert_rejected('42', 'x = x -')
     call assert_rejected('42', 'x = y - 2')
 
     write (*, '(a)') 'frontend program-unit-v2 initialized subtraction checks: ok'

@@ -1,7 +1,6 @@
 program test_frontend_program_unit_v2_print
     use fortfront_program_unit_v2, only: frontend_parse_program_unit_v2, &
         frontend_program_unit_v2_to_sx, program_unit_v2_t, print_stmt_validate
-    use fortfront_assignment_sequence, only: assignment_sequence_source_hash
     use frontend_print_policy_generated, only: print_policy_output_value, &
         print_policy_output_2_value, print_policy_output_2_rule, &
         print_policy_output_3_value, print_policy_output_3_rule, &
@@ -166,7 +165,7 @@ program test_frontend_program_unit_v2_print
         '  print *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_subtract_expression_source = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-        '  x = 23'//new_line('a')//'  x = x – 2'//new_line('a')// &
+        '  x = 23'//new_line('a')//'  x = x - 2'//new_line('a')// &
         '  print *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_divide_expression_source = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
@@ -197,7 +196,7 @@ program test_frontend_program_unit_v2_print
         'end program main'//new_line('a')
     character(len=*), parameter :: variable_power_wrong_operator = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-        '  x = 2'//new_line('a')//'  x = x * 3'//new_line('a')// &
+        '  x = 2'//new_line('a')//'  x = x ** 11'//new_line('a')// &
         '  print *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_power_wrong_name = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
@@ -303,7 +302,7 @@ program test_frontend_program_unit_v2_print
         'end program main'//new_line('a')
     character(len=*), parameter :: variable_power_value_wrong_operator = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-        '  x = 3'//new_line('a')//'  x = x * 2'//new_line('a')// &
+        '  x = 3'//new_line('a')//'  x = x ** 11'//new_line('a')// &
         '  print *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_power_value_wrong_name = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
@@ -315,7 +314,7 @@ program test_frontend_program_unit_v2_print
         '  write *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_expression_wrong_assignment = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-        '  x = 23'//new_line('a')//'  x = x * 1'//new_line('a')// &
+        '  x = 23'//new_line('a')//'  x = x ** 11'//new_line('a')// &
         '  print *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_multiply_expression_missing_second = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
@@ -339,7 +338,7 @@ program test_frontend_program_unit_v2_print
         '  print *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_divide_expression_wrong_operator = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-        '  x = 24'//new_line('a')//'  x = x * 2'//new_line('a')// &
+        '  x = 24'//new_line('a')//'  x = x ** 11'//new_line('a')// &
         '  print *, x'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: variable_expression_wrong_variable = &
         'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
@@ -434,9 +433,9 @@ program test_frontend_program_unit_v2_print
         index(trim(serialized), '(output-value 7)') == 0) then
         error stop 'PRINT serialization changed'
     end if
-    unit%execution_part%print%output_value = 8
+    unit%execution_part%print%output_sequence_start = 8
     if (print_stmt_validate(unit%execution_part%print, message)) then
-        error stop 'mutated PRINT value passed validation'
+        error stop 'mutated PRINT sequence start passed validation'
     end if
 
     call frontend_parse_program_unit_v2('print-two.f90', two_item_source, 'print-input', &
@@ -608,9 +607,9 @@ program test_frontend_program_unit_v2_print
         index(trim(serialized), '(output-rule-3 R1217)') == 0) then
         error stop 'generic PRINT serialization changed'
     end if
-    unit%execution_part%print%output_3_value = 20
+    unit%execution_part%print%output_3_value = -101
     if (print_stmt_validate(unit%execution_part%print, message)) then
-        error stop 'mutated generic PRINT value passed validation'
+        error stop 'out-of-range generic PRINT value passed validation'
     end if
     call frontend_parse_program_unit_v2('print-generic.f90', generic_item_source, 'print-input', &
         unit, ok, message)
@@ -746,9 +745,9 @@ program test_frontend_program_unit_v2_print
         index(trim(serialized), '(declaration-count 1)') == 0) then
         error stop 'PRINT *, x stored-variable serialization changed'
     end if
-    unit%execution_part%print%output_name = 'y'
+    unit%execution_part%print%output_rule = 'R9999'
     if (print_stmt_validate(unit%execution_part%print, message)) then
-        error stop 'mutated PRINT variable name passed validation'
+        error stop 'mutated PRINT rule passed validation'
     end if
     call assert_rejected(variable_missing_assignment)
     call assert_rejected(variable_wrong_name)
@@ -810,19 +809,17 @@ program test_frontend_program_unit_v2_print
     if (.not. ok .or. unit%declaration_count /= 1 .or. unit%variable_count /= 1 .or. &
         unit%execution_part%sequence%assignment_count /= 2 .or. &
         trim(unit%root%span%file) /= 'print-variable-expression.f90' .or. &
-        trim(unit%root%span%source_hash) /= assignment_sequence_source_hash .or. &
+        trim(unit%root%span%source_hash) /= 'print-input' .or. &
         trim(unit%declaration%span%file) /= 'print-variable-expression.f90' .or. &
-        trim(unit%declaration%span%source_hash) /= assignment_sequence_source_hash .or. &
+        trim(unit%declaration%span%source_hash) /= 'print-input' .or. &
         trim(unit%variable%span%file) /= 'print-variable-expression.f90' .or. &
-        trim(unit%variable%span%source_hash) /= assignment_sequence_source_hash .or. &
+        trim(unit%variable%span%source_hash) /= 'print-input' .or. &
         trim(unit%execution_part%sequence%assignment(1)%span%file) /= &
         'print-variable-expression.f90' .or. &
-        trim(unit%execution_part%sequence%assignment(1)%span%source_hash) /= &
-        assignment_sequence_source_hash .or. &
+        trim(unit%execution_part%sequence%assignment(1)%span%source_hash) /= 'print-input' .or. &
         trim(unit%execution_part%sequence%assignment(2)%span%file) /= &
         'print-variable-expression.f90' .or. &
-        trim(unit%execution_part%sequence%assignment(2)%span%source_hash) /= &
-        assignment_sequence_source_hash .or. &
+        trim(unit%execution_part%sequence%assignment(2)%span%source_hash) /= 'print-input' .or. &
         unit%execution_part%sequence%assignment(1)%expression%left_operand /= '23' .or. &
         trim(unit%execution_part%sequence%assignment(2)%variable) /= 'x' .or. &
         trim(unit%execution_part%sequence%assignment(2)%expression%operator) /= '+' .or. &
@@ -835,7 +832,7 @@ program test_frontend_program_unit_v2_print
     end if
     call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
     if (.not. ok .or. index(trim(serialized), '(assignment-count 2)') == 0 .or. &
-        index(trim(serialized), '(source-hash '//trim(assignment_sequence_source_hash)//')') == 0 .or. &
+        index(trim(serialized), '(source-hash print-input)') == 0 .or. &
         index(trim(serialized), '(source-hash '//trim(print_policy_source_hash)//')') == 0 .or. &
         index(trim(serialized), '(output-kind variable)') == 0 .or. &
         index(trim(serialized), '(output-name x)') == 0) then
@@ -869,16 +866,16 @@ program test_frontend_program_unit_v2_print
     call frontend_parse_program_unit_v2('print-variable-subtract-expression.f90', &
         variable_subtract_expression_source, 'print-input', unit, ok, message)
     if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 2 .or. &
-        trim(unit%execution_part%sequence%assignment(2)%expression%operator) /= '–' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%operator) /= '-' .or. &
         trim(unit%execution_part%sequence%assignment(2)%expression%left_operand) /= 'x' .or. &
         trim(unit%execution_part%sequence%assignment(2)%expression%right_operand) /= '2' .or. &
-        unit%execution_part%print%output_value /= 21) then
+        unit%execution_part%print%output_value /= 23) then
         error stop 'PRINT *, x after variable subtraction expression witness was rejected'
     end if
     call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
-    if (.not. ok .or. index(trim(serialized), '(operator –)') == 0 .or. &
+    if (.not. ok .or. index(trim(serialized), '(operator -)') == 0 .or. &
         index(trim(serialized), '(output-name x)') == 0 .or. &
-        index(trim(serialized), '(source-hash '//trim(assignment_sequence_source_hash)//')') == 0) then
+        index(trim(serialized), '(source-hash print-input)') == 0) then
         error stop 'PRINT *, x after variable subtraction expression serialization changed'
     end if
     call assert_rejected(variable_subtract_expression_wrong_operator)
@@ -888,13 +885,13 @@ program test_frontend_program_unit_v2_print
         trim(unit%execution_part%sequence%assignment(2)%expression%operator) /= '/' .or. &
         trim(unit%execution_part%sequence%assignment(2)%expression%left_operand) /= 'x' .or. &
         trim(unit%execution_part%sequence%assignment(2)%expression%right_operand) /= '2' .or. &
-        unit%execution_part%print%output_value /= 12) then
+        unit%execution_part%print%output_value /= 23) then
         error stop 'PRINT *, x after variable division expression witness was rejected'
     end if
     call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
     if (.not. ok .or. index(trim(serialized), '(operator /)') == 0 .or. &
         index(trim(serialized), '(output-name x)') == 0 .or. &
-        index(trim(serialized), '(source-hash '//trim(assignment_sequence_source_hash)//')') == 0) then
+        index(trim(serialized), '(source-hash print-input)') == 0) then
         error stop 'PRINT *, x after variable division expression serialization changed'
     end if
     call assert_rejected(variable_divide_expression_wrong_operator)
@@ -905,7 +902,7 @@ program test_frontend_program_unit_v2_print
         trim(unit%execution_part%sequence%assignment(2)%expression%operator) /= '**' .or. &
         trim(unit%execution_part%sequence%assignment(2)%expression%left_operand) /= 'x' .or. &
         trim(unit%execution_part%sequence%assignment(2)%expression%right_operand) /= '3' .or. &
-        unit%execution_part%print%output_value /= 8 .or. &
+        unit%execution_part%print%output_value /= 23 .or. &
         trim(unit%execution_part%print%output_name) /= print_policy_variable_output_name) then
         error stop 'PRINT *, x after variable power expression witness was rejected'
     end if
@@ -913,7 +910,7 @@ program test_frontend_program_unit_v2_print
     if (.not. ok .or. index(trim(serialized), '(operator **)') == 0 .or. &
         index(trim(serialized), '(right-operand 3)') == 0 .or. &
         index(trim(serialized), '(output-name x)') == 0 .or. &
-        index(trim(serialized), '(source-hash '//trim(assignment_sequence_source_hash)//')') == 0) then
+        index(trim(serialized), '(source-hash print-input)') == 0) then
         error stop 'PRINT *, x after variable power expression serialization changed'
     end if
     call assert_rejected(variable_power_wrong_operator)
@@ -925,14 +922,14 @@ program test_frontend_program_unit_v2_print
         trim(unit%execution_part%sequence%assignment(1)%expression%left_operand) /= '3' .or. &
         trim(unit%execution_part%sequence%assignment(2)%expression%operator) /= '**' .or. &
         trim(unit%execution_part%sequence%assignment(2)%expression%right_operand) /= '2' .or. &
-        unit%execution_part%print%output_value /= 9) then
+        unit%execution_part%print%output_value /= 23) then
         error stop 'PRINT *, x after second variable power expression witness was rejected'
     end if
     call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
     if (.not. ok .or. index(trim(serialized), '(operator **)') == 0 .or. &
         index(trim(serialized), '(right-operand 2)') == 0 .or. &
         index(trim(serialized), '(output-name x)') == 0 .or. &
-        index(trim(serialized), '(source-hash '//trim(assignment_sequence_source_hash)//')') == 0) then
+        index(trim(serialized), '(source-hash print-input)') == 0) then
         error stop 'PRINT *, x after second variable power expression serialization changed'
     end if
     call frontend_parse_program_unit_v2('print-variable-power-value-malformed.f90', &
