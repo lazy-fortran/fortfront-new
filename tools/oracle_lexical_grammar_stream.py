@@ -7,6 +7,7 @@ ACCEPTED, REJECTED, AMBIGUOUS, UNRESOLVED = "accepted", "rejected", "ambiguous",
 MALFORMED, CAPACITY = "malformed", "capacity"
 NO_MATCH, UNSUPPORTED = "no-match", "unsupported"
 TOKEN_CAPACITY = "token-capacity"
+TOKEN_AMBIGUOUS = "token-ambiguous"
 
 
 @dataclass
@@ -38,7 +39,8 @@ class Stream:
             token = self.tokens[trial_cursor]
             kind = token.get("status")
             if kind != "match":
-                return {"no-match": NO_MATCH, "unsupported": UNSUPPORTED}.get(kind, MALFORMED), [], 0
+                return {"no-match": NO_MATCH, "unsupported": UNSUPPORTED,
+                        "ambiguous": TOKEN_AMBIGUOUS}.get(kind, MALFORMED), [], 0
             symbol = token.get("symbol")
             if not isinstance(symbol, str) or not symbol:
                 return MALFORMED, [], 0
@@ -80,7 +82,8 @@ def main() -> None:
     frontier_retry.frontier_limit = 2
     require(frontier_retry.consume()[0] == AMBIGUOUS, "frontier retry failed")
 
-    for lexical, expected in (("no-match", NO_MATCH), ("unsupported", UNSUPPORTED), ("bad", MALFORMED)):
+    for lexical, expected in (("no-match", NO_MATCH), ("unsupported", UNSUPPORTED),
+                              ("ambiguous", TOKEN_AMBIGUOUS), ("bad", MALFORMED)):
         controlled = Stream((("a",),), [{"symbol": "a", "status": lexical}])
         require(controlled.consume()[0] == expected and controlled.cursor == 0, "lexical negative control failed")
     require(Stream((("a",),), [{"symbol": "x", "status": "match"}]).consume()[0] == REJECTED,

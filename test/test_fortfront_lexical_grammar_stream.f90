@@ -12,9 +12,10 @@ program test_fortfront_lexical_grammar_stream
         fortfront_lexical_grammar_session_malformed, &
         fortfront_lexical_grammar_session_no_match, fortfront_lexical_grammar_session_rejected, &
         fortfront_lexical_grammar_session_t, fortfront_lexical_grammar_session_token_capacity, &
-        fortfront_lexical_grammar_session_unsupported
+        fortfront_lexical_grammar_session_token_ambiguous, fortfront_lexical_grammar_session_unsupported
     use fortfront_lexical_tokens, only: fortfront_lexical_token_match, &
-        fortfront_lexical_token_no_match, fortfront_lexical_token_t, fortfront_lexical_token_unsupported
+        fortfront_lexical_token_ambiguous, fortfront_lexical_token_no_match, fortfront_lexical_token_t, &
+        fortfront_lexical_token_unsupported
     implicit none
 
     call test_success_and_statuses()
@@ -110,6 +111,22 @@ contains
         call fortfront_lexical_grammar_session_consume(session, consumed, token_count, frontier, &
             frontier_count, status, message)
         call require(status == fortfront_lexical_grammar_session_unsupported, 'unsupported changed')
+
+        input(2)%status = fortfront_lexical_token_ambiguous
+        call fortfront_lexical_grammar_session_initialize(session, table, facts, fact_count, 'S', &
+            input, 2, status, message)
+        consumed%symbol = 'stale'
+        frontier%identity = 'stale'
+        call fortfront_lexical_grammar_session_consume(session, consumed, token_count, frontier, &
+            frontier_count, status, message)
+        call require(status == fortfront_lexical_grammar_session_token_ambiguous .and. &
+            token_count == 0 .and. frontier_count == 0 .and. len_trim(consumed(1)%symbol) == 0 .and. &
+            len_trim(frontier(1)%identity) == 0, 'ambiguous token did not roll back and clear')
+        call fortfront_lexical_grammar_session_consume(session, consumed, token_count, frontier, &
+            frontier_count, status, message)
+        call require(status == fortfront_lexical_grammar_session_token_ambiguous .and. &
+            token_count == 0 .and. frontier_count == 0 .and. len_trim(consumed(1)%symbol) == 0 .and. &
+            len_trim(frontier(1)%identity) == 0, 'ambiguous token retry changed session state')
     end subroutine test_rollback_and_clear
 
     subroutine test_invalid_sessions()
