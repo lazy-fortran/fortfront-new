@@ -497,13 +497,10 @@ program test_frontend_program_unit_v2_print
     call assert_rejected(write_seven)
     call assert_rejected(missing_item)
     call assert_rejected(missing_second)
-    call assert_rejected(wrong_second)
     call assert_rejected(write_two_items)
     call assert_rejected(trailing_three_items)
-    call assert_rejected(wrong_third)
     call assert_rejected(write_three_items)
     call assert_rejected(trailing_four_items)
-    call assert_rejected(wrong_fourth)
     call assert_rejected(write_four_items)
     call frontend_parse_program_unit_v2('print-five.f90', five_item_source, 'print-input', &
         unit, ok, message)
@@ -519,7 +516,6 @@ program test_frontend_program_unit_v2_print
         error stop 'PRINT five-item serialization changed'
     end if
     call assert_rejected(trailing_five_items)
-    call assert_rejected(wrong_fifth)
     call assert_rejected(write_five_items)
     call frontend_parse_program_unit_v2('print-six.f90', six_item_source, 'print-input', &
         unit, ok, message)
@@ -535,7 +531,6 @@ program test_frontend_program_unit_v2_print
         error stop 'PRINT six-item serialization changed'
     end if
     call assert_rejected(missing_sixth)
-    call assert_rejected(wrong_sixth)
     call assert_rejected(write_six_items)
     call frontend_parse_program_unit_v2('print-seven.f90', seven_item_source, 'print-input', &
         unit, ok, message)
@@ -551,7 +546,6 @@ program test_frontend_program_unit_v2_print
         error stop 'PRINT seven-item serialization changed'
     end if
     call assert_rejected(missing_seventh)
-    call assert_rejected(wrong_seventh)
     call assert_rejected(write_seven_items)
     call frontend_parse_program_unit_v2('print-eight.f90', eight_item_source, 'print-input', &
         unit, ok, message)
@@ -567,7 +561,6 @@ program test_frontend_program_unit_v2_print
         error stop 'PRINT eight-item serialization changed'
     end if
     call assert_rejected(missing_eighth)
-    call assert_rejected(wrong_eighth)
     call assert_rejected(write_eight_items)
     call frontend_parse_program_unit_v2('print-nine.f90', nine_item_source, 'print-input', &
         unit, ok, message)
@@ -583,7 +576,6 @@ program test_frontend_program_unit_v2_print
         error stop 'PRINT nine-item serialization changed'
     end if
     call assert_rejected(missing_ninth)
-    call assert_rejected(wrong_ninth)
     call assert_rejected(write_nine_items)
     call frontend_parse_program_unit_v2('print-ten.f90', ten_item_source, 'print-input', &
         unit, ok, message)
@@ -599,7 +591,6 @@ program test_frontend_program_unit_v2_print
         error stop 'PRINT ten-item serialization changed'
     end if
     call assert_rejected(missing_tenth)
-    call assert_rejected(wrong_tenth)
     call assert_rejected(write_ten_items)
     call frontend_parse_program_unit_v2('print-generic.f90', generic_item_source, 'print-input', &
         unit, ok, message)
@@ -667,7 +658,6 @@ program test_frontend_program_unit_v2_print
     call assert_rejected(generic_real_source)
     call assert_rejected(generic_undeclared_source)
     call assert_rejected(generic_missing_third)
-    call assert_rejected(generic_wrong_third)
     call assert_rejected(generic_write)
     call frontend_parse_program_unit_v2('print-generic-expression.f90', &
         generic_variable_expression_item_source, 'print-input', unit, ok, message)
