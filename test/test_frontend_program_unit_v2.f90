@@ -66,6 +66,18 @@ program test_frontend_program_unit_v2
         new_line('a')//'  integer :: counter_2'//new_line('a')//'  counter_2 = 42'// &
         new_line('a')//'  counter_2 = counter_2 * 2'//new_line('a')// &
         '  print *, other_2'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: raw_counter_two_division = 'program main'// &
+        new_line('a')//'  integer :: counter_2'//new_line('a')//'  counter_2 = 42'// &
+        new_line('a')//'  counter_2 = counter_2 / 2'//new_line('a')// &
+        '  print *, counter_2'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: raw_counter_two_division_malformed = 'program main'// &
+        new_line('a')//'  integer :: counter_2'//new_line('a')//'  counter_2 = 42'// &
+        new_line('a')//'  counter_2 = counter_2 /'//new_line('a')// &
+        '  print *, counter_2'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: raw_counter_two_division_wrong_print = 'program main'// &
+        new_line('a')//'  integer :: counter_2'//new_line('a')//'  counter_2 = 42'// &
+        new_line('a')//'  counter_2 = counter_2 / 2'//new_line('a')// &
+        '  print *, other_2'//new_line('a')//'end program main'//new_line('a')
     character(len=*), parameter :: raw_counter_wrong_update = 'program main'//new_line('a')// &
         '  integer :: counter_2'//new_line('a')//'  counter_2 = 42'//new_line('a')// &
         '  counter_2 = counter_2 +'//new_line('a')//'  print *, counter_2'//new_line('a')// &
@@ -286,10 +298,46 @@ program test_frontend_program_unit_v2
         index(trim(serialized), 'raw-counter-two-multiplication-input') == 0) then
         error stop 'generic raw counter multiplication serialization changed'
     end if
+    call frontend_parse_program_unit_v2('raw-counter-two-division.f90', &
+        raw_counter_two_division, 'raw-counter-two-division-input', unit, ok, message)
+    if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 2 .or. &
+        unit%execution_part%print_count /= 1 .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%kind) /= &
+        'binary-expression' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%operator) /= '/' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%left_operand) /= &
+        'counter_2' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%expression%right_operand) /= '2' .or. &
+        trim(unit%execution_part%print%output_name) /= 'counter_2' .or. &
+        trim(unit%root%span%source_hash) /= 'raw-counter-two-division-input' .or. &
+        trim(unit%variable%span%source_hash) /= 'raw-counter-two-division-input' .or. &
+        trim(unit%execution_part%sequence%assignment(1)%span%source_hash) /= &
+        'raw-counter-two-division-input' .or. &
+        trim(unit%execution_part%sequence%assignment(2)%span%source_hash) /= &
+        'raw-counter-two-division-input' .or. &
+        trim(unit%execution_part%print%span%source_hash) /= &
+        'raw-counter-two-division-input' .or. &
+        unit%execution_part%sequence%assignment(2)%span%start_byte /= &
+        int(index(raw_counter_two_division, '  counter_2 = counter_2 / 2') - 1) .or. &
+        unit%execution_part%print%span%start_byte /= &
+        int(index(raw_counter_two_division, '  print *, counter_2') - 1)) then
+        error stop 'generic raw counter division AST-v2 fields changed: '//trim(message)
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(assignment-count 2)') == 0 .or. &
+        index(trim(serialized), '(operator /)') == 0 .or. &
+        index(trim(serialized), '(left-operand counter_2)') == 0 .or. &
+        index(trim(serialized), '(right-operand 2)') == 0 .or. &
+        index(trim(serialized), '(output-name counter_2)') == 0 .or. &
+        index(trim(serialized), 'raw-counter-two-division-input') == 0) then
+        error stop 'generic raw counter division serialization changed'
+    end if
     call check_rejected(raw_counter_two_subtraction_malformed)
     call check_rejected(raw_counter_two_subtraction_wrong_print)
     call check_rejected(raw_counter_two_multiplication_malformed)
     call check_rejected(raw_counter_two_multiplication_wrong_print)
+    call check_rejected(raw_counter_two_division_malformed)
+    call check_rejected(raw_counter_two_division_wrong_print)
     call check_rejected(raw_counter_wrong_update)
     call check_rejected(raw_counter_wrong_print)
     call check_rejected(wrong_name)
