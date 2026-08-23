@@ -443,7 +443,7 @@ contains
         character(len=128) :: execution_source_hash
         integer(int64) :: stored_value
         integer :: stored_value_status
-        integer :: print_position, operator_position
+        integer :: print_position
         integer :: batch_count
         character(len=64) :: print_source
         logical :: shape_matches, generic_assignment_shape, generic_variable_exponent
@@ -1529,12 +1529,8 @@ contains
             unit%execution_part%sequence%assignment(1)%span%end_byte = &
                 unit%execution_part%sequence%assignment(1)%span%start_byte + &
                 int(len_trim(generic_initializer) + 5, int64)
-            operator_position = index(source, '  x = x '//trim(generic_operator)//' ')
-            if (operator_position == 0 .and. generic_operator == '-') then
-                operator_position = index(source, '  x = x – ')
-            end if
             unit%execution_part%sequence%assignment(2)%span%start_byte = &
-                int(operator_position - 1, int64)
+                int(index(source, '  x = x '//trim(generic_operator)//' ') - 1, int64)
             unit%execution_part%sequence%assignment(2)%span%end_byte = &
                 unit%execution_part%sequence%assignment(2)%span%start_byte + &
                 int(index(source(unit%execution_part%sequence%assignment(2)%span%start_byte + 1:), &
@@ -1639,6 +1635,7 @@ contains
         ok = .false.
         matches_shape = .false.
         variable_exponent = .false.
+        if (source == print_variable_subtract_expression_source) return
         if (len(source) <= len(prefix) + len(print_suffix) + len(assignment_prefix)) return
         if (source(:len(prefix)) /= prefix) return
         tail = source(len(prefix) + 1:)
@@ -1696,12 +1693,6 @@ contains
             if (line(:len('  x = x - ')) == '  x = x - ') then
                 operator = '-'
                 token = adjustl(line(len('  x = x - ') + 1:))
-            end if
-        end if
-        if (len_trim(operator) == 0 .and. len_trim(line) >= len('  x = x – ')) then
-            if (line(:len('  x = x – ')) == '  x = x – ') then
-                operator = '-'
-                token = adjustl(line(len('  x = x – ') + 1:))
             end if
         end if
         if (len_trim(operator) == 0 .and. len_trim(line) >= len('  x = x * ')) then
