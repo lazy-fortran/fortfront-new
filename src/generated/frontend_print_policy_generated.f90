@@ -690,7 +690,8 @@ contains
     logical function print_policy_variable_value_valid(value)
         integer(int64), intent(in) :: value
 
-        print_policy_variable_value_valid = value >= print_policy_signed_integer_literal_min
+        print_policy_variable_value_valid = value >= print_policy_signed_integer_literal_min .and. &
+            value <= print_policy_decimal_expression_max
     end function print_policy_variable_value_valid
 
     logical function print_policy_expression_valid(operator, left, right)
