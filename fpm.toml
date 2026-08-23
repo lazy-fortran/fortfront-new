@@ -134,6 +134,11 @@ source-dir = "test"
 main = "test_fortfront_lexical_token_cursor.f90"
 
 [[test]]
+name = "test_fortfront_lexical_grammar_session"
+source-dir = "test"
+main = "test_fortfront_lexical_grammar_session.f90"
+
+[[test]]
 name = "test_fortfront_grammar"
 source-dir = "test"
 main = "test_fortfront_grammar.f90"
