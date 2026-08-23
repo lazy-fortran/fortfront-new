@@ -139,24 +139,12 @@ contains
 
         type(typed_program_unit_t) :: first_unit
         type(typed_program_unit_t) :: second_unit
-        type(typed_program_unit_t) :: third_unit
-        type(typed_program_unit_t) :: fourth_unit
-        type(typed_program_unit_t) :: fifth_unit
-        type(typed_program_unit_t) :: sixth_unit
-        type(typed_program_unit_t) :: seventh_unit
-        type(typed_program_unit_t) :: eighth_unit
-        type(typed_program_unit_t) :: ninth_unit
-        type(typed_program_unit_t) :: tenth_unit
+        type(typed_program_unit_t) :: repeated_unit
+        integer :: sequence_count
+        integer :: assignment_index
+        integer :: current_start
         integer :: first_start
         integer :: second_start
-        integer :: third_start
-        integer :: fourth_start
-        integer :: fifth_start
-        integer :: sixth_start
-        integer :: seventh_start
-        integer :: eighth_start
-        integer :: ninth_start
-        integer :: tenth_start
 
         sequence = assignment_sequence_t()
         ok = .false.
@@ -277,94 +265,33 @@ contains
                 source_hash, second_unit, ok, message)
         end if
         if (.not. ok) return
-        if (source == three_sequence_source .or. source == four_sequence_source .or. &
-            source == five_sequence_source .or. source == six_sequence_source .or. &
-            source == seven_sequence_source .or. source == eight_sequence_source .or. &
-            source == nine_sequence_source .or. source == ten_sequence_source) then
-            call frontend_parse_typed_program_unit(file_name, &
-                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = x + 1'//new_line('a')//'end program main'//new_line('a'), &
-                source_hash, third_unit, ok, message)
-            if (.not. ok) return
-        end if
-        if (source == four_sequence_source .or. source == five_sequence_source .or. &
-            source == six_sequence_source .or. source == seven_sequence_source .or. &
-            source == eight_sequence_source .or. source == nine_sequence_source .or. &
-            source == ten_sequence_source) then
-            call frontend_parse_typed_program_unit(file_name, &
-                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = x + 1'//new_line('a')//'end program main'//new_line('a'), &
-                source_hash, fourth_unit, ok, message)
-            if (.not. ok) return
-        end if
-        if (source == five_sequence_source .or. source == six_sequence_source .or. &
-            source == seven_sequence_source .or. source == eight_sequence_source .or. &
-            source == nine_sequence_source .or. source == ten_sequence_source) then
-            call frontend_parse_typed_program_unit(file_name, &
-                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = x + 1'//new_line('a')//'end program main'//new_line('a'), &
-                source_hash, fifth_unit, ok, message)
-            if (.not. ok) return
-        end if
-        if (source == six_sequence_source .or. source == seven_sequence_source .or. &
-            source == eight_sequence_source .or. source == nine_sequence_source .or. &
-            source == ten_sequence_source) then
-            call frontend_parse_typed_program_unit(file_name, &
-                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = x + 1'//new_line('a')//'end program main'//new_line('a'), &
-                source_hash, sixth_unit, ok, message)
-            if (.not. ok) return
-        end if
-        if (source == seven_sequence_source .or. source == eight_sequence_source .or. &
-            source == nine_sequence_source .or. source == ten_sequence_source) then
-            call frontend_parse_typed_program_unit(file_name, &
-                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = x + 1'//new_line('a')//'end program main'//new_line('a'), &
-                source_hash, seventh_unit, ok, message)
-            if (.not. ok) return
-        end if
-        if (source == eight_sequence_source .or. source == nine_sequence_source .or. &
-            source == ten_sequence_source) then
-            call frontend_parse_typed_program_unit(file_name, &
-                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = x + 1'//new_line('a')//'end program main'//new_line('a'), &
-                source_hash, eighth_unit, ok, message)
-            if (.not. ok) return
-        end if
-        if (source == nine_sequence_source .or. source == ten_sequence_source) then
-            call frontend_parse_typed_program_unit(file_name, &
-                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = x + 1'//new_line('a')//'end program main'//new_line('a'), &
-                source_hash, ninth_unit, ok, message)
-            if (.not. ok) return
-        end if
         if (source == ten_sequence_source) then
-            call frontend_parse_typed_program_unit(file_name, &
-                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = x + 1'//new_line('a')//'end program main'//new_line('a'), &
-                source_hash, tenth_unit, ok, message)
-            if (.not. ok) return
-        end if
-
-        if (source == ten_sequence_source) then
-            sequence%assignment_count = int(assignment_policy_ten_sequence_count, int64)
+            sequence_count = assignment_policy_ten_sequence_count
         else if (source == nine_sequence_source) then
-            sequence%assignment_count = int(assignment_policy_nine_sequence_count, int64)
+            sequence_count = assignment_policy_nine_sequence_count
         else if (source == eight_sequence_source) then
-            sequence%assignment_count = int(assignment_policy_eight_sequence_count, int64)
+            sequence_count = assignment_policy_eight_sequence_count
         else if (source == seven_sequence_source) then
-            sequence%assignment_count = int(assignment_policy_seven_sequence_count, int64)
+            sequence_count = assignment_policy_seven_sequence_count
         else if (source == six_sequence_source) then
-            sequence%assignment_count = int(assignment_policy_six_sequence_count, int64)
+            sequence_count = assignment_policy_six_sequence_count
         else if (source == five_sequence_source) then
-            sequence%assignment_count = int(assignment_policy_five_sequence_count, int64)
+            sequence_count = assignment_policy_five_sequence_count
         else if (source == four_sequence_source) then
-            sequence%assignment_count = int(assignment_policy_four_sequence_count, int64)
+            sequence_count = assignment_policy_four_sequence_count
         else if (source == three_sequence_source) then
-            sequence%assignment_count = int(assignment_policy_three_sequence_count, int64)
+            sequence_count = assignment_policy_three_sequence_count
         else
-            sequence%assignment_count = int(assignment_policy_sequence_count, int64)
+            sequence_count = assignment_policy_sequence_count
         end if
+        if (sequence_count > 2) then
+            call frontend_parse_typed_program_unit(file_name, &
+                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
+                '  x = x + 1'//new_line('a')//'end program main'//new_line('a'), &
+                source_hash, repeated_unit, ok, message)
+            if (.not. ok) return
+        end if
+        sequence%assignment_count = int(sequence_count, int64)
         sequence%assignment(1) = first_unit%assignment
         sequence%assignment(2) = second_unit%assignment
         if (source == assignment_sequence_two_negative_source) then
@@ -414,95 +341,15 @@ contains
         sequence%assignment(2)%span%source_hash = source_hash
         sequence%assignment(2)%span%start_byte = int(second_start, int64)
         sequence%assignment(2)%span%end_byte = int(second_start + 10, int64)
-        if (source == three_sequence_source) then
-            sequence%assignment(3) = third_unit%assignment
-            third_start = second_start + index(source(second_start + 2:), &
-                '  x = x + 1')
-            sequence%assignment(3)%span%file = file_name
-            sequence%assignment(3)%span%source_hash = source_hash
-            sequence%assignment(3)%span%start_byte = int(third_start, int64)
-            sequence%assignment(3)%span%end_byte = int(third_start + 10, int64)
-        end if
-        if (source == four_sequence_source) then
-            sequence%assignment(3) = third_unit%assignment
-            sequence%assignment(4) = fourth_unit%assignment
-            third_start = second_start + index(source(second_start + 2:), '  x = x + 1')
-            fourth_start = third_start + index(source(third_start + 2:), '  x = x + 1')
-            sequence%assignment(3)%span%file = file_name
-            sequence%assignment(3)%span%source_hash = source_hash
-            sequence%assignment(3)%span%start_byte = int(third_start, int64)
-            sequence%assignment(3)%span%end_byte = int(third_start + 10, int64)
-            sequence%assignment(4)%span%file = file_name
-            sequence%assignment(4)%span%source_hash = source_hash
-            sequence%assignment(4)%span%start_byte = int(fourth_start, int64)
-            sequence%assignment(4)%span%end_byte = int(fourth_start + 10, int64)
-        end if
-        if (source == five_sequence_source .or. source == six_sequence_source .or. &
-            source == seven_sequence_source .or. source == eight_sequence_source .or. &
-            source == nine_sequence_source .or. source == ten_sequence_source) then
-            sequence%assignment(3) = third_unit%assignment
-            sequence%assignment(4) = fourth_unit%assignment
-            sequence%assignment(5) = fifth_unit%assignment
-            third_start = second_start + index(source(second_start + 2:), '  x = x + 1')
-            fourth_start = third_start + index(source(third_start + 2:), '  x = x + 1')
-            fifth_start = fourth_start + index(source(fourth_start + 2:), '  x = x + 1')
-            sequence%assignment(3)%span%file = file_name
-            sequence%assignment(3)%span%source_hash = source_hash
-            sequence%assignment(3)%span%start_byte = int(third_start, int64)
-            sequence%assignment(3)%span%end_byte = int(third_start + 10, int64)
-            sequence%assignment(4)%span%file = file_name
-            sequence%assignment(4)%span%source_hash = source_hash
-            sequence%assignment(4)%span%start_byte = int(fourth_start, int64)
-            sequence%assignment(4)%span%end_byte = int(fourth_start + 10, int64)
-            sequence%assignment(5)%span%file = file_name
-            sequence%assignment(5)%span%source_hash = source_hash
-            sequence%assignment(5)%span%start_byte = int(fifth_start, int64)
-            sequence%assignment(5)%span%end_byte = int(fifth_start + 10, int64)
-        end if
-        if (source == six_sequence_source .or. source == seven_sequence_source .or. &
-            source == eight_sequence_source .or. source == nine_sequence_source .or. &
-            source == ten_sequence_source) then
-            sequence%assignment(6) = sixth_unit%assignment
-            sixth_start = fifth_start + index(source(fifth_start + 2:), '  x = x + 1')
-            sequence%assignment(6)%span%file = file_name
-            sequence%assignment(6)%span%source_hash = source_hash
-            sequence%assignment(6)%span%start_byte = int(sixth_start, int64)
-            sequence%assignment(6)%span%end_byte = int(sixth_start + 10, int64)
-        end if
-        if (source == seven_sequence_source .or. source == eight_sequence_source .or. &
-            source == nine_sequence_source .or. source == ten_sequence_source) then
-            sequence%assignment(7) = seventh_unit%assignment
-            seventh_start = sixth_start + index(source(sixth_start + 2:), '  x = x + 1')
-            sequence%assignment(7)%span%file = file_name
-            sequence%assignment(7)%span%source_hash = source_hash
-            sequence%assignment(7)%span%start_byte = int(seventh_start, int64)
-            sequence%assignment(7)%span%end_byte = int(seventh_start + 10, int64)
-        end if
-        if (source == eight_sequence_source .or. source == nine_sequence_source .or. &
-            source == ten_sequence_source) then
-            sequence%assignment(8) = eighth_unit%assignment
-            eighth_start = seventh_start + index(source(seventh_start + 2:), '  x = x + 1')
-            sequence%assignment(8)%span%file = file_name
-            sequence%assignment(8)%span%source_hash = source_hash
-            sequence%assignment(8)%span%start_byte = int(eighth_start, int64)
-            sequence%assignment(8)%span%end_byte = int(eighth_start + 10, int64)
-        end if
-        if (source == nine_sequence_source .or. source == ten_sequence_source) then
-            sequence%assignment(9) = ninth_unit%assignment
-            ninth_start = eighth_start + index(source(eighth_start + 2:), '  x = x + 1')
-            sequence%assignment(9)%span%file = file_name
-            sequence%assignment(9)%span%source_hash = source_hash
-            sequence%assignment(9)%span%start_byte = int(ninth_start, int64)
-            sequence%assignment(9)%span%end_byte = int(ninth_start + 10, int64)
-        end if
-        if (source == ten_sequence_source) then
-            sequence%assignment(10) = tenth_unit%assignment
-            tenth_start = ninth_start + index(source(ninth_start + 2:), '  x = x + 1')
-            sequence%assignment(10)%span%file = file_name
-            sequence%assignment(10)%span%source_hash = source_hash
-            sequence%assignment(10)%span%start_byte = int(tenth_start, int64)
-            sequence%assignment(10)%span%end_byte = int(tenth_start + 10, int64)
-        end if
+        current_start = second_start
+        do assignment_index = 3, sequence_count
+            sequence%assignment(assignment_index) = repeated_unit%assignment
+            current_start = current_start + index(source(current_start + 2:), '  x = x + 1')
+            sequence%assignment(assignment_index)%span%file = file_name
+            sequence%assignment(assignment_index)%span%source_hash = source_hash
+            sequence%assignment(assignment_index)%span%start_byte = int(current_start, int64)
+            sequence%assignment(assignment_index)%span%end_byte = int(current_start + 10, int64)
+        end do
         ok = .true.
         message = ''
     end subroutine frontend_parse_typed_assignment_sequence
