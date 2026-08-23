@@ -54,6 +54,7 @@ module fortfront_lexical_grammar_session
     public :: fortfront_lexical_grammar_session_initialize
     public :: fortfront_lexical_grammar_session_advance
     public :: fortfront_lexical_grammar_session_finalize
+    public :: fortfront_lexical_grammar_session_consume
 
 contains
 
@@ -198,6 +199,97 @@ contains
         message = 'lexical-grammar-session-has-unconsumed-matched-token'
         return
     end subroutine fortfront_lexical_grammar_session_finalize
+
+    subroutine fortfront_lexical_grammar_session_consume(session, tokens, token_count, frontier, &
+            frontier_count, status, message)
+        type(fortfront_lexical_grammar_session_t), intent(inout) :: session
+        type(fortfront_lexical_token_t), intent(out) :: tokens(:)
+        integer, intent(out) :: token_count
+        type(fortfront_grammar_frontier_result_t), intent(out) :: frontier(:)
+        integer, intent(out) :: frontier_count, status
+        character(len=*), intent(out) :: message
+
+        type(fortfront_lexical_grammar_session_t) :: candidate_session
+        type(fortfront_lexical_token_t), allocatable :: candidate_tokens(:)
+        type(fortfront_lexical_token_t) :: candidate_token
+        type(fortfront_grammar_frontier_result_t), allocatable :: candidate_frontier(:)
+        type(fortfront_grammar_frontier_result_t), allocatable :: final_frontier(:)
+        integer :: candidate_count, candidate_frontier_count, candidate_status
+        integer :: final_frontier_count, final_status
+        character(len=256) :: candidate_message, final_message
+
+        tokens = fortfront_lexical_token_t()
+        token_count = 0
+        frontier = fortfront_grammar_frontier_result_t()
+        frontier_count = 0
+        status = fortfront_lexical_grammar_session_malformed
+        message = ''
+        if (.not. session%initialized) then
+            message = 'lexical-grammar-session-is-not-initialized'
+            return
+        end if
+
+        allocate(candidate_tokens(max(1, size(tokens))))
+        allocate(candidate_frontier(max(1, size(frontier))))
+        candidate_session = session
+        candidate_count = 0
+        do
+            call fortfront_lexical_grammar_session_advance(candidate_session, candidate_token, &
+                candidate_frontier, candidate_frontier_count, candidate_status, candidate_message)
+            if (candidate_status == fortfront_lexical_grammar_session_end_of_stream) exit
+            if (candidate_status == fortfront_lexical_grammar_session_no_match .or. &
+                candidate_status == fortfront_lexical_grammar_session_unsupported .or. &
+                candidate_status == fortfront_lexical_grammar_session_token_ambiguous .or. &
+                candidate_status == fortfront_lexical_grammar_session_token_malformed .or. &
+                candidate_status == fortfront_lexical_grammar_session_token_capacity) then
+                status = candidate_status
+                message = candidate_message
+                return
+            end if
+            if (candidate_status == fortfront_lexical_grammar_session_malformed .or. &
+                candidate_status == fortfront_lexical_grammar_session_capacity) then
+                status = candidate_status
+                message = candidate_message
+                return
+            end if
+            if (candidate_count >= size(candidate_tokens)) then
+                status = fortfront_lexical_grammar_session_token_capacity
+                message = 'lexical-grammar-session-token-output-capacity-exhausted'
+                return
+            end if
+            candidate_count = candidate_count + 1
+            candidate_tokens(candidate_count) = candidate_token
+        end do
+
+        allocate(final_frontier(max(1, size(frontier))))
+        call fortfront_lexical_grammar_session_finalize(candidate_session, final_frontier, &
+            final_frontier_count, final_status, final_message)
+        if (final_status == fortfront_lexical_grammar_session_capacity .or. &
+            final_status == fortfront_lexical_grammar_session_malformed) then
+            status = final_status
+            message = final_message
+            return
+        end if
+        if (candidate_count > size(tokens)) then
+            status = fortfront_lexical_grammar_session_token_capacity
+            message = 'lexical-grammar-session-token-output-capacity-exhausted'
+            return
+        end if
+        if (final_frontier_count > size(frontier)) then
+            status = fortfront_lexical_grammar_session_capacity
+            message = 'lexical-grammar-session-frontier-output-capacity-exhausted'
+            return
+        end if
+
+        if (candidate_count > 0) tokens(1:candidate_count) = candidate_tokens(1:candidate_count)
+        token_count = candidate_count
+        if (final_frontier_count > 0) frontier(1:final_frontier_count) = &
+            final_frontier(1:final_frontier_count)
+        frontier_count = final_frontier_count
+        session = candidate_session
+        status = final_status
+        message = final_message
+    end subroutine fortfront_lexical_grammar_session_consume
 
     integer function map_token_status(token_status)
         integer, intent(in) :: token_status
