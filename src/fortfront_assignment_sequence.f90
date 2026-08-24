@@ -10,12 +10,6 @@ module fortfront_assignment_sequence
 
     character(len=*), parameter, public :: assignment_sequence_source_hash = &
         'l3-raw-program-two-assignment-v1'
-    character(len=*), parameter :: two_sequence_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 7'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        'end program main'//new_line('a')
     character(len=*), parameter, public :: assignment_sequence_two_23_source = &
         'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')// &
@@ -34,57 +28,6 @@ module fortfront_assignment_sequence
         '  x = -5'//new_line('a')// &
         '  x = x + 1'//new_line('a')// &
         'end program main'//new_line('a')
-    character(len=*), parameter :: three_sequence_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 7'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        'end program main'//new_line('a')
-    character(len=*), parameter :: four_sequence_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 7'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        'end program main'//new_line('a')
-    character(len=*), parameter :: five_sequence_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 7'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        'end program main'//new_line('a')
-    character(len=*), parameter :: six_sequence_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 7'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        'end program main'//new_line('a')
-    character(len=*), parameter :: seven_sequence_source = &
-        'program main'//new_line('a')// '  integer :: x'//new_line('a')// &
-        '  x = 7'//new_line('a')// &
-        repeat('  x = x + 1'//new_line('a'), 6)//'end program main'//new_line('a')
-    character(len=*), parameter :: eight_sequence_source = &
-        'program main'//new_line('a')// '  integer :: x'//new_line('a')// &
-        '  x = 7'//new_line('a')// &
-        repeat('  x = x + 1'//new_line('a'), 7)//'end program main'//new_line('a')
-    character(len=*), parameter :: nine_sequence_source = &
-        'program main'//new_line('a')// '  integer :: x'//new_line('a')// &
-        '  x = 7'//new_line('a')// &
-        repeat('  x = x + 1'//new_line('a'), 8)//'end program main'//new_line('a')
-    character(len=*), parameter :: ten_sequence_source = &
-        'program main'//new_line('a')// '  integer :: x'//new_line('a')// &
-        '  x = 7'//new_line('a')// &
-        repeat('  x = x + 1'//new_line('a'), 9)//'end program main'//new_line('a')
-
     type, public :: assignment_sequence_t
         integer(int64) :: assignment_count = 0_int64
         type(assignment_stmt_t) :: assignment(assignment_policy_sequence_max_count)
