@@ -255,22 +255,10 @@ contains
             end if
             unit%execution_part%print%span = unit%root%span
             unit%execution_part%print%span%start_byte = int(index(source, '  print *, x') - 1, int64)
-            unit%execution_part%print%span%end_byte = unit%execution_part%print%span%start_byte + 11_int64
-            if (batch_count > 0) then
-                select case (batch_count)
-                case (3)
-                    unit%execution_part%print%span%end_byte = &
-                        unit%execution_part%print%span%start_byte + 17_int64
-                case (4:10)
-                    unit%execution_part%print%span%end_byte = &
-                        unit%execution_part%print%span%start_byte + 4_int64 * batch_count + 5_int64
-                case default
-                    if (batch_count > 10) then
-                        unit%execution_part%print%span%end_byte = &
-                            unit%execution_part%print%span%start_byte + 3_int64 * batch_count + 8_int64
-                    end if
-                end select
-            end if
+            unit%execution_part%print%span%end_byte = &
+                unit%execution_part%print%span%start_byte + &
+                int(index(source(unit%execution_part%print%span%start_byte + 1:), &
+                new_line('a')) - 2, int64)
             unit%execution_part%print%statement_rule = print_policy_statement_rule
             unit%execution_part%print%format_rule = print_policy_format_rule
             unit%execution_part%print%output_rule = print_policy_variable_output_rule
