@@ -113,160 +113,107 @@ contains
         logical, intent(out) :: ok
         character(len=*), intent(out) :: message
 
-        type(typed_program_unit_t) :: first_unit
-        type(typed_program_unit_t) :: second_unit
-        type(typed_program_unit_t) :: repeated_unit
+        character(len=*), parameter :: envelope_prefix = 'program main'//new_line('a')// &
+            '  integer :: x'//new_line('a')
+        character(len=*), parameter :: envelope_suffix = 'end program main'//new_line('a')
+        type(typed_program_unit_t) :: unit
+        character(len=:), allocatable :: assignment_line
+        character(len=:), allocatable :: assignment_source
         integer :: sequence_count
-        integer :: assignment_index
-        integer :: current_start
-        integer :: first_start
-        integer :: second_start
+        integer :: current_position
+        integer :: line_end_position
+        integer :: newline_position
+        integer :: assignment_end_position
+        logical :: power_sequence
 
         sequence = assignment_sequence_t()
         ok = .false.
         message = ''
-        if (trim(assignment_policy_sequence_name) /= 'two-assignment' .or. &
-            trim(assignment_policy_three_sequence_name) /= 'three-assignment') then
-            message = 'assignment-sequence-policy-mismatch'
-            return
-        end if
-        if (trim(assignment_policy_four_sequence_name) /= 'four-assignment') then
-            message = 'assignment-sequence-policy-mismatch'
-            return
-        end if
-        if (trim(assignment_policy_five_sequence_name) /= 'five-assignment') then
-            message = 'assignment-sequence-policy-mismatch'
-            return
-        end if
-        if (trim(assignment_policy_six_sequence_name) /= 'six-assignment') then
-            message = 'assignment-sequence-policy-mismatch'
-            return
-        end if
-        if (trim(assignment_policy_seven_sequence_name) /= 'seven-assignment' .or. &
-            trim(assignment_policy_eight_sequence_name) /= 'eight-assignment' .or. &
-            trim(assignment_policy_nine_sequence_name) /= 'nine-assignment' .or. &
-            trim(assignment_policy_ten_sequence_name) /= 'ten-assignment') then
-            message = 'assignment-sequence-policy-mismatch'
-            return
-        end if
-        if (source /= two_sequence_source .and. source /= assignment_sequence_two_23_source .and. &
-            source /= assignment_sequence_two_3_power_source .and. &
-            source /= assignment_sequence_two_negative_source .and. &
-            source /= three_sequence_source .and. &
-            source /= four_sequence_source .and. source /= five_sequence_source .and. &
-            source /= six_sequence_source .and. source /= seven_sequence_source .and. &
-            source /= eight_sequence_source .and. source /= nine_sequence_source .and. &
-            source /= ten_sequence_source) then
+        if (len(source) < len(envelope_prefix) + len(envelope_suffix)) then
             message = 'unsupported-assignment-sequence'
             return
         end if
-        if (source == assignment_sequence_two_negative_source) then
-            call frontend_parse_typed_program_unit(file_name, &
-                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = -5'//new_line('a')//'end program main'//new_line('a'), &
-                source_hash, first_unit, ok, message)
-        else if (source == assignment_sequence_two_3_power_source) then
-            call frontend_parse_typed_program_unit(file_name, &
-                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = 3'// &
-                new_line('a')//'end program main'//new_line('a'), &
-                source_hash, first_unit, ok, message)
-        else if (source == assignment_sequence_two_23_source) then
-            call frontend_parse_typed_program_unit(file_name, &
-                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = 23'//new_line('a')//'end program main'//new_line('a'), &
-                source_hash, first_unit, ok, message)
-        else
-            call frontend_parse_typed_program_unit(file_name, &
-                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = 7'//new_line('a')//'end program main'//new_line('a'), &
-                source_hash, first_unit, ok, message)
+        if (source(1:len(envelope_prefix)) /= envelope_prefix .or. &
+            source(len(source) - len(envelope_suffix) + 1:) /= envelope_suffix) then
+            message = 'unsupported-assignment-sequence'
+            return
         end if
-        if (.not. ok) return
-        if (source == assignment_sequence_two_negative_source) then
-            call frontend_parse_typed_program_unit(file_name, &
-                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = x + 1'//new_line('a')//'end program main'//new_line('a'), &
-                source_hash, second_unit, ok, message)
-        else if (source == assignment_sequence_two_3_power_source) then
-            call frontend_parse_typed_program_unit(file_name, &
-                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = x ** 2'//new_line('a')//'end program main'//new_line('a'), &
-                source_hash, second_unit, ok, message)
-        else
-            call frontend_parse_typed_program_unit(file_name, &
-                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = x + 1'//new_line('a')//'end program main'//new_line('a'), &
-                source_hash, second_unit, ok, message)
-        end if
-        if (.not. ok) return
-        if (source == ten_sequence_source) then
-            sequence_count = assignment_policy_ten_sequence_count
-        else if (source == nine_sequence_source) then
-            sequence_count = assignment_policy_nine_sequence_count
-        else if (source == eight_sequence_source) then
-            sequence_count = assignment_policy_eight_sequence_count
-        else if (source == seven_sequence_source) then
-            sequence_count = assignment_policy_seven_sequence_count
-        else if (source == six_sequence_source) then
-            sequence_count = assignment_policy_six_sequence_count
-        else if (source == five_sequence_source) then
-            sequence_count = assignment_policy_five_sequence_count
-        else if (source == four_sequence_source) then
-            sequence_count = assignment_policy_four_sequence_count
-        else if (source == three_sequence_source) then
-            sequence_count = assignment_policy_three_sequence_count
-        else
-            sequence_count = assignment_policy_sequence_count
-        end if
-        if (sequence_count > 2) then
-            call frontend_parse_typed_program_unit(file_name, &
-                'program main'//new_line('a')//'  integer :: x'//new_line('a')// &
-                '  x = x + 1'//new_line('a')//'end program main'//new_line('a'), &
-                source_hash, repeated_unit, ok, message)
+
+        sequence_count = 0
+        current_position = len(envelope_prefix) + 1
+        assignment_end_position = len(source) - len(envelope_suffix)
+        power_sequence = .false.
+        do while (current_position <= assignment_end_position)
+            newline_position = index(source(current_position:assignment_end_position), new_line('a'))
+            if (newline_position == 0) then
+                message = 'unsupported-assignment-sequence'
+                return
+            end if
+            line_end_position = current_position + newline_position - 2
+            if (line_end_position < current_position) then
+                message = 'unsupported-assignment-sequence'
+                return
+            end if
+            sequence_count = sequence_count + 1
+            if (sequence_count > assignment_policy_sequence_max_count) then
+                message = 'unsupported-assignment-sequence'
+                return
+            end if
+            assignment_line = source(current_position:line_end_position)
+            assignment_source = envelope_prefix//assignment_line//new_line('a')//envelope_suffix
+            call frontend_parse_typed_program_unit(file_name, assignment_source, source_hash, &
+                unit, ok, message)
             if (.not. ok) return
+            if (sequence_count == 1) then
+                if (trim(unit%assignment%expression%kind) /= 'integer-literal') then
+                    ok = .false.
+                    message = 'unsupported-assignment-sequence'
+                    return
+                end if
+            else
+                if (trim(unit%assignment%expression%operator) == '**') then
+                    if (sequence_count /= 2 .or. &
+                        trim(unit%assignment%expression%left_operand) /= 'x' .or. &
+                        trim(unit%assignment%expression%right_operand) /= '2' .or. &
+                        trim(sequence%assignment(1)%expression%left_operand) /= '3') then
+                        ok = .false.
+                        message = 'unsupported-assignment-sequence'
+                        return
+                    end if
+                    power_sequence = .true.
+                else
+                    if (trim(unit%assignment%expression%kind) /= 'binary-expression' .or. &
+                        trim(unit%assignment%expression%operator) /= '+' .or. &
+                        trim(unit%assignment%expression%left_operand) /= 'x' .or. &
+                        trim(unit%assignment%expression%right_operand) /= '1') then
+                        ok = .false.
+                        message = 'unsupported-assignment-sequence'
+                        return
+                    end if
+                end if
+            end if
+            sequence%assignment(sequence_count) = unit%assignment
+            sequence%assignment(sequence_count)%span%start_byte = &
+                int(current_position - 1, int64) + unit%assignment%span%start_byte - len(envelope_prefix)
+            sequence%assignment(sequence_count)%span%end_byte = &
+                int(current_position - 1, int64) + unit%assignment%span%end_byte - len(envelope_prefix)
+            sequence%assignment(sequence_count)%span%file = file_name
+            sequence%assignment(sequence_count)%span%source_hash = source_hash
+            current_position = current_position + newline_position
+        end do
+        if (sequence_count < 2) then
+            ok = .false.
+            message = 'unsupported-assignment-sequence'
+            return
+        end if
+        if (power_sequence) then
+            if (sequence_count /= 2) then
+                ok = .false.
+                message = 'unsupported-assignment-sequence'
+                return
+            end if
         end if
         sequence%assignment_count = int(sequence_count, int64)
-        sequence%assignment(1) = first_unit%assignment
-        sequence%assignment(2) = second_unit%assignment
-        if (source == assignment_sequence_two_negative_source) then
-            first_start = index(source, '  x = -5') - 1
-        else if (source == assignment_sequence_two_23_source .or. &
-                source == assignment_sequence_two_3_power_source) then
-            if (source == assignment_sequence_two_3_power_source) then
-                first_start = index(source, '  x = 3') - 1
-            else
-                first_start = index(source, '  x = 23') - 1
-            end if
-        else
-            first_start = index(source, '  x = 7') - 1
-        end if
-        if (source == assignment_sequence_two_3_power_source) then
-            second_start = index(source, '  x = x ** 2') - 1
-        else
-            second_start = index(source, '  x = x + 1') - 1
-        end if
-        sequence%assignment(1)%span%file = file_name
-        sequence%assignment(1)%span%source_hash = source_hash
-        sequence%assignment(1)%span%start_byte = int(first_start, int64)
-        if (source == assignment_sequence_two_negative_source) then
-            sequence%assignment(1)%span%end_byte = int(first_start + 7, int64)
-        else
-            sequence%assignment(1)%span%end_byte = int(first_start + 6, int64)
-        end if
-        sequence%assignment(2)%span%file = file_name
-        sequence%assignment(2)%span%source_hash = source_hash
-        sequence%assignment(2)%span%start_byte = int(second_start, int64)
-        sequence%assignment(2)%span%end_byte = int(second_start + 10, int64)
-        current_start = second_start
-        do assignment_index = 3, sequence_count
-            sequence%assignment(assignment_index) = repeated_unit%assignment
-            current_start = current_start + index(source(current_start + 2:), '  x = x + 1')
-            sequence%assignment(assignment_index)%span%file = file_name
-            sequence%assignment(assignment_index)%span%source_hash = source_hash
-            sequence%assignment(assignment_index)%span%start_byte = int(current_start, int64)
-            sequence%assignment(assignment_index)%span%end_byte = int(current_start + 10, int64)
-        end do
         ok = .true.
         message = ''
     end subroutine frontend_parse_typed_assignment_sequence
