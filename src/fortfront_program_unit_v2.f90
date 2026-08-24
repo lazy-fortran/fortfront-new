@@ -92,31 +92,6 @@ module fortfront_program_unit_v2
     public :: stop_stmt_validate
     public :: print_stmt_validate
 
-    character(len=*), parameter :: two_assignment_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 7'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        'end program main'//new_line('a')
-    character(len=*), parameter :: five_assignment_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 7'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        'end program main'//new_line('a')
-    character(len=*), parameter :: six_assignment_source = &
-        'program main'//new_line('a')// &
-        '  integer :: x'//new_line('a')// &
-        '  x = 7'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        '  x = x + 1'//new_line('a')// &
-        'end program main'//new_line('a')
     character(len=*), parameter :: stop_seven_source = &
         'program p'//new_line('a')//'  stop 7'//new_line('a')// &
         'end program p'//new_line('a')
@@ -203,6 +178,7 @@ contains
         character(len=128) :: execution_source_hash
         integer(int64) :: stored_value
         character(len=128) :: stored_variable_name
+        integer :: assignment_index
         integer :: print_position
         integer :: batch_count
         character(len=64) :: print_source
@@ -476,21 +452,26 @@ contains
         end if
         declaration_source = 'program main'//new_line('a')// &
             '  integer :: x'//new_line('a')//'end program main'//new_line('a')
-        if (source == two_assignment_source) then
+        call frontend_parse_typed_assignment_sequence(file_name, source, &
+            assignment_sequence_source_hash, unit%execution_part%sequence, ok, message)
+        if (.not. ok) return
+        select case (unit%execution_part%sequence%assignment_count)
+        case (2_int64)
             execution_source_hash = assignment_sequence_source_hash
-        else if (source == five_assignment_source) then
+        case (5_int64)
             execution_source_hash = 'l3-raw-program-five-assignment-v1'
-        else if (source == six_assignment_source) then
+        case (6_int64)
             execution_source_hash = 'l3-raw-program-six-assignment-v1'
-        else
+        case default
             message = 'unsupported-program-unit-v2'
             return
-        end if
+        end select
+        do assignment_index = 1, int(unit%execution_part%sequence%assignment_count)
+            unit%execution_part%sequence%assignment(assignment_index)%span%source_hash = &
+                trim(execution_source_hash)
+        end do
         call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
             source_hash, declaration_unit, ok, message)
-        if (.not. ok) return
-        call frontend_parse_typed_assignment_sequence(file_name, source, &
-            trim(execution_source_hash), unit%execution_part%sequence, ok, message)
         if (.not. ok) return
 
         unit%root = declaration_unit%root
