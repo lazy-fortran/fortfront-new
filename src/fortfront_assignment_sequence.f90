@@ -4,16 +4,7 @@ module fortfront_assignment_sequence
     use fortfront_frontend, only: frontend_parse_typed_program_unit, &
         typed_program_unit_t
     use frontend_assignment_policy_generated, only: &
-        assignment_policy_sequence_count, assignment_policy_sequence_max_count, &
-        assignment_policy_sequence_name, &
-        assignment_policy_three_sequence_count, assignment_policy_three_sequence_name, &
-        assignment_policy_four_sequence_count, assignment_policy_four_sequence_name, &
-        assignment_policy_five_sequence_count, assignment_policy_five_sequence_name, &
-        assignment_policy_six_sequence_count, assignment_policy_six_sequence_name, &
-        assignment_policy_seven_sequence_count, assignment_policy_seven_sequence_name, &
-        assignment_policy_eight_sequence_count, assignment_policy_eight_sequence_name, &
-        assignment_policy_nine_sequence_count, assignment_policy_nine_sequence_name, &
-        assignment_policy_ten_sequence_count, assignment_policy_ten_sequence_name
+        assignment_policy_sequence_max_count
     implicit none
     private
 
@@ -224,165 +215,27 @@ contains
         logical, intent(out) :: ok
         character(len=*), intent(out) :: message
 
-        character(len=65536) :: first_text
-        character(len=65536) :: second_text
-        character(len=65536) :: third_text
-        character(len=65536) :: fourth_text
-        character(len=65536) :: fifth_text
-        character(len=65536) :: sixth_text
-        character(len=65536) :: seventh_text
-        character(len=65536) :: eighth_text
-        character(len=65536) :: ninth_text
-        character(len=65536) :: tenth_text
+        character(len=65536) :: assignment_text
         character(len=32) :: count_text
+        integer :: assignment_index
 
         output = ''
         ok = .false.
         message = ''
-        if (sequence%assignment_count /= 1_int64 .and. &
-            sequence%assignment_count /= int(assignment_policy_sequence_count, int64) .and. &
-            sequence%assignment_count /= int(assignment_policy_three_sequence_count, int64) .and. &
-            sequence%assignment_count /= int(assignment_policy_four_sequence_count, int64) .and. &
-            sequence%assignment_count /= int(assignment_policy_five_sequence_count, int64) .and. &
-            sequence%assignment_count /= int(assignment_policy_six_sequence_count, int64) .and. &
-            sequence%assignment_count /= int(assignment_policy_seven_sequence_count, int64) .and. &
-            sequence%assignment_count /= int(assignment_policy_eight_sequence_count, int64) .and. &
-            sequence%assignment_count /= int(assignment_policy_nine_sequence_count, int64) .and. &
-            sequence%assignment_count /= int(assignment_policy_ten_sequence_count, int64)) then
+        if (sequence%assignment_count < 1_int64 .or. &
+            sequence%assignment_count > int(assignment_policy_sequence_max_count, int64)) then
             message = 'invalid-assignment-sequence-count'
             return
         end if
-        call assignment_stmt_to_sx(sequence%assignment(1), first_text, ok, message)
-        if (.not. ok) return
-        if (sequence%assignment_count == 1_int64) then
-            output = '(assignment-sequence (assignment-count 1) (assignment '// &
-                trim(first_text)//'))'
-            ok = .true.
-            return
-        end if
-        call assignment_stmt_to_sx(sequence%assignment(2), second_text, ok, message)
-        if (.not. ok) return
         write (count_text, '(i0)') sequence%assignment_count
-        if (sequence%assignment_count == int(assignment_policy_ten_sequence_count, int64)) then
-            call assignment_stmt_to_sx(sequence%assignment(3), third_text, ok, message)
+        output = '(assignment-sequence (assignment-count '//trim(count_text)//')'
+        do assignment_index = 1, int(sequence%assignment_count)
+            call assignment_stmt_to_sx(sequence%assignment(assignment_index), &
+                assignment_text, ok, message)
             if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(4), fourth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(5), fifth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(6), sixth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(7), seventh_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(8), eighth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(9), ninth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(10), tenth_text, ok, message)
-            if (.not. ok) return
-            output = '(assignment-sequence (assignment-count '//trim(count_text)//') '// &
-                '(assignment '//trim(first_text)//') (assignment '//trim(second_text)//') '// &
-                '(assignment '//trim(third_text)//') (assignment '//trim(fourth_text)//') '// &
-                '(assignment '//trim(fifth_text)//') (assignment '//trim(sixth_text)//') '// &
-                '(assignment '//trim(seventh_text)//') (assignment '//trim(eighth_text)//') '// &
-                '(assignment '//trim(ninth_text)//') (assignment '//trim(tenth_text)//'))'
-        else if (sequence%assignment_count == int(assignment_policy_nine_sequence_count, int64)) then
-            call assignment_stmt_to_sx(sequence%assignment(3), third_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(4), fourth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(5), fifth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(6), sixth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(7), seventh_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(8), eighth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(9), ninth_text, ok, message)
-            if (.not. ok) return
-            output = '(assignment-sequence (assignment-count '//trim(count_text)//') '// &
-                '(assignment '//trim(first_text)//') (assignment '//trim(second_text)//') '// &
-                '(assignment '//trim(third_text)//') (assignment '//trim(fourth_text)//') '// &
-                '(assignment '//trim(fifth_text)//') (assignment '//trim(sixth_text)//') '// &
-                '(assignment '//trim(seventh_text)//') (assignment '//trim(eighth_text)//') '// &
-                '(assignment '//trim(ninth_text)//'))'
-        else if (sequence%assignment_count == int(assignment_policy_eight_sequence_count, int64)) then
-            call assignment_stmt_to_sx(sequence%assignment(3), third_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(4), fourth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(5), fifth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(6), sixth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(7), seventh_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(8), eighth_text, ok, message)
-            if (.not. ok) return
-            output = '(assignment-sequence (assignment-count '//trim(count_text)//') '// &
-                '(assignment '//trim(first_text)//') (assignment '//trim(second_text)//') '// &
-                '(assignment '//trim(third_text)//') (assignment '//trim(fourth_text)//') '// &
-                '(assignment '//trim(fifth_text)//') (assignment '//trim(sixth_text)//') '// &
-                '(assignment '//trim(seventh_text)//') (assignment '//trim(eighth_text)//'))'
-        else if (sequence%assignment_count == int(assignment_policy_seven_sequence_count, int64)) then
-            call assignment_stmt_to_sx(sequence%assignment(3), third_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(4), fourth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(5), fifth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(6), sixth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(7), seventh_text, ok, message)
-            if (.not. ok) return
-            output = '(assignment-sequence (assignment-count '//trim(count_text)//') '// &
-                '(assignment '//trim(first_text)//') (assignment '//trim(second_text)//') '// &
-                '(assignment '//trim(third_text)//') (assignment '//trim(fourth_text)//') '// &
-                '(assignment '//trim(fifth_text)//') (assignment '//trim(sixth_text)//') '// &
-                '(assignment '//trim(seventh_text)//'))'
-        else if (sequence%assignment_count == int(assignment_policy_six_sequence_count, int64)) then
-            call assignment_stmt_to_sx(sequence%assignment(3), third_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(4), fourth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(5), fifth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(6), sixth_text, ok, message)
-            if (.not. ok) return
-            output = '(assignment-sequence (assignment-count '//trim(count_text)//') '// &
-                '(assignment '//trim(first_text)//') (assignment '//trim(second_text)//') '// &
-                '(assignment '//trim(third_text)//') (assignment '//trim(fourth_text)//') '// &
-                '(assignment '//trim(fifth_text)//') (assignment '//trim(sixth_text)//'))'
-        else if (sequence%assignment_count == int(assignment_policy_five_sequence_count, int64)) then
-            call assignment_stmt_to_sx(sequence%assignment(3), third_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(4), fourth_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(5), fifth_text, ok, message)
-            if (.not. ok) return
-            output = '(assignment-sequence (assignment-count '//trim(count_text)//') '// &
-                '(assignment '//trim(first_text)//') (assignment '//trim(second_text)//') '// &
-                '(assignment '//trim(third_text)//') (assignment '//trim(fourth_text)//') '// &
-                '(assignment '//trim(fifth_text)//'))'
-        else if (sequence%assignment_count == int(assignment_policy_four_sequence_count, int64)) then
-            call assignment_stmt_to_sx(sequence%assignment(3), third_text, ok, message)
-            if (.not. ok) return
-            call assignment_stmt_to_sx(sequence%assignment(4), fourth_text, ok, message)
-            if (.not. ok) return
-            output = '(assignment-sequence (assignment-count '//trim(count_text)//') '// &
-                '(assignment '//trim(first_text)//') (assignment '//trim(second_text)//') '// &
-                '(assignment '//trim(third_text)//') (assignment '//trim(fourth_text)//'))'
-        else if (sequence%assignment_count == int(assignment_policy_three_sequence_count, int64)) then
-            call assignment_stmt_to_sx(sequence%assignment(3), third_text, ok, message)
-            if (.not. ok) return
-            output = '(assignment-sequence (assignment-count '//trim(count_text)//') '// &
-                '(assignment '//trim(first_text)//') (assignment '//trim(second_text)//') '// &
-                '(assignment '//trim(third_text)//'))'
-        else
-            output = '(assignment-sequence (assignment-count '//trim(count_text)//') '// &
-                '(assignment '//trim(first_text)//') (assignment '//trim(second_text)//'))'
-        end if
+            output = trim(output)//' (assignment '//trim(assignment_text)//')'
+        end do
+        output = trim(output)//')'
         ok = .true.
     end subroutine frontend_typed_assignment_sequence_to_sx
 
