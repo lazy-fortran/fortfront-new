@@ -6,6 +6,10 @@ program test_frontend_program_unit_v2
     character(len=*), parameter :: source = 'program main'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'end program main'//new_line('a')
+    character(len=*), parameter :: three_source = 'program main'//new_line('a')// &
+        '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
+        '  x = x + 1'//new_line('a')//'  x = x + 1'//new_line('a')// &
+        'end program main'//new_line('a')
     character(len=*), parameter :: wrong_name = 'program other'//new_line('a')// &
         '  integer :: x'//new_line('a')//'  x = 7'//new_line('a')// &
         '  x = x + 1'//new_line('a')//'end program other'//new_line('a')
@@ -116,11 +120,11 @@ program test_frontend_program_unit_v2
         '(assignment-stmt (variable x) (expression (assignment-expression '// &
         '(kind integer-literal) (operator ) (left-operand 7) (right-operand ))) '// &
         '(span (source-span (file program.f90) (start-byte 28) (end-byte 34) '// &
-        '(source-hash l3-raw-program-two-assignment-v1))))) (assignment '// &
+        '(source-hash v2-test))))) (assignment '// &
         '(assignment-stmt (variable x) (expression (assignment-expression '// &
         '(kind binary-expression) (operator +) (left-operand x) (right-operand 1))) '// &
         '(span (source-span (file program.f90) (start-byte 36) (end-byte 46) '// &
-        '(source-hash l3-raw-program-two-assignment-v1))))))))'
+        '(source-hash v2-test))))))))'
     if (trim(serialized) /= trim(expected)) then
         error stop 'v2 envelope serialization changed'
     end if
@@ -137,7 +141,7 @@ program test_frontend_program_unit_v2
             trim(unit%execution_part%sequence%assignment(i)%expression%left_operand) /= 'x' .or. &
             trim(unit%execution_part%sequence%assignment(i)%expression%right_operand) /= '1' .or. &
             trim(unit%execution_part%sequence%assignment(i)%span%source_hash) /= &
-            'l3-raw-program-five-assignment-v1') then
+            'v2-five-test') then
             error stop 'v2 five-assignment record changed'
         end if
     end do
@@ -146,8 +150,26 @@ program test_frontend_program_unit_v2
     if (index(trim(serialized), '(declaration-count 1)') == 0 .or. &
         index(trim(serialized), '(variable-count 1)') == 0 .or. &
         index(trim(serialized), '(assignment-count 5)') == 0 .or. &
-        index(trim(serialized), 'l3-raw-program-five-assignment-v1') == 0) then
+        index(trim(serialized), 'v2-five-test') == 0) then
         error stop 'v2 five-assignment envelope changed'
+    end if
+    call frontend_parse_program_unit_v2('program-three.f90', three_source, 'v2-three-test', &
+        unit, ok, message)
+    if (.not. ok .or. unit%execution_part%sequence%assignment_count /= 3 .or. &
+        trim(unit%root%span%source_hash) /= 'v2-three-test' .or. &
+        trim(unit%declaration%span%source_hash) /= 'v2-three-test' .or. &
+        trim(unit%variable%span%source_hash) /= 'v2-three-test' .or. &
+        trim(unit%execution_part%sequence%assignment(1)%span%source_hash) /= &
+        'v2-three-test' .or. &
+        trim(unit%execution_part%sequence%assignment(3)%variable) /= 'x' .or. &
+        trim(unit%execution_part%sequence%assignment(3)%expression%operator) /= '+' .or. &
+        trim(unit%execution_part%sequence%assignment(3)%span%source_hash) /= 'v2-three-test') then
+        error stop 'v2 three-assignment count or provenance changed'
+    end if
+    call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
+    if (.not. ok .or. index(trim(serialized), '(assignment-count 3)') == 0 .or. &
+        index(trim(serialized), '(source-hash v2-three-test)') == 0) then
+        error stop 'v2 three-assignment serialization changed'
     end if
     call frontend_parse_program_unit_v2('program-six.f90', six_source, 'v2-six-test', &
         unit, ok, message)
@@ -162,14 +184,14 @@ program test_frontend_program_unit_v2
             trim(unit%execution_part%sequence%assignment(i)%expression%left_operand) /= 'x' .or. &
             trim(unit%execution_part%sequence%assignment(i)%expression%right_operand) /= '1' .or. &
             trim(unit%execution_part%sequence%assignment(i)%span%source_hash) /= &
-            'l3-raw-program-six-assignment-v1') then
+            'v2-six-test') then
             error stop 'v2 six-assignment record changed'
         end if
     end do
     call frontend_program_unit_v2_to_sx(unit, serialized, ok, message)
     if (.not. ok) error stop 'v2 six-assignment serialization failed'
     if (index(trim(serialized), '(execution-part (assignment-sequence (assignment-count 6)') == 0 .or. &
-        index(trim(serialized), 'l3-raw-program-six-assignment-v1') == 0) then
+        index(trim(serialized), 'v2-six-test') == 0) then
         error stop 'v2 six-assignment envelope changed'
     end if
     call frontend_parse_program_unit_v2('negative-print.f90', negative_print_source, &

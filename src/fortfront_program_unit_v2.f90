@@ -443,20 +443,9 @@ contains
         call frontend_parse_typed_assignment_sequence(file_name, source, &
             assignment_sequence_source_hash, unit%execution_part%sequence, ok, message)
         if (.not. ok) return
-        select case (unit%execution_part%sequence%assignment_count)
-        case (2_int64)
-            execution_source_hash = assignment_sequence_source_hash
-        case (5_int64)
-            execution_source_hash = 'l3-raw-program-five-assignment-v1'
-        case (6_int64)
-            execution_source_hash = 'l3-raw-program-six-assignment-v1'
-        case default
-            message = 'unsupported-program-unit-v2'
-            return
-        end select
         do assignment_index = 1, int(unit%execution_part%sequence%assignment_count)
             unit%execution_part%sequence%assignment(assignment_index)%span%source_hash = &
-                trim(execution_source_hash)
+                trim(source_hash)
         end do
         call frontend_parse_typed_program_unit(file_name, trim(declaration_source), &
             source_hash, declaration_unit, ok, message)
